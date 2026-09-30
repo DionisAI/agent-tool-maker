@@ -1,0 +1,88 @@
+{
+  "version": "0.7.0",
+  "date": "2026-09-30",
+  "baseline_v06_tree": "4d0d096bf87062653cf43ebb341750c7f897a656",
+  "remote_v04_tree": "047eddb287628dee045131414bf1e3c0b061b9e6",
+  "full_suite": {
+    "passed": 673,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "duration_seconds": 563.92,
+    "xfail": 0,
+    "deselected": 0,
+    "original_cases": 588,
+    "new_cases": 85
+  },
+  "extra_linux_cross_uid": {
+    "passed": 1,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "duration_seconds": 7.84
+  },
+  "wheel_smoke_commands": 13,
+  "wheel_runtime_files_equal": 46,
+  "source_files_frozen_during_gate": 88,
+  "acceptance": {
+    "version": "0.7.0",
+    "real_model_calls": 0,
+    "real_vendor_calls": 0,
+    "fake_credentials": true,
+    "two_stores_on_one_machine": true,
+    "native_keyring_tested": false,
+    "real_agent_hosts_tested": false,
+    "no_manifest_created": true,
+    "one_password_prompt": true,
+    "lease_seconds_at_start": 1799,
+    "independent_headless_clients": [
+      {
+        "client_label": "claude",
+        "status": "completed",
+        "returncode": 0
+      },
+      {
+        "client_label": "codex",
+        "status": "completed",
+        "returncode": 0
+      }
+    ],
+    "local_http_authenticated_calls": 2,
+    "no_plaintext_env_or_state": true,
+    "repeat_unlock_does_not_prompt_or_extend": true,
+    "lock_denies_without_fallback": true,
+    "separate_master_keys_encrypted_transfer": true,
+    "receiver_fresh_process_uses_synced_key": true,
+    "natural_expiry_seconds_tested": 2
+  },
+  "environment": {
+    "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "dependencies": {
+      "httpx": "0.28.1",
+      "cryptography": "46.0.4",
+      "jsonschema": "4.26.0",
+      "Pillow": "12.3.0",
+      "pytest": "9.0.2",
+      "pytest-cov": "7.0.0",
+      "playwright": "1.57.0",
+      "keyring": "not_installed"
+    },
+    "installation_mode": "Existing host dependencies reused; optional native keyring unavailable; controlled keyring test backend only."
+  },
+  "coverage": null,
+  "coverage_note": "Final gate was run without tracing; earlier development coverage is not the final metric.",
+  "remote_ci_run": false,
+  "github_written": false,
+  "security_review": "author review + regression tests; not independent security, cryptographic or dependency audit",
+  "evidence": [
+    "final-all.xml",
+    "final-all.log",
+    "acceptance-final.json",
+    "wheel-acceptance.json",
+    "broker-uid-final.xml",
+    "wheel-smoke-final.json",
+    "source-hashes-final.json",
+    "static-process-review.json"
+  ]
+}

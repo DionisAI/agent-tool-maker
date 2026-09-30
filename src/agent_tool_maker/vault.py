@@ -120,6 +120,11 @@ class Vault:
         nonce = os.urandom(12)
         cipher = AESGCM(self.unlock()).encrypt(nonce, value.encode(), name.encode())
         with self.state.db() as c:
+            c.execute("BEGIN IMMEDIATE")
+            from .sync import local_write
+            if local_write(c, self.unlock(), name, value, expires_at):
+                self._used_secrets.append(value)
+                return
             c.execute("INSERT OR REPLACE INTO secrets VALUES (?,?,?)", (name, nonce, cipher))
             from .storage import canonical
             c.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", ("credential_meta:" + name, canonical({"configured_at": time.time(), "expires_at": expires_at})))
@@ -127,6 +132,13 @@ class Vault:
 
     def get(self, name: str) -> str:
         with self.state.db() as c:
+            c.execute("BEGIN")  # Metadata/conflict/value belong to one read snapshot.
+            from .sync import _get
+            if _get(c, "sync_conflict:" + name, False):
+                raise RouterError("sync_conflict", "Concurrent credential edits require explicit resolution; no key was selected.")
+            meta = _get(c, "credential_meta:" + name, {})
+            if meta.get("expires_at") is not None and meta["expires_at"] <= time.time():
+                raise RouterError("credential_expired", "The selected credential has expired; renew that connection rather than resetting the vault.")
             row = c.execute("SELECT nonce,ciphertext FROM secrets WHERE name=?", (name,)).fetchone()
         if not row:
             raise RouterError("missing_credential", f"Connect {name} in a human terminal first.")
@@ -140,7 +152,10 @@ class Vault:
     def delete(self, name):
         self.unlock()
         with self.state.db() as c:
-            c.execute("DELETE FROM secrets WHERE name=?", (name,))
+            c.execute("BEGIN IMMEDIATE")
+            from .sync import local_write
+            if not local_write(c, self.unlock(), name, None):
+                c.execute("DELETE FROM secrets WHERE name=?", (name,))
         return {"removed": name, "note": "Provider-side key is not revoked. SQLite backups may retain ciphertext."}
 
     def redact(self, obj):

@@ -1,3 +1,35 @@
+# v0.7.0 — credential-first sessions
+
+- `atm unlock --ttl 30m`, `lock`, `session status`; fixed, non-sliding Owner lease shared by terminal and local Web credential management.
+- `keys list/find/alias`: scoped secret-free metadata, explicit ambiguity, exact-reference injection.
+- `access permit-exec` and `exec`: ordinary programs need no catalog entry or tool manifest; separately reviewed exact argv/workspace/key mapping and file pins.
+- Same-UID generic execution only; bounded in-memory output, minimal env, no raw output persistence, stable idempotency keys.
+- Expiry enforced at vault reads; peer-UID verification on supported sockets; no fallback after session opt-in; admission rechecks for revoked/changed grants and connection rotation/conflict/expiry.
+- Claude/Codex broker-mode Skills prioritize ATM credentials instead of creating plaintext .env files; actual client loading remains separately unverified.
+- One-password PTY + two fresh clients + local authenticated HTTP + encrypted second-store acceptance script; negative security regressions.
+- No raw get-key, Passkey, persistent master-password storage, arbitrary Web execution, production-account calls or remote CI claims.
+
+# v0.6.0 — extension workshop
+
+- Independent credential slots and custom-slot reuse/sync without a hard-coded provider adapter.
+- API/CLI/web templates; narrow offline OpenAPI3 JSON importer; conservative permissions.
+- Manifest→Python CLI compiler and hash consistency checks; runtime definition pins.
+- Explicit Claude/Codex structured drafting with no supplier-secret import or automatic install.
+- Owner-reviewed CAS updates with history and stale Broker grants.
+- Bounded Playwright recipe runtime; encrypted device-local sessions; no profile/cookie copying.
+- Local Web workshop for declaring slots, validating/installing/updating manifests and listing sessions.
+- Native browser navigation acceptance remains separate from in-memory DOM evidence.
+
+# v0.5.0 — encrypted device replication and scoped sessions
+
+- Independent device encryption/signing identities, exact peer send/receive scopes and recipient-specific encrypted files.
+- Causal multi-value registers, tombstones, conflict blocking, explicit CAS resolution and detection of old-client drift.
+- Bounded foreground file exchange/watch; no hosted relay or automatic cloud account setup.
+- Scoped Unix Broker, one vault unlock per lease, reusable per-agent bearer profiles, tool/config pins, workspace/expiry/revocation.
+- Optional Linux group sockets with actual peerUID validation; not a general process sandbox.
+- CLI and local Web peer/conflict/grant management; broker-mode Claude/Codex Skills.
+- Expanded protocol, multi-process and actual cross-UID acceptance tests; see current report rather than historical counts.
+
 ## 0.4.0 — 2026-09-30
 
 - Default Claude Code/Codex user-level onboarding, opt-out for CLI-only configuration.

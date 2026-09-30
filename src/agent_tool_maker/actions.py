@@ -91,7 +91,12 @@ def compile_request(state, tool, inputs):
     path = re.sub(r'\{([A-Za-z0-9_.]+)\}', part, spec['path'])
     if not path.startswith('/') or path.startswith('//') or '..' in path.split('/'):
         raise RouterError('unsafe_endpoint', 'Invalid API path.')
-    query = render(spec.get('query', {}), inputs)
+    query = {}
+    for key,value in spec.get('query',{}).items():
+        try:query[key]=render(value,inputs)
+        except RouterError as error:
+            if key not in spec.get('optional_query',[]) or error.code!='missing_reference':raise
+    query = {k: ('true' if v else 'false') if isinstance(v,bool) else v for k,v in query.items()}
     url = origin + path + (('?' + urlencode(query, doseq=True)) if query else '')
     body = render(spec['body'], inputs) if 'body' in spec else None
     return {'method': spec.get('method', 'GET'), 'url': url, 'body': body, 'auth': spec.get('auth', 'bearer'),
@@ -145,6 +150,9 @@ def output_record(workspace, path):
 def preflight(router, tool, inputs, workspace):
     """Validates inputs/paths without credentials, subprocesses, network, or output directories."""
     workspace=Path(workspace).resolve()
+    if tool['adapter']=='web_recipe':
+        from .web_recipe import recipe_plan
+        return recipe_plan(tool,inputs)
     if tool['adapter']=='rest': return compile_request(router.state,tool,inputs)
     if tool['adapter']=='command': return compile_command(router.state,tool,inputs,workspace,workspace/'.atm'/'dry-run')
     return {'adapter':tool['adapter'], 'execution_started':False}
@@ -210,6 +218,7 @@ def execute_command(router,tool,job):
     env={}
     for name,credential in tool['command'].get('credential_env',{}).items():
         if credential in router.state.secret_names(): env[name]=router.vault.get(credential)
+        elif tool['command'].get('credential_required'):raise RouterError('missing_credential','A required CLI credential slot is not configured; no process was started.')
     result=execute_cli(router.state,plan['executable'],plan['argv'],Path(plan['cwd']),timeout=plan['timeout'],
                        parse_json=plan['output']=='json',output_mode=plan['output'],extra_env=env)
     result=router.vault.redact(result)

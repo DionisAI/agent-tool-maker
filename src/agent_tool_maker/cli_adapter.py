@@ -18,6 +18,7 @@ def bind_cli(state: State, name: str, path: str):
     from .catalog import Catalog
     allowed={t.get("executable") for t in Catalog(state).tools.values()}-{None}
     allowed |= set(state.setting("custom_cli_names", []))
+    allowed |= {"claude", "codex"}  # Explicitly bound draft generators, never automatically installed.
     if name not in allowed:
         raise RouterError("unsupported_cli","Only reviewed CLI adapters can be bound.")
     p=Path(path).expanduser().resolve()

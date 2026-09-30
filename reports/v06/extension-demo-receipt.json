@@ -1,0 +1,56 @@
+{
+  "synthetic": true,
+  "supplier_calls": 0,
+  "model_calls": 0,
+  "native_browser_navigation": false,
+  "bundles": [
+    {
+      "kind": "media",
+      "path": "media-cli",
+      "tool": "local.media_info",
+      "sha256": "bfa4688af86893e527c966d8e9a8b1f2d80c4bd7e5c7633aafd4837b5356c7dc",
+      "checked": true
+    },
+    {
+      "kind": "web",
+      "path": "web-cli",
+      "tool": "studio.export",
+      "sha256": "2244179072fc077c7115520949d4c9449564471c2b9173c8bb196f82d064bca5",
+      "checked": true
+    },
+    {
+      "kind": "api",
+      "path": "api-cli",
+      "tool": "acme.get_record",
+      "sha256": "866b861fd2dd077ed75c9a78ce3a8a0643b1dcf505cf2659aab8e7c81a0cf421",
+      "checked": true
+    }
+  ],
+  "checks": [
+    {
+      "name": "unknown_key_saved",
+      "passed": true
+    },
+    {
+      "name": "media-real-cli",
+      "passed": true
+    },
+    {
+      "name": "media-real-cli",
+      "passed": true
+    },
+    {
+      "name": "api-dry-run",
+      "passed": true
+    },
+    {
+      "name": "web-dry-run",
+      "passed": true
+    },
+    {
+      "name": "repeat_did_not_reexecute",
+      "passed": true
+    }
+  ],
+  "passed": true
+}

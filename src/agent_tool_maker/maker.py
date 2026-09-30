@@ -19,12 +19,14 @@ def digest(tool):return hashlib.sha256(canonical(tool).encode()).hexdigest()
 def read_manifest(path):
     p=Path(path)
     if not p.is_file() or p.stat().st_size>MAX_MANIFEST:raise RouterError('bad_manifest','Manifest must be an existing JSON file under 256 KiB.')
-    try:return json.loads(p.read_text(),parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
-    except (ValueError,UnicodeError):raise RouterError('bad_manifest','Invalid manifest JSON.') from None
+    try:
+        from .sync import strict_json
+        return strict_json(p.read_bytes(),limit=MAX_MANIFEST)
+    except (ValueError,UnicodeError,RouterError):raise RouterError('bad_manifest','Invalid manifest JSON.') from None
 
-def validate_manifest(tool,catalog=None):
+def _validate_manifest(tool,catalog=None):
     if not isinstance(tool,dict):raise RouterError('bad_manifest','Tool definition must be an object.')
-    allowed={'id','provider','title','capabilities','schema','example','adapter','implementation','paid','permissions','sources','checked_on','verification','notes','command','executable','request','credential','url','instructions','extensions','steps','server','mcp_operation','completion','user_defined'}
+    allowed={'id','provider','title','capabilities','schema','example','adapter','implementation','paid','permissions','sources','checked_on','verification','notes','command','executable','request','credential','url','instructions','extensions','steps','server','mcp_operation','completion','user_defined','recipe'}
     if set(tool)-allowed:raise RouterError('bad_manifest','Unknown manifest fields.')
     for field in ['id','provider','title','capabilities','schema','adapter']:
         if field not in tool:raise RouterError('bad_manifest','Missing manifest field: '+field)
@@ -45,7 +47,7 @@ def validate_manifest(tool,catalog=None):
         permissions.add('execute_code') # Generated commands never self-certify as harmless.
         spec=tool.get('command',{})
         if not isinstance(spec,dict):raise RouterError('bad_manifest','Command must be an object.')
-        if set(spec)-{'argv','output','outputs','timeout','cwd_input','credential_env'}:raise RouterError('bad_manifest','Unknown command fields.')
+        if set(spec)-{'argv','output','outputs','timeout','cwd_input','credential_env','credential_required'}:raise RouterError('bad_manifest','Unknown command fields.')
         if not re.fullmatch(r'[a-z][a-z0-9_-]{1,63}',tool.get('executable','')):raise RouterError('bad_manifest','Invalid executable alias.')
         if not isinstance(spec.get('argv'),list) or len(spec['argv'])>80:raise RouterError('bad_manifest','argv must be a bounded array.')
         for item in spec['argv']:
@@ -59,6 +61,7 @@ def validate_manifest(tool,catalog=None):
             else:raise RouterError('bad_manifest','Invalid argv token.')
         if spec.get('output','text') not in {'text','json'}:raise RouterError('bad_manifest','Unsupported CLI output format.')
         if not isinstance(spec.get('timeout',120),int) or not 1<=spec.get('timeout',120)<=900:raise RouterError('bad_manifest','Timeout out of bounds.')
+        if type(spec.get('credential_required', False)) is not bool:raise RouterError('bad_manifest','credential_required must be boolean.')
         env=spec.get('credential_env',{})
         if not isinstance(env,dict) or any(k in {'PATH','HOME','NODE_OPTIONS','PYTHONPATH','LD_PRELOAD'} or not re.fullmatch(r'[A-Z][A-Z0-9_]+',k) or not re.fullmatch(r'[a-z][a-z0-9_.-]{1,79}',v) for k,v in env.items()):raise RouterError('bad_manifest','Invalid secret-reference mapping.')
         for name in spec.get('outputs',[]):
@@ -66,7 +69,7 @@ def validate_manifest(tool,catalog=None):
     elif adapter=='rest':
         spec=tool.get('request',{})
         if not isinstance(spec,dict):raise RouterError('bad_manifest','Request must be an object.')
-        if set(spec)-{'origin','path','method','auth','body','query','headers','idempotency_header','form'}:raise RouterError('bad_manifest','Custom API tools require a fixed approved HTTPS origin and supported fields.')
+        if set(spec)-{'origin','path','method','auth','body','query','headers','idempotency_header','form','optional_query'}:raise RouterError('bad_manifest','Custom API tools require a fixed approved HTTPS origin and supported fields.')
         checked_url(spec.get('origin',''))
         from urllib.parse import urlsplit
         p=urlsplit(spec['origin'])
@@ -80,11 +83,20 @@ def validate_manifest(tool,catalog=None):
             if param.split('.')[0] not in tool['schema'].get('properties',{}):raise RouterError('bad_manifest','Path references undefined input.')
         auth=spec.get('auth','bearer')
         if auth not in {'bearer','none','basic'} and not re.fullmatch(r'header:[A-Za-z0-9-]+',auth):raise RouterError('bad_manifest','Unsupported custom authentication mode.')
+        if auth.startswith('header:') and auth.split(':',1)[1].lower() in {'host','content-length','transfer-encoding','connection','cookie','proxy-authorization'}:raise RouterError('bad_manifest','Authentication may not override routing/protocol headers.')
+        optional=spec.get('optional_query',[])
+        if not isinstance(optional,list) or any(not isinstance(k,str) or k not in spec.get('query',{}) for k in optional):raise RouterError('bad_manifest','optional_query must reference declared query keys.')
         headers=spec.get('headers',{})
+        if not isinstance(headers,dict):raise RouterError('bad_manifest','Headers must be an object.')
         for k,v in headers.items():
             if k.lower() not in {'accept','content-type','user-agent'} or not isinstance(v,str) or any(c in v for c in '\r\n\x00'):
                 raise RouterError('bad_manifest','Custom static headers are restricted; authentication uses vault references.')
         if auth!='none' and not re.fullmatch(r'[a-z][a-z0-9_.-]{1,79}',tool.get('credential','')):raise RouterError('bad_manifest','A vault credential name is required.')
+    elif adapter=='web_recipe':
+        from .web_recipe import validate_recipe
+        validate_recipe(tool.get('recipe'),tool['schema'])
+        permissions.add('external_write')  # DOM operations may have side effects, even on GET pages.
+        if tool.get('credential'):raise RouterError('bad_manifest','Browser sessions are not API credential slots.')
     elif adapter in {'browser','desktop','human'}:
         checked_url(tool.get('url',''))
     elif adapter=='workflow':
@@ -106,6 +118,15 @@ def validate_manifest(tool,catalog=None):
     if adapter=='workflow' and catalog:result['paid']=result['paid'] or any(catalog.get(s['tool']).get('paid',False) for s in result['steps'])
     result.update(user_defined=True,implementation='workflow' if adapter=='workflow' else 'handoff' if adapter in {'browser','desktop','human'} else 'native',verification='user_installed_not_live_verified')
     return result
+
+def validate_manifest(tool,catalog=None):
+    try:
+        return _validate_manifest(tool,catalog)
+    except RouterError:
+        raise
+    except (ValueError,TypeError,KeyError,AttributeError,RecursionError):
+        raise RouterError('bad_manifest','Malformed extension data; no code was loaded or executed.') from None
+
 
 def scaffold(catalog,name,source,out):
     tool=copy.deepcopy(catalog.get(source))

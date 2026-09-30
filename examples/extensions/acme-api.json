@@ -1,0 +1,53 @@
+{
+  "id": "acme.translate",
+  "provider": "acme",
+  "title": "Illustrative JSON API; replace using actual documentation",
+  "capabilities": [
+    "custom"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "language": {
+        "type": "string",
+        "enum": [
+          "en",
+          "zh"
+        ]
+      }
+    },
+    "required": [
+      "text",
+      "language"
+    ],
+    "additionalProperties": false
+  },
+  "paid": true,
+  "permissions": [
+    "external_write"
+  ],
+  "notes": "Draft template. Replace placeholders using observed documentation; not live verified.",
+  "adapter": "rest",
+  "credential": "acme.production",
+  "request": {
+    "origin": "https://api.example.com",
+    "path": "/v1/translate",
+    "method": "POST",
+    "auth": "bearer",
+    "body": {
+      "text": "$text",
+      "language": "$language"
+    }
+  },
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified",
+  "example": {
+    "text": "Example text",
+    "language": "en"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Example interface contract",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com/v1"
+    }
+  ],
+  "security": [
+    {
+      "Key": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "Key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key"
+      }
+    }
+  },
+  "paths": {
+    "/records/{id}": {
+      "get": {
+        "operationId": "getRecord",
+        "summary": "Example record lookup",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Record JSON"
+          }
+        }
+      }
+    }
+  }
+}

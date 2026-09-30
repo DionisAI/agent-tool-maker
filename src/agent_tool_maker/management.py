@@ -57,11 +57,15 @@ def known_credentials(router) -> list[str]:
             if cfg.get("credential"):
                 names.add(cfg["credential"])
             names.update(cfg.get("env_credentials", {}).values())
+    names.update(router.state.setting("credential_registry", {}))
+    names.update(router.state.secret_names())  # Includes explicitly received custom slots.
     return sorted(names)
 
 
 def connect_value(router, provider: str, value: str, *, replace=False, expires_at=None) -> dict:
     """Write-only input; caller must obtain it through a private human channel."""
+    from .extensions import credential_name
+    credential_name(provider)
     if provider not in known_credentials(router):
         raise RouterError("unknown_provider", "Select a registered credential provider.")
     if provider in router.state.secret_names() and not replace:
@@ -79,8 +83,9 @@ def connections(router) -> dict:
     for name in sorted(known | stored):
         meta = router.state.setting("credential_meta:" + name, {})
         expiry = meta.get("expires_at")
-        records.append({"provider": name, "configured": name in stored,
+        records.append({"provider": name, "label": router.state.setting("credential_registry",{}).get(name,{}).get("label",name), "configured": name in stored,
                         "configured_at": meta.get("configured_at"), "expires_at": expiry,
+                        "sync_conflict": router.state.setting("sync_conflict:"+name, False),
                         "expired": bool(name in stored and expiry is not None and expiry <= time.time()),
                         "connect_supported": name in known})
     return {"connections": records, "vault": vault_health(router.vault),
@@ -88,7 +93,7 @@ def connections(router) -> dict:
 
 
 def cli_inventory(router) -> dict:
-    names = sorted({t.get("executable") for t in router.catalog.tools.values()} - {None})
+    names = sorted(({t.get("executable") for t in router.catalog.tools.values()} - {None}) | {"claude", "codex"})
     rows = []
     for name in names:
         path = router.state.setting("cli:" + name)

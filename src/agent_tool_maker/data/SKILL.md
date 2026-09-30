@@ -4,6 +4,32 @@ description: Reuse the user's persistent API, CLI and MCP tools across projects;
 ---
 # Agent Tool Maker (ATM)
 
+## Credentials first — ATM 0.7
+
+When existing code asks for an API Key, consult `keys find ENV_NAME` first. Do not
+create a plaintext .env, search unrelated projects for Keys, or request a saved Key again.
+Use the registered `--client claude` / `--client codex` prefix for scoped use. Inspect
+`session status` for the exact permitted command, project and credential mappings;
+do not open the bearer profile to discover permissions.
+
+`exec --env FAL_KEY=atm://fal --workspace PROJECT --request-key STABLE -- PROGRAM app.py`
+runs an ordinary program without a tool manifest. It only injects exact Owner-approved
+mappings; it does not return Key values. Do not add authorization flags or silently
+fall back to an Owner/direct mode. Missing scope requires an Owner permit, not a new Key.
+Missing/expired/conflicting credentials, locked sessions and changed code are distinct
+blockers. An ambiguous metadata result must not become a guessed production account.
+
+Owner operations are `unlock --ttl 30m`, `lock`, and `access permit-exec`. The Owner
+inputs a password in a private terminal or the authenticated local Web console. Agents
+must not unlock, enlarge a permit, read profiles, resolve conflicts or initialize a
+new vault on their own. The finite foreground session is shared across new processes;
+repeat use does not extend its lease. Already running programs may keep received Keys.
+
+Catalog tools and Maker below are optional, NOT prerequisites for using credentials.
+Exec is bounded/non-interactive with JSON results and output redaction, not an arbitrary
+code sandbox or a long-running service launcher. Do not retry ambiguous side effects.
+
+
 ## Start every new session by reusing, not reinstalling
 
 Use the registered absolute runtime prefix at the end of this Skill, when present.
@@ -99,3 +125,35 @@ The human can use `atm ui` as an optional local management page. It is not anoth
 Agent, a cloud control plane, or a Web execution endpoint. Do not read or transmit
 ui-session token files, and never expose the server through a tunnel. Human secret
 entry may use the authenticated local page; raw Keys never belong in model context.
+
+
+## Extend beyond the catalog (v0.6)
+
+A missing vendor is not a reason to ask for a plaintext env file. An owner-authorized
+agent may declare a non-secret slot via `atm credentials declare NAME --apply`;
+the human supplies its value through connect or the private console. Reuse saved slots.
+
+Use `make new --kind api|cli|web`, `make from-openapi` on an explicitly supplied local
+JSON document, or `make draft --agent claude|codex --seed ... --brief ... --out ...`.
+Draft defaults to preview. --allow-agent requires authorization for that model call.
+Never pass secrets/private cookies to the drafting model; use only selected docs/observations.
+No generated result installs itself. Load EXTENSION_AUTHORING.md if available from the
+source package or read the example/CLI help; do not invent flags. JSON request references
+are $field, distinct from workflow $input.FIELD. Optional provider details need evidence.
+
+`make pack` generates an ATM-dependent Python CLI and a reviewed manifest. Its digest
+pins the installed definition; do not remove that check to get a stale bundle running.
+`make update --approve NEW --expected OLD` is only for an owner-reviewed custom definition;
+expect old Broker grants to become stale. No automatic repair/resubmission of paid actions.
+
+web_recipe is actual bounded Playwright automation, whereas browser is still a handoff.
+Use only observed locators and approved exact origins. Human `atm web login TOOL`
+saves an encrypted device-local session in a fresh browser; do not import someone else's
+profile, bypass CAPTCHA/MFA, or synchronize browser state as if it were an ordinary Key.
+Managed policy rejection must remain a rejection. Recorded DOM test success is not a
+production-site acceptance. Every website executes its own JS; this is not an OS sandbox.
+
+The scoped Broker now allows individually pinned web recipes. It still denies management,
+new grants, nested workflows and MCP forwarding. Use the granted client entry; do not
+fallback to owner mode after a refusal. Unknown API auth/response formats and unsupported
+websites should remain explicit gaps or computer-use handoffs.

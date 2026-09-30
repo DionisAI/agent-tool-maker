@@ -1,3 +1,9 @@
+# v0.7 默认入口
+
+新程序应优先阅读 [SECRETS_FIRST.md](SECRETS_FIRST.md)：普通脚本无需工具定义，`atm unlock --ttl 30m` 后通过 `atm exec` 使用凭证。
+注册 Agent 使用 `atm setup --broker`；已批准的新的凭证权限由 `atm access permit-exec` 管理。
+下面是保留的工具层安装/配置指南，旧的直接 `atm run` 不是本轮免重复解锁验收路径。
+
 # v0.4 补充
 
 默认客户端为 Claude Code、Codex：`atm setup` 预览，`atm setup --apply` 应用。

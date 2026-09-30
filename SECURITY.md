@@ -1,3 +1,14 @@
+# v0.7 security review scope
+
+Read [the current self-review](docs/SECURITY_REVIEW_V07.md) before using the new `exec` interface.
+This release adds a separate credential-first session; generic execution is SAME-UID ONLY and is not a sandbox.
+It does not turn the existing registered-tool Broker's cross-UID support into safe arbitrary-code execution.
+Selected secrets enter the approved child environment. Deliberate file/network/transformed-output exfiltration is not prevented.
+New generic exec uses bounded memory pipes and persists only job metadata; historical registered CLI adapters below may still use temporary output files.
+Fixed lease/lock/revocation prevents NEW admissions, not existing plaintext copies. A private Owner session capability is distinct from Agent capabilities.
+
+The following historical security documentation remains applicable to the optional tool layer; its earlier statement that the broker has no administration RPC describes the old registered-tool Broker. The new session service adds tightly authenticated OWNER-ONLY key CRUD, no raw retrieval and no Agent administration.
+
 # 安全边界 / ATM 0.2
 
 ATM 是个人开发者的本地工具执行器，不是隔离任意恶意 Agent 的操作系统安全产品。本次没有独立安全审计。以下是实现与边界，不是“不会泄露”的保证。
@@ -37,3 +48,22 @@ MCP 支持子集不包含 OAuth 登录/刷新、sampling、elicitation、legacy 
 ## 发布前仍需完成
 
 见 `docs/ROADMAP.md` 的真实供应商/OS 矩阵、OAuth、受限执行、可信批准、webhook 验签和硬预算门槛。发现问题请在用户选择的私有渠道报告；此包尚未提供真实托管披露邮箱或已发布 GitHub security advisory 地址，不要给虚构地址发送秘密。
+
+
+## v0.5 additions
+
+Read [sync-v1 security contract](docs/SYNC_PROTOCOL_V1.md) for exact cryptographic composition and limits.
+Device-specific X25519/HKDF/AES-GCM packets with pinned Ed25519 signatures protect transport content,
+not compromised endpoints. Local vaults and identities remain independent. No forward secrecy against a
+later stolen recipient private key, no Byzantine-writer consensus, no full-database rollback protection,
+and no guarantee of availability from an untrusted relay. Revocation cannot retract existing plaintext copies.
+
+The scoped Broker unlocks once per bounded lease. It has no raw-secret, administration or arbitrary-shell
+RPC. Client profiles contain plaintext bearer capability tokens in0600 files; they are sensitive and must
+never enter source control or shared sync directories. Default same-UID mode is a convenience interface,
+not malicious same-user isolation. Optional Linux group sockets check SO_PEERCRED clientUID, but an
+approved CLI executes with Broker privileges; execute_code is not a sandbox. Avoid running Broker as root.
+Memory clearing drops Python references and is not a secure-zeroization/swap/core-dump guarantee.
+
+MCP/workflows/handoffs are unavailable in restricted Broker mode until recursive authorization exists.
+Provider-side expiry/OAuth refresh and billing limits are not bypassed or guaranteed by session reuse.

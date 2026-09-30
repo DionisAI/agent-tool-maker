@@ -28,7 +28,7 @@ is opt-in because native keyring access may prompt. A locked vault is not a lost
 `atm verify PROVIDER` previews; --allow-network performs a fixed account GET only.
 Probes do not prove generation/deployment scopes, sufficient credits or future uptime.
 Unsupported probes never fall back to a chargeable task. OAuth refresh is not built.
-JSON output is default: do not invent --json, atm unlock, a background unlock daemon or ATM MCP server.
+JSON output is default: do not invent --json or an ATM MCP server. `atm unlock` is a finite, explicit Owner service, not auto-installed.
 The optional `atm ui` is a foreground local management server, not a tool-execution endpoint.
 
 Use describe and dry-run before unfamiliar operations. Bind credentials, accounts,
@@ -62,3 +62,60 @@ Web is loopback-only; never publish it with Tunnel/reverse proxy. No remote host
 UI GETs do not authenticate with providers; write operations are bounded management.
 Run native browser navigation acceptance separately. Do not change a managed browser
 policy when it forbids localhost. Report component vs HTTP vs native browser evidence.
+
+
+## v0.5 multi-device and broker rules
+
+Read docs/MULTI_DEVICE.md and docs/SYNC_PROTOCOL_V1.md before enabling replication.
+Never clone the entire live state directory to another online device; initialize its own vault and identity.
+Sync only approved credential slots. Do not synchronize private identity, master key, client token, cookies,
+CLI paths, service origins, MCP configuration or access policies. Verify full public fingerprints out of band.
+A conflict is not missing configuration: stop affected calls and ask the Owner to choose a whole revision.
+Do not use wall-clock order or concatenate Key strings. Do not reset the vault to fix sync_state_drift.
+
+Use an installed broker-mode Skill's exact `atm --client NAME` prefix. No direct fallback on rejection;
+do not read profile contents into model context, pass --allow-* flags, issue grants or extend expiry yourself.
+Owner operations remain explicit; `sync watch` and `broker serve` are foreground, bounded leases.
+Same OS-user default mode is not adversarial isolation. Linux UID binding does not sandbox approved project code.
+Keep real credentials out of tests and Git. Run the normal suite and independently record cross-UID acceptance.
+The new external file transport and cryptographic envelope are not third-party audited or production-account verified.
+
+
+## v0.6 extension work
+
+Read docs/EXTENSIBILITY.md and data/EXTENSION_AUTHORING.md before adding an adapter.
+Prefer custom JSON definitions and a credential slot over editing a vendor name list.
+Only owner-reviewed definitions are installed. Draft-model calls are opt-in, separate
+from tool execution and supplier Key access. No self-approval of new origins/grants.
+Browser sessions are local-only encrypted records, never API sync entries or repository files.
+New web_recipe tests must state whether navigation is native or an in-memory test adapter.
+Keep acceptance/test_recipe_native_v06.py separate from claimed local DOM coverage.
+Do not change managed browser policy to make a test pass. Ensure new definitions,
+credential references and expected-definition pins are enforced through both CLI and Broker.
+Existing default-client config, synchronization and conflict regressions remain required.
+
+
+## v0.7 credential-first acceptance and security
+
+Read docs/SECRETS_FIRST.md and docs/SECURITY_REVIEW_V07.md. Ordinary scripts need no
+ATM tool manifest. Discover metadata first; use exact `atm://` references and an
+Owner-reviewed `access permit-exec`. CLI `--apply --approve` is not an independent
+human-identity boundary against a same-UID hostile Agent. Never self-approve.
+
+Use the scoped prefix registered by `atm setup --broker`; new sessions query
+`session status` and `keys find`, not .env files or client-profile contents. Generic
+exec is same-UID only; do not weaken this into running another user's arbitrary code
+with Broker privileges. Scope pins argv, workspace, program and file operands but
+NOT all imports/libraries, network or dependencies. No sandbox claims.
+
+Unlock defaults to fixed 30 minutes and can be invoked in the Owner terminal or
+local Web management. Active sessions share only controlled credential operations,
+not a raw master-key API. Owner profile remains separate from Agent profiles. Never
+synchronize any profile, session token or unlock password. Read-only discovery does
+not decrypt. Session expiry/revoke denies NEW admissions, not copies already delivered.
+
+Test runtime paths using fake Keys, independent headless processes, a real PTY and
+local HTTP fixture. Distinguish these from real Claude/Codex client loading and
+real cross-machine/public-network tests. No live production calls without permission.
+
+Historical `scripts/finalize_release.py` / v0.2 report generators are not the v0.7 release path. Do not reuse their hard-coded version or test counts. Run the current pytest gate and generate reports from its actual XML plus separate acceptance receipts.

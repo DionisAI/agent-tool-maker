@@ -2,11 +2,80 @@
 
 **Agents don't just use tools. They make them.**
 
-本地优先、MIT 开源的 Agent 工具管理与制作程序。一次配置自己的凭证和 CLI，供多个 Agent 共用。Agent 可以发现工具、执行已批准的动作、起草新的声明式工具，也可以把多个工具组合成可恢复的工作流。
+本地优先、MIT 开源的加密凭证入口，供 Claude Code、Codex 和普通程序复用。先用 ATM 管理 Key、同步和限时授权；工具目录、MCP、网页配方与 Maker 是可选上层，不是程序使用 Key 的前置条件。
 
-版本 **0.4.0** · Python **3.11+** · 主命令 **`atm`** · 兼容命令 **`atr`**。
+版本 **0.7.0** · Python **3.11+** · 主命令 **`atm`** · 兼容命令 **`atr`**。
 
 这不是另一个通用聊天 Agent，不附送供应商账号、不自动充值、不替用户购买许可证，不在后台自行发帖或部署。
+
+## v0.7：普通程序无需 manifest，一次解锁、后续会话复用
+
+**目标不是禁止环境变量，而是不再把真实 Key 散落在项目 `.env` 文件里。** 原有程序继续读取 `os.environ["FAL_KEY"]`；ATM 为获准子进程临时注入。
+
+```sh
+# Owner 终端：一次输入密码，固定30分钟；显式前台服务
+atm unlock --ttl 30m
+
+# 其他终端：先查元数据，再以已批准的权限运行普通程序
+atm --client claude keys find FAL_KEY
+atm --client claude session status
+atm --client claude exec --env FAL_KEY=atm://fal \
+  --workspace /absolute/project --request-key task-001 -- python app.py
+```
+
+**上面运行前需要一次 Owner 使用授权**，不是“解锁就自动把所有 Key 给任意程序”：
+
+```sh
+atm access permit-exec --agent claude --env FAL_KEY=atm://fal \
+  --workspace "$PWD" -- python app.py
+# 审阅返回的完整计划后，重跑相同命令，在 -- 前加入 --apply --approve REVIEWED_SHA256。
+# Codex 单独使用 --agent codex 预览/批准；不要复用另一个客户端的计划摘要。
+atm setup --broker
+# 已审阅 Skill 更新后：atm setup --broker --replace-skills --apply
+```
+
+没有工具登记或 manifest。授权固定所选 Key、命令、项目、程序及普通文件参数哈希；改程序须重新审查，不需要重新填 Key。
+`atm exec` 无 `--client` 时使用单独批准的 `local` profile，不是无限 Owner 权限。
+查找发现多个开发/生产凭证会报告 `ambiguous`，实际注入只接受明确 `atm://` 名称。
+
+`atm ui` 的总览也可解锁/锁定同一会话；网页 Key 增删改和 CLI 共用。固定期限不随访问续期，停止后不自动退回读取密码或写 .env。
+管理界面没有任意程序执行接口。通用 exec 是非交互、有界任务；不是 daemon、REPL、终端流或安全沙箱。
+
+```sh
+atm session status
+atm lock
+# 临时假凭证 + 真实进程/本地HTTP的可重复验收，不用供应商账号：
+python scripts/demo_secrets_first.py --out ./secrets-first-receipt.json
+```
+
+[完整凭证优先教程](docs/SECRETS_FIRST.md) · [本轮安全审查](docs/SECURITY_REVIEW_V07.md) · [本轮测试报告](docs/TEST_REPORT_V07.md)
+
+**安全边界：**程序必须在运行时持有获准 Key，仍能主动落盘/外发；输出遮蔽是尽力防误泄露，不是防恶意代码保证。通用 exec 暂限同 UID，不以 Owner 身份执行跨用户任意程序。没有 Passkey、OAuth 自动刷新或独立安全审计。下面保留历史工具层用法，不能把其测试级别当成本轮全链路已验证。
+
+## v0.6：目录不是边界 — 自定义 Key、API/CLI、网页生成 CLI
+
+未知Key不必等我们接入供应商：
+
+```sh
+atm credentials declare acme.production --apply
+atm connect acme.production                # 私有终端输入，不进入模型对话
+atm make new acme.translate --kind api --out acme.json
+atm make new mycli.inspect --kind cli --executable mycli --out mycli.json
+atm make new studio.export --kind web --url https://your-service.example/ --out studio.json
+```
+
+三种定义均为**草稿**；按实际文档/观察补齐。OpenAPI3 JSON子集可导入；可选择让已登录的Claude/Codex起草非秘密manifest。`atm make pack`会生成真正的Python CLI，依赖ATM并固定已审阅定义，不把Key或Cookie装进包。
+
+新`web_recipe`执行器可以填写、点击、校验文字和下载文件；设备网页登录态单独加密。原`browser`入口仍是computer-use交接，不将两者混淆。网页管理台增加“扩展工坊”，与CLI共用注册/验证/更新流程。
+
+安装和执行分开批准。更新只允许自定义动作，并检查旧摘要；旧Broker授权不会默许新定义。目录内置157个动作保持不变，自定义动作安装后才加入本机目录。
+
+[完整扩展教程](docs/EXTENSIBILITY.md) · [v0.6测试报告](docs/TEST_REPORT_V06.md) · [边界与后续](docs/ROADMAP_V06.md)
+
+```sh
+# 零供应商调用、临时状态、真实本地FFprobe演示：
+python scripts/demo_extensions.py --out ./extension-demo
+```
 
 ## v0.4.0：默认双客户端 + 本地网页管理
 
@@ -33,7 +102,7 @@ atm cli list
 
 默认仅本机 127.0.0.1，随机端口、每进程会话码、同源防护。无 CDN/额外前端构建；
 凭证不可回读。`atm setup --no-agents` 保留仅配置 CLI 的方式。
-[网页与 CLI 指南](docs/WEB_CONSOLE.md) · [本轮测试](docs/TEST_REPORT_V04.md) ·
+[网页与 CLI 指南](docs/WEB_CONSOLE.md) · [v0.4 历史测试](docs/TEST_REPORT_V04.md) ·
 [管理层路线图](docs/ROADMAP_V04.md)
 
 ## v0.3：配置一次，后续会话复用
@@ -57,6 +126,37 @@ connect已有Key时默认保留，轮换才加--replace。原生keyring按操作
 口令模式不是永久免解锁。OAuth自动刷新与远程Agent连接仍未实现。
 
 [完整一次配置指南](docs/SETUP_ONCE.md) · [Agent仓库指引](AGENTS.md)
+
+## v0.5：多端同步与有限期免重复认证
+
+两台机器各自保有独立的 vault 与设备私钥，只同步获准服务的加密凭证记录。因果版本合并、删除 tombstone 与并发冲突检查不依赖系统时钟排序；同一 Key 的不同并发版本会暂停调用，明确选择后才恢复。
+
+新会话可经 **本地 Broker** 使用已有范围内的授权，不必每次输入供应商 Key 或解锁口令。Owner 启动一次有限期 Broker；Agent 使用只含能力令牌的私有 profile，不能通过该接口获取明文 Key 或改变权限。
+
+```bash
+atm sync init --name laptop
+atm sync identity --out ./laptop.public.json
+# 用另一条可信通道核对对端指纹，再按服务配对与传递加密包。
+atm sync status
+atm sync conflicts
+
+# 先创建有范围的 access grant，随后注册 Broker 版 Skill。
+atm setup --broker
+atm setup --broker --replace-skills --apply
+atm broker serve --ttl-hours 8
+# Agent 在新终端使用：atm --client claude broker status
+```
+
+网页新增“设备与同步”和“Agent 授权”。`atm ui` 仍为本地 Owner 管理端，不是远程开放的执行端。
+
+**边界：**密文文件要通过你已有的共享目录/传输送达，ATM 未提供原生云同步后端。`sync watch` 是显式启动的前台轮询进程。v0.5 Broker 限 macOS/Linux 的直接 API/CLI 动作；v0.6 还支持按定义摘要授权的 web_recipe，Linux 可选跨 UID socket 身份验证；它不是任意代码沙箱，也不保证绝不泄露。设备撤销不能收回已交付 Key，丢机要在供应商轮换。
+
+- [完整双机配置与权限指南](docs/MULTI_DEVICE.md)
+- [协议与威胁边界](docs/SYNC_PROTOCOL_V1.md)
+- [v0.5 计划图](docs/ROADMAP_V05.md)
+- [v0.5 测试记录](docs/TEST_REPORT_V05.md)
+
+此前 v0.4 功能说明如下；157 个供应商动作不变，新增的是同步与权限管理能力，不是又接了157个生产服务。
 
 ## 这版交付了什么
 
@@ -94,7 +194,7 @@ atm stats
 或者从版本交付包的 wheel 安装（Git clone 不含 dist/）（不是假定 PyPI 已有同名包）：
 
 ```bash
-python -m pip install ./dist/agent_tool_maker_local-0.4.0-py3-none-any.whl
+python -m pip install ./dist/agent_tool_maker_local-0.7.0-py3-none-any.whl
 # 需要操作系统凭证库时，再安装可选依赖 keyring。
 ```
 
@@ -292,7 +392,7 @@ python -m pip install -e '.[secure,test,browser-test]'
 pytest -q
 ```
 
-没有依赖的真实本地集成测试会明确 skip；本次交付环境、实际运行结果、覆盖率、已修复问题和未验证项以 [测试报告](docs/TEST_REPORT_V04.md) 为准。供应商测试默认不访问生产环境、不消费、不发真实邮件。v0.2已在GitHub运行过CI；v0.3拆分契约、本地工具、浏览器验收，具体远端结果以对应提交的Actions为准。
+没有依赖的真实本地集成测试会明确 skip；本次交付环境、实际运行结果、覆盖率、已修复问题和未验证项以 [本轮测试报告](docs/TEST_REPORT_V06.md) 为准。供应商测试默认不访问生产环境、不消费、不发真实邮件。v0.2已在GitHub运行过CI；v0.3拆分契约、本地工具、浏览器验收，具体远端结果以对应提交的Actions为准。
 
 源码结构：`catalog` 发现；`engine` 状态机；`actions` 声明式 API/CLI；`mcp_bridge` 协议；`maker` 定义/组合；`vault` 秘密；`storage` 状态。`scripts/build_v02_catalog.py` 与 `build_release_docs.py` 可重建目录和路线图。
 

@@ -1,0 +1,51 @@
+{
+  "id": "local.media_info",
+  "provider": "local",
+  "title": "Custom FFprobe wrapper — real local program",
+  "capabilities": [
+    "custom"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "additionalProperties": false
+  },
+  "paid": false,
+  "permissions": [
+    "execute_code"
+  ],
+  "notes": "Draft template. Replace placeholders using observed documentation; not live verified.",
+  "adapter": "command",
+  "executable": "ffprobe",
+  "command": {
+    "argv": [
+      "-v",
+      "error",
+      "-protocol_whitelist",
+      "file,pipe",
+      "-show_format",
+      "-show_streams",
+      "-of",
+      "json",
+      "-i",
+      {
+        "file": "path"
+      }
+    ],
+    "output": "json",
+    "timeout": 30
+  },
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified",
+  "example": {
+    "path": "tone.wav"
+  }
+}
