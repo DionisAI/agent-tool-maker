@@ -1,0 +1,6 @@
+{
+  "endpoint": "fal-ai/flux/schnell",
+  "arguments": {
+    "prompt": "A small wooden robot"
+  }
+}

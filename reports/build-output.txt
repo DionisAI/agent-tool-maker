@@ -1,0 +1,10 @@
+WARNING: The directory '/home/oai/.cache/pip' or its parent directory is not owned or is not writable by the current user. The cache has been disabled. Check the permissions and owner of that directory. If executing pip with sudo, you should use sudo's -H flag.
+Processing /mnt/data/agent-tool-maker
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: agent-tool-maker-local
+  Building wheel for agent-tool-maker-local (pyproject.toml): started
+  Building wheel for agent-tool-maker-local (pyproject.toml): finished with status 'done'
+  Created wheel for agent-tool-maker-local: filename=agent_tool_maker_local-0.2.0-py3-none-any.whl size=105697 sha256=3fe596b61667a2932b9e969315bc8917469068f51a8b940cdb18ee29d3f6bff6
+  Stored in directory: /tmp/pip-ephem-wheel-cache-633nwp32/wheels/cb/be/0c/54e7141a6ce35324b69d63d3c2130c5c1a74dfc08e9eff9b57
+Successfully built agent-tool-maker-local

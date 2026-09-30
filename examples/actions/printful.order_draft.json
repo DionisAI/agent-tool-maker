@@ -1,0 +1,15 @@
+{
+  "recipient": {
+    "name": "Test Recipient",
+    "address1": "Example street",
+    "city": "Test",
+    "country_code": "US",
+    "zip": "10001"
+  },
+  "items": [
+    {
+      "sync_variant_id": 123,
+      "quantity": 1
+    }
+  ]
+}

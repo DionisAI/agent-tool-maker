@@ -1,0 +1,5 @@
+{
+  "model": "models/ggml.bin",
+  "audio": "tone.wav",
+  "language": "auto"
+}

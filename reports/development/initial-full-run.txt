@@ -1,0 +1,120 @@
+........................................................................ [ 25%]
+........................................F............................... [ 50%]
+........................................................................ [ 75%]
+......................................................F...............   [100%]
+=================================== FAILURES ===================================
+_____________________ test_catalog_only_is_not_executable ______________________
+
+router = <agent_tool_maker.engine.Router object at 0x7fce52bfe660>
+workspace = PosixPath('/tmp/pytest-of-root/pytest-6/test_catalog_only_is_not_execu0/workspace')
+
+    def test_catalog_only_is_not_executable(router,workspace):
+>       with pytest.raises(RouterError,match='catalog-only'): router.run('blender.cli',{},workspace)
+                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_router.py:92: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/agent_tool_maker/engine.py:104: in run
+    tool=self.catalog.validate(tool_id,inputs)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/agent_tool_maker/catalog.py:52: in validate
+    tool = self.get(tool_id)
+           ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <agent_tool_maker.catalog.Catalog object at 0x7fce520e8500>
+tool_id = 'blender.cli'
+
+    def get(self, tool_id):
+        if tool_id not in self.tools:
+>           raise RouterError("unknown_tool", f"Unknown tool: {tool_id}")
+E           agent_tool_maker.errors.RouterError: Unknown tool: blender.cli
+
+src/agent_tool_maker/catalog.py:48: RouterError
+
+During handling of the above exception, another exception occurred:
+
+router = <agent_tool_maker.engine.Router object at 0x7fce52bfe660>
+workspace = PosixPath('/tmp/pytest-of-root/pytest-6/test_catalog_only_is_not_execu0/workspace')
+
+    def test_catalog_only_is_not_executable(router,workspace):
+>       with pytest.raises(RouterError,match='catalog-only'): router.run('blender.cli',{},workspace)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'catalog-only'
+E         Actual message: 'Unknown tool: blender.cli'
+
+tests/test_router.py:92: AssertionError
+_ test_real_installed_media_and_document_programs[pandoc.to_docx-inputs3-pandoc] _
+
+router = <agent_tool_maker.engine.Router object at 0x7fce520f4130>
+workspace = PosixPath('/tmp/pytest-of-root/pytest-6/test_real_installed_media_and_3/workspace')
+tool = 'pandoc.to_docx', inputs = {'path': 'source.md'}, exe = 'pandoc'
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize('tool,inputs,exe',[
+     ('imagemagick.resize',{'path':'image.png','geometry':'8x8'},'magick'),
+     ('imagemagick.webp',{'path':'image.png','quality':75},'magick'),
+     ('pandoc.to_markdown',{'path':'source.html'},'pandoc'),
+     ('pandoc.to_docx',{'path':'source.md'},'pandoc')])
+    def test_real_installed_media_and_document_programs(router,workspace,tool,inputs,exe):
+        path=shutil.which(exe)
+        if not path:pytest.skip(exe+' not installed')
+        bind_cli(router.state,exe,path)
+        shutil.copyfile(Path(__file__).parent/'fixtures/image.png',workspace/'image.png')
+        (workspace/'source.html').write_text('<h1>ATM</h1><p>Tool maker.</p>')
+        (workspace/'source.md').write_text('# ATM\n\nTool maker.')
+        j=router.run(tool,inputs,workspace)
+>       assert j['status']=='completed',j
+E       AssertionError: {'created': 1790694671.924083, 'data': {'artifacts': [], 'cost_status': 'unknown', 'cost_usd': None, 'definition_sha25...c0c88', ...}, 'id': '97bc57b4-db1d-4346-8597-126ec5fd8944', 'request_key': 'eaab3d24-f302-46cc-aced-a1fa32daf3d2', ...}
+E       assert 'submission_unknown' == 'completed'
+E         
+E         - completed
+E         + submission_unknown
+
+tests/test_v02_actions.py:146: AssertionError
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.13.5-final-0 ________________
+
+Name                                  Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------
+src/agent_tool_maker/__init__.py          1      0   100%
+src/agent_tool_maker/__main__.py          2      2     0%   1-2
+src/agent_tool_maker/actions.py         196     12    94%   25-26, 45, 53, 60, 89, 93, 121, 129, 162, 164, 194
+src/agent_tool_maker/artifacts.py       139     17    88%   31, 37, 61, 75, 99, 102, 105-109, 115, 117-118, 132, 134-135
+src/agent_tool_maker/browser.py          18      0   100%
+src/agent_tool_maker/catalog.py          63      3    95%   42, 54, 82
+src/agent_tool_maker/cli.py             169    147    13%   18-66, 72-75, 81-163, 167-186
+src/agent_tool_maker/cli_adapter.py      65     11    83%   34, 40-43, 50-51, 56, 64, 73-74
+src/agent_tool_maker/demo.py             71      2    97%   50, 56
+src/agent_tool_maker/engine.py          280     30    89%   28, 62-64, 93, 106, 131-133, 161-162, 169, 210, 215, 219, 224-226, 237, 239, 251-253, 257, 264, 277-278, 284, 306, 308
+src/agent_tool_maker/errors.py            6      0   100%
+src/agent_tool_maker/maker.py           138      4    97%   23, 55, 75, 84
+src/agent_tool_maker/mcp_bridge.py      206     22    89%   40, 55, 63, 75, 89, 92, 96, 103, 108-110, 116, 118-121, 124, 159, 167, 175, 189, 204
+src/agent_tool_maker/network.py          91     16    82%   15-16, 28-29, 50, 59, 66, 77, 79-80, 93, 97, 102, 105-107
+src/agent_tool_maker/storage.py         120     10    92%   18, 27, 40, 53, 58-60, 104, 134, 146
+src/agent_tool_maker/vault.py           127     20    84%   17-19, 37-45, 67, 73, 76, 95, 100, 106, 108, 111-112
+-------------------------------------------------------------------
+TOTAL                                  1692    296    83%
+Coverage XML written to file reports/coverage.xml
+============================= slowest 10 durations =============================
+20.78s call     tests/test_cli_process.py::test_cli_command_interface
+3.99s call     tests/test_v02_actions.py::test_real_installed_media_and_document_programs[pandoc.to_markdown-inputs2-pandoc]
+3.49s call     tests/test_v02_actions.py::test_real_installed_media_and_document_programs[pandoc.to_docx-inputs3-pandoc]
+3.45s call     tests/test_cli_process.py::test_xyq_actual_child_process_lifecycle
+2.65s call     tests/test_mcp_bridge.py::test_actual_stdio_discovery_and_stateful_batch
+2.45s setup    tests/test_browser_integration.py::test_real_browser_download_handoff
+2.09s call     tests/test_v02_actions.py::test_each_cli_action_real_protocol_fixture[imagemagick.webp]
+2.05s call     tests/test_cli_process.py::test_cli_errors_do_not_echo_stderr
+2.04s call     tests/test_v02_actions.py::test_each_cli_action_real_protocol_fixture[github.create_issue]
+2.02s call     tests/test_v02_actions.py::test_each_cli_action_real_protocol_fixture[pandoc.to_docx]
+=========================== short test summary info ============================
+FAILED tests/test_router.py::test_catalog_only_is_not_executable - AssertionError: Regex pattern did not match.
+  Expected regex: 'catalog-only'
+  Actual message: 'Unknown tool: blender.cli'
+FAILED tests/test_v02_actions.py::test_real_installed_media_and_document_programs[pandoc.to_docx-inputs3-pandoc] - AssertionError: {'created': 1790694671.924083, 'data': {'artifacts': [], 'cost_status': 'unknown', 'cost_usd': None, 'definition_sha25...c0c88', ...}, 'id': '97bc57b4-db1d-4346-8597-126ec5fd8944', 'request_key': 'eaab3d24-f302-46cc-aced-a1fa32daf3d2', ...}
+assert 'submission_unknown' == 'completed'
+  
+  - completed
+  + submission_unknown
+2 failed, 284 passed in 319.99s (0:05:19)

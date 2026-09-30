@@ -1,0 +1,41 @@
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 95%]
+...............                                                          [100%]
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.13.5-final-0 ________________
+
+Name                                  Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------
+src/agent_tool_maker/__init__.py          1      0   100%
+src/agent_tool_maker/__main__.py          2      2     0%   1-2
+src/agent_tool_maker/actions.py         201     12    94%   25-26, 45, 53, 60, 89, 93, 121, 129, 166, 168, 199
+src/agent_tool_maker/artifacts.py       139     17    88%   31, 37, 61, 75, 99, 102, 105-109, 115, 117-118, 132, 134-135
+src/agent_tool_maker/browser.py          18      0   100%
+src/agent_tool_maker/catalog.py          63      3    95%   42, 54, 82
+src/agent_tool_maker/cli.py             170     62    64%   72-76, 86, 90-92, 94-110, 113, 128-130, 132-134, 136-143, 145-152, 154-157, 163-164, 172-173, 179-185
+src/agent_tool_maker/cli_adapter.py      65     11    83%   34, 40-43, 50-51, 56, 64, 73-74
+src/agent_tool_maker/demo.py             71      2    97%   50, 56
+src/agent_tool_maker/engine.py          280     30    89%   28, 62-64, 93, 106, 131-133, 161-162, 169, 210, 215, 219, 224-226, 237, 239, 251-253, 257, 264, 277-278, 284, 306, 308
+src/agent_tool_maker/errors.py            6      0   100%
+src/agent_tool_maker/maker.py           146      4    97%   23, 59, 80, 89
+src/agent_tool_maker/mcp_bridge.py      206     22    89%   40, 55, 63, 75, 89, 92, 96, 103, 108-110, 116, 118-121, 124, 159, 167, 175, 189, 204
+src/agent_tool_maker/network.py          97     16    84%   15-16, 34-35, 56, 65, 72, 83, 85-86, 99, 103, 108, 111-113
+src/agent_tool_maker/storage.py         120     10    92%   18, 27, 40, 53, 58-60, 104, 134, 146
+src/agent_tool_maker/vault.py           127     20    84%   17-19, 37-45, 67, 73, 76, 95, 100, 106, 108, 111-112
+-------------------------------------------------------------------
+TOTAL                                  1712    211    88%
+Coverage XML written to file reports/coverage.xml
+============================= slowest 10 durations =============================
+20.62s call     tests/test_cli_process.py::test_cli_command_interface
+3.78s call     tests/test_v02_actions.py::test_real_installed_media_and_document_programs[pandoc.to_docx-inputs3-pandoc]
+3.77s call     tests/test_cli_process.py::test_xyq_actual_child_process_lifecycle
+3.69s call     tests/test_v02_actions.py::test_real_installed_media_and_document_programs[pandoc.to_markdown-inputs2-pandoc]
+3.66s call     tests/test_release_v02.py::test_roadmap_real_browser_search_and_status_filter
+2.64s call     tests/test_mcp_bridge.py::test_actual_stdio_discovery_and_stateful_batch
+2.61s setup    tests/test_browser_integration.py::test_real_browser_download_handoff
+2.34s call     tests/test_release_v02.py::test_new_cli_commands_and_skill
+2.23s call     tests/test_v02_actions.py::test_each_cli_action_real_protocol_fixture[supabase.projects]
+2.17s call     tests/test_v02_actions.py::test_each_cli_action_real_protocol_fixture[kicad.gerbers]
+303 passed in 362.95s (0:06:02)

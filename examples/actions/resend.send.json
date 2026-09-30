@@ -1,0 +1,8 @@
+{
+  "from": "team@example.com",
+  "to": [
+    "user@example.com"
+  ],
+  "subject": "Delivery",
+  "text": "Approved message"
+}

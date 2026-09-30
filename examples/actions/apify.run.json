@@ -1,0 +1,6 @@
+{
+  "actor": "user~actor",
+  "input": {
+    "query": "test"
+  }
+}

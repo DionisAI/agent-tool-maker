@@ -1,0 +1,7 @@
+{
+  "transport": "http",
+  "url": "https://YOUR-SERVER.example/mcp",
+  "credential": "mcp-token",
+  "allow_tools": [],
+  "timeout": 120
+}

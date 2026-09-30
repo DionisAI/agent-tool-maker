@@ -1,0 +1,39 @@
+{
+  "id": "workflow.web_assets",
+  "provider": "local",
+  "title": "Resize and package a WebP web asset",
+  "capabilities": [
+    "image_edit"
+  ],
+  "adapter": "workflow",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "additionalProperties": false
+  },
+  "steps": [
+    {
+      "name": "resize",
+      "tool": "imagemagick.resize",
+      "inputs": {
+        "path": "$input.path",
+        "geometry": "640x640>"
+      }
+    },
+    {
+      "name": "webp",
+      "tool": "imagemagick.webp",
+      "inputs": {
+        "path": "$steps.resize.data.artifacts.0.path",
+        "quality": 80
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+# Exact packages present during local validation; keyring absent, native OS keyring untested.
+httpx==0.28.1
+cryptography==46.0.4
+jsonschema==4.26.0
+Pillow==12.3.0
+pytest==9.0.2
+pytest-cov==7.0.0
+pytest-json-report==1.5.0
+playwright==1.57.0

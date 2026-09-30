@@ -1,0 +1,7 @@
+{
+  "transport": "stdio",
+  "command": "/absolute/path/to/already-installed-mcp-server",
+  "args": [],
+  "allow_tools": [],
+  "timeout": 120
+}

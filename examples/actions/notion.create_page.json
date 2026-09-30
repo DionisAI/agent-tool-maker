@@ -1,0 +1,18 @@
+{
+  "page": {
+    "parent": {
+      "page_id": "replace-me"
+    },
+    "properties": {
+      "title": {
+        "title": [
+          {
+            "text": {
+              "content": "Plan"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

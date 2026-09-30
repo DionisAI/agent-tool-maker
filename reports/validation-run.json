@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/opt/pyvenv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--cov=agent_tool_maker",
+    "--cov-report=term-missing",
+    "--cov-report=xml:reports/coverage.xml",
+    "--junitxml=reports/junit.xml",
+    "--json-report",
+    "--json-report-file=reports/pytest.json",
+    "--durations=10"
+  ],
+  "exit_code": 0,
+  "wall_seconds": 370.5504422187805
+}

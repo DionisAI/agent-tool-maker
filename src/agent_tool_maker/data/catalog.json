@@ -1,0 +1,835 @@
+[
+  {
+    "id": "elevenlabs.tts",
+    "provider": "elevenlabs",
+    "title": "ElevenLabs 文字转语音 / narration",
+    "adapter": "elevenlabs",
+    "capabilities": [
+      "speech"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "voice_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "voice_id"
+      ]
+    },
+    "implementation": "native",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://elevenlabs.io/docs/api-reference/text-to-speech/convert"
+    ],
+    "credential": "elevenlabs",
+    "paid": true,
+    "example": {
+      "text": "Hello from Agent Tool Maker.",
+      "voice_id": "REPLACE_WITH_YOUR_VOICE_ID"
+    }
+  },
+  {
+    "id": "fal.generate",
+    "provider": "fal",
+    "title": "fal 多模型图片、视频、音频、3D",
+    "adapter": "fal",
+    "capabilities": [
+      "image",
+      "video",
+      "speech",
+      "music",
+      "3d"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "arguments": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "endpoint",
+        "arguments"
+      ]
+    },
+    "implementation": "native",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://fal.ai/docs/documentation/model-apis/inference/queue"
+    ],
+    "credential": "fal",
+    "paid": true,
+    "example": {
+      "endpoint": "fal-ai/flux/schnell",
+      "arguments": {
+        "prompt": "A small wooden robot"
+      }
+    },
+    "notes": "Generic queue adapter: choose an endpoint whose current schema supports the task; catalog categories do not mean every endpoint supports every category."
+  },
+  {
+    "id": "higgsfield.generate",
+    "provider": "higgsfield",
+    "title": "Higgsfield API 图片 / 视频",
+    "adapter": "higgsfield",
+    "capabilities": [
+      "image",
+      "video"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "arguments": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "endpoint",
+        "arguments"
+      ]
+    },
+    "implementation": "native",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://docs.higgsfield.ai/docs/quickstart"
+    ],
+    "credential": "higgsfield",
+    "paid": true,
+    "example": {
+      "endpoint": "higgsfield-ai/soul/v2/standard",
+      "arguments": {
+        "prompt": "A quiet alpine lake"
+      }
+    },
+    "notes": "Credential is KEY_ID:KEY_SECRET. API billing is separate from website membership."
+  },
+  {
+    "id": "tripo.text_to_3d",
+    "provider": "tripo",
+    "title": "Tripo 文本生成 GLB / text to 3D",
+    "adapter": "tripo",
+    "capabilities": [
+      "3d"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "texture": {
+          "type": "boolean"
+        },
+        "pbr": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "prompt"
+      ]
+    },
+    "implementation": "native",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://developers.tripo3d.ai/en/docs/sdk"
+    ],
+    "credential": "tripo",
+    "paid": true,
+    "example": {
+      "prompt": "A low-poly wooden toy robot",
+      "model": "v3.1-20260211"
+    }
+  },
+  {
+    "id": "exa.search",
+    "provider": "exa",
+    "title": "Exa 网页搜索 / web research",
+    "adapter": "exa",
+    "capabilities": [
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "numResults": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "query"
+      ]
+    },
+    "implementation": "native",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://exa.ai/docs/reference/search"
+    ],
+    "credential": "exa",
+    "paid": true,
+    "example": {
+      "query": "three.js load GLB documentation",
+      "numResults": 3
+    }
+  },
+  {
+    "id": "firecrawl.scrape",
+    "provider": "firecrawl",
+    "title": "Firecrawl 网页转 Markdown",
+    "adapter": "firecrawl",
+    "capabilities": [
+      "scrape"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "url"
+      ]
+    },
+    "implementation": "native",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://docs.firecrawl.dev/api-reference/endpoint/scrape"
+    ],
+    "credential": "firecrawl",
+    "paid": true,
+    "example": {
+      "url": "https://example.com"
+    }
+  },
+  {
+    "id": "xyq.image",
+    "provider": "xyq",
+    "title": "小云雀 CLI image",
+    "adapter": "xyq",
+    "capabilities": [
+      "image"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "ratio": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "prompt",
+        "model"
+      ]
+    },
+    "implementation": "native",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://github.com/Pippit-dev/cli"
+    ],
+    "paid": true,
+    "executable": "xyq",
+    "notes": "User binds an installed pippit-tool-cli binary; existing native login is reused. Initial version accepts text prompts, not reference-file uploads."
+  },
+  {
+    "id": "xyq.video",
+    "provider": "xyq",
+    "title": "小云雀 CLI video",
+    "adapter": "xyq",
+    "capabilities": [
+      "video"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "ratio": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "resolution": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "prompt",
+        "model"
+      ]
+    },
+    "implementation": "native",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://github.com/Pippit-dev/cli"
+    ],
+    "paid": true,
+    "executable": "xyq",
+    "notes": "User binds an installed pippit-tool-cli binary; existing native login is reused. Initial version accepts text prompts, not reference-file uploads."
+  },
+  {
+    "id": "ffmpeg.probe",
+    "provider": "ffmpeg",
+    "title": "ffprobe 检查媒体格式与时长",
+    "adapter": "ffprobe",
+    "capabilities": [
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ]
+    },
+    "implementation": "native",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://ffmpeg.org/ffprobe.html"
+    ],
+    "paid": false,
+    "executable": "ffprobe"
+  },
+  {
+    "id": "ffmpeg.audio_to_mp3",
+    "provider": "ffmpeg",
+    "title": "FFmpeg 本地音频转 MP3",
+    "adapter": "ffmpeg",
+    "capabilities": [
+      "audio_convert"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ]
+    },
+    "implementation": "native",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://ffmpeg.org/ffmpeg.html"
+    ],
+    "paid": false,
+    "executable": "ffmpeg"
+  },
+  {
+    "id": "tripo.web",
+    "provider": "tripo",
+    "title": "Tripo Studio 网页生成 3D",
+    "adapter": "browser",
+    "capabilities": [
+      "3d"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://www.tripo3d.ai/help/api-plugins/how-to-use-tripo-api"
+    ],
+    "paid": true,
+    "url": "https://studio.tripo3d.ai/",
+    "extensions": [
+      ".glb"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "higgsfield.web",
+    "provider": "higgsfield",
+    "title": "Higgsfield 网页会员创作",
+    "adapter": "browser",
+    "capabilities": [
+      "image",
+      "video"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://higgsfield.ai/"
+    ],
+    "paid": true,
+    "url": "https://higgsfield.ai/",
+    "extensions": [
+      ".png",
+      ".jpg",
+      ".mp4"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "elevenlabs.web",
+    "provider": "elevenlabs",
+    "title": "ElevenLabs 网页语音",
+    "adapter": "browser",
+    "capabilities": [
+      "speech"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://elevenlabs.io/text-to-speech-api"
+    ],
+    "paid": true,
+    "url": "https://elevenlabs.io/app/",
+    "extensions": [
+      ".mp3",
+      ".wav"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "meshy.web",
+    "provider": "meshy",
+    "title": "Meshy 网页生成 3D",
+    "adapter": "browser",
+    "capabilities": [
+      "3d"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://www.meshy.ai/"
+    ],
+    "paid": true,
+    "url": "https://www.meshy.ai/",
+    "extensions": [
+      ".glb"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "suno.web",
+    "provider": "suno",
+    "title": "Suno 网页音乐",
+    "adapter": "browser",
+    "capabilities": [
+      "music"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://suno.com/"
+    ],
+    "paid": true,
+    "url": "https://suno.com/",
+    "extensions": [
+      ".mp3",
+      ".wav"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "runway.web",
+    "provider": "runway",
+    "title": "Runway 网页视频",
+    "adapter": "browser",
+    "capabilities": [
+      "video"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://runway.com/"
+    ],
+    "paid": true,
+    "url": "https://app.runwayml.com/",
+    "extensions": [
+      ".mp4"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "recraft.web",
+    "provider": "recraft",
+    "title": "Recraft 网页图片设计",
+    "adapter": "browser",
+    "capabilities": [
+      "image",
+      "design"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://www.recraft.ai/"
+    ],
+    "paid": true,
+    "url": "https://www.recraft.ai/",
+    "extensions": [
+      ".png",
+      ".jpg",
+      ".svg"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "canva.web",
+    "provider": "canva",
+    "title": "Canva 网页排版与素材",
+    "adapter": "browser",
+    "capabilities": [
+      "design",
+      "image"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://www.canva.com/"
+    ],
+    "paid": true,
+    "url": "https://www.canva.com/",
+    "extensions": [
+      ".png",
+      ".jpg",
+      ".mp4"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "spline.web",
+    "provider": "spline",
+    "title": "Spline 网页 3D 设计",
+    "adapter": "browser",
+    "capabilities": [
+      "3d",
+      "design"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://spline.design/"
+    ],
+    "paid": true,
+    "url": "https://app.spline.design/",
+    "extensions": [
+      ".glb",
+      ".png"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "photopea.web",
+    "provider": "photopea",
+    "title": "Photopea 网页图片编辑",
+    "adapter": "browser",
+    "capabilities": [
+      "image_edit"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://www.photopea.com/"
+    ],
+    "paid": false,
+    "url": "https://www.photopea.com/",
+    "extensions": [
+      ".png",
+      ".jpg",
+      ".webp"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "pexels.web",
+    "provider": "pexels",
+    "title": "Pexels 可授权图片与视频素材",
+    "adapter": "browser",
+    "capabilities": [
+      "stock"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://www.pexels.com/license/"
+    ],
+    "paid": false,
+    "url": "https://www.pexels.com/",
+    "extensions": [
+      ".jpg",
+      ".png",
+      ".mp4"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  },
+  {
+    "id": "youtube.web",
+    "provider": "youtube",
+    "title": "YouTube 搜索、引用与嵌入",
+    "adapter": "browser",
+    "capabilities": [
+      "reference_video"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "task"
+      ]
+    },
+    "implementation": "browser",
+    "checked_on": "2026-09-29",
+    "sources": [
+      "https://developers.google.com/youtube/terms/developer-policies"
+    ],
+    "paid": false,
+    "url": "https://www.youtube.com/",
+    "extensions": [
+      ".json"
+    ],
+    "notes": "Host-agent browser handoff, not bundled website automation. Login, plan, allowed exports and usage permissions must be checked in the live page."
+  }
+]

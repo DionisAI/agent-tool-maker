@@ -1,0 +1,8 @@
+{
+  "zone_id": "zone123",
+  "type": "CNAME",
+  "name": "demo.example.com",
+  "content": "example.workers.dev",
+  "ttl": 1,
+  "proxied": false
+}

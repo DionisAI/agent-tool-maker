@@ -1,0 +1,6823 @@
+[
+  {
+    "id": "opencli.list",
+    "provider": "opencli",
+    "title": "OpenCLI command registry",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "list",
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.doctor",
+    "provider": "opencli",
+    "title": "OpenCLI browser connection diagnostics",
+    "capabilities": [
+      "inspect",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "doctor"
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.hackernews_top",
+    "provider": "opencli",
+    "title": "Hacker News top stories",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "limit": 5
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "hackernews",
+        "top",
+        "--limit",
+        {
+          "input": "limit"
+        },
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.bilibili_hot",
+    "provider": "opencli",
+    "title": "Bilibili trending discussions",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "limit": 5
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "bilibili",
+        "hot",
+        "--limit",
+        {
+          "input": "limit"
+        },
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.zhihu_hot",
+    "provider": "opencli",
+    "title": "Zhihu trending discussions",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "limit": 5
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "zhihu",
+        "hot",
+        "--limit",
+        {
+          "input": "limit"
+        },
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.browser_state",
+    "provider": "opencli",
+    "title": "Read an existing browser session state",
+    "capabilities": [
+      "inspect",
+      "browser"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "session": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "session": "work"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "browser",
+        {
+          "input": "session"
+        },
+        "state"
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "apify.run",
+    "provider": "apify",
+    "title": "Start a selected Apify Actor",
+    "capabilities": [
+      "scrape",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "actor": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "input": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "actor",
+        "input"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "actor": "user~actor",
+      "input": {
+        "query": "test"
+      }
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://docs.apify.com/cli/docs"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "apify",
+    "request": {
+      "path": "/v2/acts/{actor}/runs",
+      "method": "POST",
+      "auth": "bearer",
+      "origin": "https://api.apify.com",
+      "body": "$input"
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "apify.run_status",
+    "provider": "apify",
+    "title": "Read existing Actor run",
+    "capabilities": [
+      "inspect",
+      "scrape"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "run_id"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "run_id": "run123"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.apify.com/cli/docs"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "apify",
+    "request": {
+      "path": "/v2/actor-runs/{run_id}",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://api.apify.com"
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "apify.dataset_items",
+    "provider": "apify",
+    "title": "Retrieve one bounded dataset page",
+    "capabilities": [
+      "scrape"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "dataset_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "dataset_id",
+        "limit",
+        "offset"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "dataset_id": "data123",
+      "limit": 20,
+      "offset": 0
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.apify.com/cli/docs"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "apify",
+    "request": {
+      "path": "/v2/datasets/{dataset_id}/items",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://api.apify.com",
+      "query": {
+        "limit": "$limit",
+        "offset": "$offset",
+        "clean": true
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "dataforseo.search_volume",
+    "provider": "dataforseo",
+    "title": "Keyword search-volume request",
+    "capabilities": [
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "location_code": {
+          "type": "integer"
+        },
+        "language_code": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "keywords",
+        "location_code",
+        "language_code"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "keywords": [
+        "3d design"
+      ],
+      "location_code": 2840,
+      "language_code": "en"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [],
+    "sources": [
+      "https://dataforseo.com/apis/keyword-data-api"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "dataforseo",
+    "request": {
+      "path": "/v3/keywords_data/google_ads/search_volume/live",
+      "method": "POST",
+      "auth": "basic",
+      "origin": "https://api.dataforseo.com",
+      "body": [
+        {
+          "keywords": "$keywords",
+          "location_code": "$location_code",
+          "language_code": "$language_code"
+        }
+      ]
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "youtube.search",
+    "provider": "youtube_data",
+    "title": "Search YouTube metadata (OAuth bearer)",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "query",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "query": "product feedback",
+      "limit": 10
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.google.com/youtube/v3/docs"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "google_oauth",
+    "request": {
+      "path": "/youtube/v3/search",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://www.googleapis.com",
+      "query": {
+        "part": "snippet",
+        "q": "$query",
+        "maxResults": "$limit",
+        "type": "video"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "youtube.comments",
+    "provider": "youtube_data",
+    "title": "Read one page of YouTube comment threads",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "video_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "video_id",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "video_id": "video123",
+      "limit": 20
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.google.com/youtube/v3/docs"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "google_oauth",
+    "request": {
+      "path": "/youtube/v3/commentThreads",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://www.googleapis.com",
+      "query": {
+        "part": "snippet",
+        "videoId": "$video_id",
+        "maxResults": "$limit"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.xiaohongshu_search",
+    "provider": "opencli",
+    "title": "小红书 search notes",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "query",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "query": "通勤穿搭",
+      "limit": 10
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "xiaohongshu",
+        "search",
+        {
+          "input": "query"
+        },
+        "--limit",
+        {
+          "input": "limit"
+        },
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.xiaohongshu_note",
+    "provider": "opencli",
+    "title": "小红书 read signed note URL",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https://[^\\s]+$",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "url": "https://www.xiaohongshu.com/search_result/example?xsec_token=replace-locally"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "xiaohongshu",
+        "note",
+        {
+          "input": "url"
+        },
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.xiaohongshu_comments",
+    "provider": "opencli",
+    "title": "小红书 comments and replies",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https://[^\\s]+$",
+          "maxLength": 4096
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "url",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "url": "https://www.xiaohongshu.com/search_result/example?xsec_token=replace-locally",
+      "limit": 20
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "xiaohongshu",
+        "comments",
+        {
+          "input": "url"
+        },
+        "--with-replies",
+        "--limit",
+        {
+          "input": "limit"
+        },
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.twitter_search",
+    "provider": "opencli",
+    "title": "X/Twitter live search",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "query": "need better product design tools"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "twitter",
+        "search",
+        {
+          "input": "query"
+        },
+        "--filter",
+        "live",
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.reddit_read",
+    "provider": "opencli",
+    "title": "Read Reddit thread and bounded replies",
+    "capabilities": [
+      "search",
+      "social"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "post_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "post_id"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "post_id": "1abc123"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/jackwener/OpenCLI"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "reddit",
+        "read",
+        {
+          "input": "post_id"
+        },
+        "--depth",
+        "2",
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.upwork_search",
+    "provider": "upwork",
+    "title": "Read Upwork search via existing OpenCLI browser login",
+    "capabilities": [
+      "search",
+      "outsourcing"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "query": "clothing design"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://support.upwork.com/hc/en-us/articles/115015857647-How-to-request-an-API-key-from-Upwork",
+      "https://support.upwork.com/hc/en-us/sections/17976982721555-Upwork-API"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "upwork",
+        "search",
+        {
+          "input": "query"
+        },
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "opencli.upwork_detail",
+    "provider": "upwork",
+    "title": "Read Upwork job details without applying or hiring",
+    "capabilities": [
+      "search",
+      "outsourcing"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "job_id"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "job_id": "~022000000000000000000"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://support.upwork.com/hc/en-us/articles/115015857647-How-to-request-an-API-key-from-Upwork",
+      "https://support.upwork.com/hc/en-us/sections/17976982721555-Upwork-API"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "opencli",
+    "command": {
+      "argv": [
+        "upwork",
+        "detail",
+        {
+          "input": "job_id"
+        },
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "gws.drive_files",
+    "provider": "gws",
+    "title": "Google Workspace drive_files",
+    "capabilities": [
+      "office",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "params": {
+        "pageSize": 20
+      }
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/googleworkspace/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "gws",
+    "command": {
+      "argv": [
+        "drive",
+        "files",
+        "list",
+        "--params",
+        {
+          "json": "params"
+        }
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "gws.gmail_messages",
+    "provider": "gws",
+    "title": "Google Workspace gmail_messages",
+    "capabilities": [
+      "office",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "params": {
+        "userId": "me",
+        "maxResults": 20
+      }
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/googleworkspace/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "gws",
+    "command": {
+      "argv": [
+        "gmail",
+        "users",
+        "messages",
+        "list",
+        "--params",
+        {
+          "json": "params"
+        }
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "gws.calendar_events",
+    "provider": "gws",
+    "title": "Google Workspace calendar_events",
+    "capabilities": [
+      "office",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "params": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "params": {
+        "calendarId": "primary",
+        "maxResults": 20
+      }
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/googleworkspace/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "gws",
+    "command": {
+      "argv": [
+        "calendar",
+        "events",
+        "list",
+        "--params",
+        {
+          "json": "params"
+        }
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "notion.search",
+    "provider": "notion",
+    "title": "Search connected Notion workspace",
+    "capabilities": [
+      "office",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "query": "requirements"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.notion.com/guides/mcp/overview"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "notion",
+    "request": {
+      "path": "/v1/search",
+      "method": "POST",
+      "auth": "bearer",
+      "headers": {
+        "Notion-Version": "2025-09-03"
+      },
+      "origin": "https://api.notion.com",
+      "body": {
+        "query": "$query",
+        "page_size": 20
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "notion.create_page",
+    "provider": "notion",
+    "title": "Create a Notion page",
+    "capabilities": [
+      "office",
+      "planning"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "page"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "page": {
+        "parent": {
+          "page_id": "replace-me"
+        },
+        "properties": {
+          "title": {
+            "title": [
+              {
+                "text": {
+                  "content": "Plan"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://developers.notion.com/guides/mcp/overview"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "notion",
+    "request": {
+      "path": "/v1/pages",
+      "method": "POST",
+      "auth": "bearer",
+      "headers": {
+        "Notion-Version": "2025-09-03"
+      },
+      "origin": "https://api.notion.com",
+      "body": "$page"
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "linear.issues",
+    "provider": "linear",
+    "title": "Read Linear issues",
+    "capabilities": [
+      "planning",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://linear.app/docs/mcp"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "linear",
+    "request": {
+      "path": "/graphql",
+      "method": "POST",
+      "auth": "header:Authorization",
+      "origin": "https://api.linear.app",
+      "body": {
+        "query": "query { issues(first: 20) { nodes { id title url } pageInfo { hasNextPage endCursor } } }"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "linear.create_issue",
+    "provider": "linear",
+    "title": "Create a Linear issue",
+    "capabilities": [
+      "planning"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "team_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "team_id",
+        "title",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "team_id": "team123",
+      "title": "Review prototype",
+      "description": "Acceptance criteria"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://linear.app/docs/mcp"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "linear",
+    "request": {
+      "path": "/graphql",
+      "method": "POST",
+      "auth": "header:Authorization",
+      "origin": "https://api.linear.app",
+      "body": {
+        "query": "mutation($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id title url } } }",
+        "variables": {
+          "input": {
+            "teamId": "$team_id",
+            "title": "$title",
+            "description": "$description"
+          }
+        }
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "typeform.forms",
+    "provider": "typeform",
+    "title": "List Typeform forms",
+    "capabilities": [
+      "forms",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://www.typeform.com/developers/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "typeform",
+    "request": {
+      "path": "/forms",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://api.typeform.com"
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "typeform.responses",
+    "provider": "typeform",
+    "title": "Read Typeform responses",
+    "capabilities": [
+      "forms",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "form_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "form_id"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "form_id": "form123"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://www.typeform.com/developers/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "typeform",
+    "request": {
+      "path": "/forms/{form_id}/responses",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://api.typeform.com",
+      "query": {
+        "page_size": 100
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "typeform.create",
+    "provider": "typeform",
+    "title": "Create a Typeform survey",
+    "capabilities": [
+      "forms"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "form": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "form"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "form": {
+        "title": "User research",
+        "fields": []
+      }
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://www.typeform.com/developers/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "typeform",
+    "request": {
+      "path": "/forms",
+      "method": "POST",
+      "auth": "bearer",
+      "origin": "https://api.typeform.com",
+      "body": "$form"
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "pandoc.to_markdown",
+    "provider": "pandoc",
+    "title": "Convert a local document to Markdown",
+    "capabilities": [
+      "document"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "path": "source.html"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://pandoc.org/MANUAL.html"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "pandoc",
+    "command": {
+      "argv": [
+        "--sandbox",
+        {
+          "file": "path"
+        },
+        "-t",
+        "gfm",
+        "-o",
+        {
+          "output": "document.md"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "document.md"
+      ],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "pandoc.to_docx",
+    "provider": "pandoc",
+    "title": "Convert local Markdown to DOCX",
+    "capabilities": [
+      "document"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "path": "source.md"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://pandoc.org/MANUAL.html"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "pandoc",
+    "command": {
+      "argv": [
+        {
+          "file": "path"
+        },
+        "-o",
+        {
+          "output": "document.docx"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "document.docx"
+      ],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "freelancer.active_projects",
+    "provider": "freelancer",
+    "title": "Search active Freelancer projects",
+    "capabilities": [
+      "search",
+      "outsourcing"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "query": "3d clothing"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.freelancer.com/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "freelancer",
+    "request": {
+      "path": "/api/projects/0.1/projects/active/",
+      "method": "GET",
+      "auth": "header:freelancer-oauth-v1",
+      "origin": "https://www.freelancer.com",
+      "query": {
+        "query": "$query",
+        "limit": 20
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "figma.file",
+    "provider": "figma",
+    "title": "Read a Figma file tree",
+    "capabilities": [
+      "design"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "file_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "file_key"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "file_key": "file123"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/",
+      "https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "figma",
+    "request": {
+      "path": "/v1/files/{file_key}",
+      "method": "GET",
+      "auth": "header:X-Figma-Token",
+      "origin": "https://api.figma.com"
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "comfyui.queue",
+    "provider": "comfyui",
+    "title": "Read explicitly configured local ComfyUI queue",
+    "capabilities": [
+      "image",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.comfy.org/development/comfyui-server/comms_routes"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "request": {
+      "path": "/queue",
+      "method": "GET",
+      "auth": "none",
+      "local": true,
+      "origin_setting": true
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "comfyui.submit",
+    "provider": "comfyui",
+    "title": "Submit an approved local ComfyUI workflow",
+    "capabilities": [
+      "image"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "prompt": {
+        "1": {
+          "class_type": "KSampler",
+          "inputs": {}
+        }
+      }
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://docs.comfy.org/development/comfyui-server/comms_routes"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "request": {
+      "path": "/prompt",
+      "method": "POST",
+      "auth": "none",
+      "local": true,
+      "origin_setting": true,
+      "body": {
+        "prompt": "$prompt"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "comfyui.history",
+    "provider": "comfyui",
+    "title": "Get completed ComfyUI history",
+    "capabilities": [
+      "inspect",
+      "image"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "prompt_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "prompt_id"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "prompt_id": "prompt123"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.comfy.org/development/comfyui-server/comms_routes"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "request": {
+      "path": "/history/{prompt_id}",
+      "method": "GET",
+      "auth": "none",
+      "local": true,
+      "origin_setting": true
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "pexels.photos",
+    "provider": "pexels",
+    "title": "Search Pexels stock photos",
+    "capabilities": [
+      "stock",
+      "image"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "query",
+        "page"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "query": "fabric",
+      "page": 1
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://www.pexels.com/api/documentation/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "pexels",
+    "request": {
+      "path": "/v1/search",
+      "method": "GET",
+      "auth": "header:Authorization",
+      "origin": "https://api.pexels.com",
+      "query": {
+        "query": "$query",
+        "per_page": 20,
+        "page": "$page"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "pexels.videos",
+    "provider": "pexels",
+    "title": "Search Pexels stock video",
+    "capabilities": [
+      "stock",
+      "video"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "query": "fabric"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://www.pexels.com/api/documentation/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "pexels",
+    "request": {
+      "path": "/videos/search",
+      "method": "GET",
+      "auth": "header:Authorization",
+      "origin": "https://api.pexels.com",
+      "query": {
+        "query": "$query",
+        "per_page": 20
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "imagemagick.resize",
+    "provider": "imagemagick",
+    "title": "Resize a local raster image",
+    "capabilities": [
+      "image_edit"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "geometry": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,4}x[1-9][0-9]{0,4}>?$"
+        }
+      },
+      "required": [
+        "path",
+        "geometry"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "path": "image.png",
+      "geometry": "640x640>"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://imagemagick.org/command-line-tools/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "magick",
+    "command": {
+      "argv": [
+        {
+          "file": "path"
+        },
+        "-resize",
+        {
+          "input": "geometry"
+        },
+        {
+          "output": "resized.png"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "resized.png"
+      ],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "imagemagick.webp",
+    "provider": "imagemagick",
+    "title": "Convert a raster image to WebP",
+    "capabilities": [
+      "image_edit"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "path",
+        "quality"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "path": "image.png",
+      "quality": 80
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://imagemagick.org/command-line-tools/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "magick",
+    "command": {
+      "argv": [
+        {
+          "file": "path"
+        },
+        "-quality",
+        {
+          "input": "quality"
+        },
+        {
+          "output": "image.webp"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "image.webp"
+      ],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "ffmpeg.trim",
+    "provider": "ffmpeg",
+    "title": "Trim a local video or audio clip",
+    "capabilities": [
+      "video_edit"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "start": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 600
+        }
+      },
+      "required": [
+        "path",
+        "start",
+        "duration"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "path": "video.mp4",
+      "start": 0,
+      "duration": 3
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://ffmpeg.org/ffmpeg.html",
+      "https://ffmpeg.org/ffprobe.html"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "ffmpeg",
+    "command": {
+      "argv": [
+        "-nostdin",
+        "-v",
+        "error",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-ss",
+        {
+          "input": "start"
+        },
+        "-i",
+        {
+          "file": "path"
+        },
+        "-t",
+        {
+          "input": "duration"
+        },
+        "-y",
+        {
+          "output": "clip.mp4"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "clip.mp4"
+      ],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "ffmpeg.thumbnail",
+    "provider": "ffmpeg",
+    "title": "Extract a video thumbnail",
+    "capabilities": [
+      "video_edit",
+      "image"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "at": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "path",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "path": "video.mp4",
+      "at": 0
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://ffmpeg.org/ffmpeg.html",
+      "https://ffmpeg.org/ffprobe.html"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "ffmpeg",
+    "command": {
+      "argv": [
+        "-nostdin",
+        "-v",
+        "error",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-ss",
+        {
+          "input": "at"
+        },
+        "-i",
+        {
+          "file": "path"
+        },
+        "-frames:v",
+        "1",
+        "-y",
+        {
+          "output": "thumbnail.png"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "thumbnail.png"
+      ],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "remotion.compositions",
+    "provider": "remotion",
+    "title": "Inspect a trusted Remotion project",
+    "capabilities": [
+      "video",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "entry": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "entry"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "entry": "src/index.ts"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://www.remotion.dev/docs/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "remotion",
+    "command": {
+      "argv": [
+        "compositions",
+        {
+          "file": "entry"
+        }
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "remotion.render",
+    "provider": "remotion",
+    "title": "Render an existing Remotion composition",
+    "capabilities": [
+      "video_edit",
+      "video"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "entry": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "composition": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "props": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "entry",
+        "composition",
+        "props"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "entry": "src/index.ts",
+      "composition": "Main",
+      "props": {}
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://www.remotion.dev/docs/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "remotion",
+    "command": {
+      "argv": [
+        "render",
+        {
+          "file": "entry"
+        },
+        {
+          "input": "composition"
+        },
+        {
+          "output": "render.mp4"
+        },
+        "--props",
+        {
+          "json": "props"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "render.mp4"
+      ],
+      "timeout": 900
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "whisper.transcribe",
+    "provider": "whisper_cpp",
+    "title": "Transcribe local WAV with whisper.cpp",
+    "capabilities": [
+      "transcribe"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "audio": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "language": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "model",
+        "audio",
+        "language"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "model": "models/ggml.bin",
+      "audio": "tone.wav",
+      "language": "auto"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/ggml-org/whisper.cpp"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "whisper-cli",
+    "command": {
+      "argv": [
+        "-m",
+        {
+          "file": "model"
+        },
+        "-f",
+        {
+          "file": "audio"
+        },
+        "-l",
+        {
+          "input": "language"
+        },
+        "-otxt",
+        "-oj",
+        "-of",
+        {
+          "output": "transcript"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "transcript.txt",
+        "transcript.json"
+      ],
+      "timeout": 900
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "blender.inspect",
+    "provider": "blender",
+    "title": "Inspect a blend project without auto-run scripts",
+    "capabilities": [
+      "3d",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "project": "scene.blend"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.blender.org/api/current/",
+      "https://docs.blender.org/manual/zh-hans/4.4/advanced/command_line/arguments.html"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "blender",
+    "command": {
+      "argv": [
+        "--background",
+        "--disable-autoexec",
+        {
+          "file": "project"
+        },
+        "--python",
+        {
+          "script": "blender_inspect.py"
+        },
+        "--",
+        {
+          "output": "scene.json"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "scene.json"
+      ],
+      "timeout": 300
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "blender.render",
+    "provider": "blender",
+    "title": "Render one frame of an approved blend project",
+    "capabilities": [
+      "3d",
+      "image"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "project": "scene.blend"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://docs.blender.org/api/current/",
+      "https://docs.blender.org/manual/zh-hans/4.4/advanced/command_line/arguments.html"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "blender",
+    "command": {
+      "argv": [
+        "--background",
+        "--disable-autoexec",
+        {
+          "file": "project"
+        },
+        "--python",
+        {
+          "script": "blender_render.py"
+        },
+        "--",
+        {
+          "output": "render.png"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "render.png"
+      ],
+      "timeout": 900
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "gltf.inspect",
+    "provider": "gltf_transform",
+    "title": "Inspect glTF/GLB structure",
+    "capabilities": [
+      "3d",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "path": "model.glb"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://gltf-transform.dev/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "gltf-transform",
+    "command": {
+      "argv": [
+        "inspect",
+        {
+          "file": "path"
+        }
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "gltf.optimize",
+    "provider": "gltf_transform",
+    "title": "Optimize a GLB for web delivery",
+    "capabilities": [
+      "3d"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "path": "model.glb"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://gltf-transform.dev/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "gltf-transform",
+    "command": {
+      "argv": [
+        "optimize",
+        {
+          "file": "path"
+        },
+        {
+          "output": "optimized.glb"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "optimized.glb"
+      ],
+      "timeout": 300
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "kicad.drc",
+    "provider": "kicad",
+    "title": "Run PCB design-rule checks",
+    "capabilities": [
+      "hardware",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "board"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "board": "board.kicad_pcb"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.kicad.org/9.0/en/cli/cli.html"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "kicad-cli",
+    "command": {
+      "argv": [
+        "pcb",
+        "drc",
+        "--format",
+        "json",
+        "--output",
+        {
+          "output": "drc.json"
+        },
+        "--exit-code-violations",
+        {
+          "file": "board"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "drc.json"
+      ],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "kicad.gerbers",
+    "provider": "kicad",
+    "title": "Export PCB Gerber files",
+    "capabilities": [
+      "hardware"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "board"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "board": "board.kicad_pcb"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.kicad.org/9.0/en/cli/cli.html"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "kicad-cli",
+    "command": {
+      "argv": [
+        "pcb",
+        "export",
+        "gerbers",
+        "--output",
+        {
+          "output": "gerbers"
+        },
+        {
+          "file": "board"
+        }
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 300
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "github.repo",
+    "provider": "github_cli",
+    "title": "GitHub repo",
+    "capabilities": [
+      "development",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "repo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "repo"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "repo": "owner/repo"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://cli.github.com/manual/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "gh",
+    "command": {
+      "argv": [
+        "repo",
+        "view",
+        {
+          "input": "repo"
+        },
+        "--json",
+        "name,url,defaultBranchRef"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "github.issues",
+    "provider": "github_cli",
+    "title": "GitHub issues",
+    "capabilities": [
+      "development",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "repo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "repo"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "repo": "owner/repo"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://cli.github.com/manual/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "gh",
+    "command": {
+      "argv": [
+        "issue",
+        "list",
+        "--repo",
+        {
+          "input": "repo"
+        },
+        "--json",
+        "number,title,state,url"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "github.runs",
+    "provider": "github_cli",
+    "title": "GitHub runs",
+    "capabilities": [
+      "development",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "repo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "repo"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "repo": "owner/repo"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://cli.github.com/manual/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "gh",
+    "command": {
+      "argv": [
+        "run",
+        "list",
+        "--repo",
+        {
+          "input": "repo"
+        },
+        "--json",
+        "databaseId,status,conclusion,url"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "github.pr_checks",
+    "provider": "github_cli",
+    "title": "GitHub pr_checks",
+    "capabilities": [
+      "development",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "repo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "repo",
+        "number"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "repo": "owner/repo",
+      "number": 1
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://cli.github.com/manual/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "gh",
+    "command": {
+      "argv": [
+        "pr",
+        "checks",
+        {
+          "input": "number"
+        },
+        "--repo",
+        {
+          "input": "repo"
+        },
+        "--json",
+        "name,state,link"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "github.create_issue",
+    "provider": "github_cli",
+    "title": "Create GitHub issue",
+    "capabilities": [
+      "development",
+      "planning"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "repo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "repo",
+        "title",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "repo": "owner/repo",
+      "title": "Fix layout",
+      "body": "issue.md"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://cli.github.com/manual/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "gh",
+    "command": {
+      "argv": [
+        "issue",
+        "create",
+        "--repo",
+        {
+          "input": "repo"
+        },
+        "--title",
+        {
+          "input": "title"
+        },
+        "--body-file",
+        {
+          "file": "body"
+        }
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "docker.ps",
+    "provider": "docker",
+    "title": "Inspect Docker containers",
+    "capabilities": [
+      "development",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.docker.com/reference/cli/docker/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "docker",
+    "command": {
+      "argv": [
+        "ps",
+        "--format",
+        "json"
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "docker.build",
+    "provider": "docker",
+    "title": "Build an approved Docker project",
+    "capabilities": [
+      "development"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "tag",
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "tag": "atm-demo:local",
+      "project": "."
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://docs.docker.com/reference/cli/docker/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "docker",
+    "command": {
+      "argv": [
+        "build",
+        "-t",
+        {
+          "input": "tag"
+        },
+        {
+          "dir": "project"
+        }
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 900
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "playwright.test",
+    "provider": "playwright",
+    "title": "Run existing trusted Playwright tests",
+    "capabilities": [
+      "debug",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://github.com/microsoft/playwright-mcp"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "playwright",
+    "command": {
+      "argv": [
+        "test",
+        "--reporter=json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 900
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "wrangler.deployments",
+    "provider": "cloudflare_wrangler",
+    "title": "Read Worker deployment history",
+    "capabilities": [
+      "deploy",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "name": "atm-demo"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.cloudflare.com/workers/wrangler/",
+      "https://developers.cloudflare.com/workers/wrangler/commands/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "wrangler",
+    "command": {
+      "argv": [
+        "deployments",
+        "list",
+        "--name",
+        {
+          "input": "name"
+        },
+        "--json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120,
+      "credential_env": {
+        "CLOUDFLARE_API_TOKEN": "cloudflare"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "wrangler.build",
+    "provider": "cloudflare_wrangler",
+    "title": "Build Worker without deployment",
+    "capabilities": [
+      "deploy",
+      "development"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/wrangler/",
+      "https://developers.cloudflare.com/workers/wrangler/commands/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "wrangler",
+    "command": {
+      "argv": [
+        "deploy",
+        "--dry-run",
+        "--outdir",
+        {
+          "output": "bundle"
+        }
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 300,
+      "credential_env": {
+        "CLOUDFLARE_API_TOKEN": "cloudflare"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "wrangler.preview",
+    "provider": "cloudflare_wrangler",
+    "title": "Create Worker preview deployment (requires compatible Wrangler)",
+    "capabilities": [
+      "deploy"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "name": "atm-preview"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/wrangler/",
+      "https://developers.cloudflare.com/workers/wrangler/commands/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "wrangler",
+    "command": {
+      "argv": [
+        "preview",
+        "--name",
+        {
+          "input": "name"
+        },
+        "--json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 300,
+      "credential_env": {
+        "CLOUDFLARE_API_TOKEN": "cloudflare"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "wrangler.deploy",
+    "provider": "cloudflare_wrangler",
+    "title": "Deploy Worker to named environment",
+    "capabilities": [
+      "deploy"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "environment": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "environment"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "environment": "production"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "production",
+      "execute_code"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/wrangler/",
+      "https://developers.cloudflare.com/workers/wrangler/commands/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "wrangler",
+    "command": {
+      "argv": [
+        "deploy",
+        "--env",
+        {
+          "input": "environment"
+        }
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 300,
+      "credential_env": {
+        "CLOUDFLARE_API_TOKEN": "cloudflare"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "wrangler.d1_list",
+    "provider": "cloudflare_wrangler",
+    "title": "List D1 databases",
+    "capabilities": [
+      "database",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.cloudflare.com/workers/wrangler/",
+      "https://developers.cloudflare.com/workers/wrangler/commands/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "wrangler",
+    "command": {
+      "argv": [
+        "d1",
+        "list",
+        "--json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120,
+      "credential_env": {
+        "CLOUDFLARE_API_TOKEN": "cloudflare"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "wrangler.d1_local",
+    "provider": "cloudflare_wrangler",
+    "title": "Execute reviewed local D1 SQL",
+    "capabilities": [
+      "database"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "sql": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "database",
+        "sql"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "database": "DB",
+      "sql": "schema.sql"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/workers/wrangler/",
+      "https://developers.cloudflare.com/workers/wrangler/commands/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "wrangler",
+    "command": {
+      "argv": [
+        "d1",
+        "execute",
+        {
+          "input": "database"
+        },
+        "--local",
+        "--file",
+        {
+          "file": "sql"
+        },
+        "--json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "cloudflared.tunnels",
+    "provider": "cloudflared",
+    "title": "List named Cloudflare tunnels",
+    "capabilities": [
+      "deploy",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.cloudflare.com/tunnel/get-started/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "cloudflared",
+    "command": {
+      "argv": [
+        "tunnel",
+        "list",
+        "--output",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "cloudflare.dns_list",
+    "provider": "cloudflare_dns",
+    "title": "Read Cloudflare DNS records",
+    "capabilities": [
+      "dns",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "zone_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "zone_id"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "zone_id": "zone123"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.cloudflare.com/api/resources/dns/subresources/records/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "cloudflare",
+    "request": {
+      "path": "/client/v4/zones/{zone_id}/dns_records",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://api.cloudflare.com"
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "cloudflare.dns_create",
+    "provider": "cloudflare_dns",
+    "title": "Create a Cloudflare DNS record",
+    "capabilities": [
+      "dns",
+      "deploy"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "zone_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "type": {
+          "enum": [
+            "A",
+            "AAAA",
+            "CNAME",
+            "TXT"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "ttl": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "proxied": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "zone_id",
+        "type",
+        "name",
+        "content",
+        "ttl",
+        "proxied"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "zone_id": "zone123",
+      "type": "CNAME",
+      "name": "demo.example.com",
+      "content": "example.workers.dev",
+      "ttl": 1,
+      "proxied": false
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write",
+      "production"
+    ],
+    "sources": [
+      "https://developers.cloudflare.com/api/resources/dns/subresources/records/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "cloudflare",
+    "request": {
+      "path": "/client/v4/zones/{zone_id}/dns_records",
+      "method": "POST",
+      "auth": "bearer",
+      "origin": "https://api.cloudflare.com",
+      "body": {
+        "type": "$type",
+        "name": "$name",
+        "content": "$content",
+        "ttl": "$ttl",
+        "proxied": "$proxied"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "vercel.list",
+    "provider": "vercel",
+    "title": "List Vercel deployments",
+    "capabilities": [
+      "deploy",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://vercel.com/docs/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "vercel",
+    "command": {
+      "argv": [
+        "ls"
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "vercel.preview",
+    "provider": "vercel",
+    "title": "Deploy Vercel preview",
+    "capabilities": [
+      "deploy"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://vercel.com/docs/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "vercel",
+    "command": {
+      "argv": [
+        "deploy",
+        "--yes"
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 600
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "vercel.production",
+    "provider": "vercel",
+    "title": "Deploy Vercel production",
+    "capabilities": [
+      "deploy"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "production",
+      "execute_code"
+    ],
+    "sources": [
+      "https://vercel.com/docs/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "vercel",
+    "command": {
+      "argv": [
+        "deploy",
+        "--prod",
+        "--yes"
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 600
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "supabase.projects",
+    "provider": "supabase",
+    "title": "List Supabase projects",
+    "capabilities": [
+      "database",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://supabase.com/docs/reference/cli/introduction"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "supabase",
+    "command": {
+      "argv": [
+        "projects",
+        "list",
+        "--output",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120,
+      "credential_env": {
+        "SUPABASE_ACCESS_TOKEN": "supabase"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "supabase.migrations",
+    "provider": "supabase",
+    "title": "List linked Supabase migrations",
+    "capabilities": [
+      "database",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://supabase.com/docs/reference/cli/introduction"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "supabase",
+    "command": {
+      "argv": [
+        "migration",
+        "list"
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 120,
+      "credential_env": {
+        "SUPABASE_ACCESS_TOKEN": "supabase"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "supabase.db_push",
+    "provider": "supabase",
+    "title": "Apply linked remote database migrations",
+    "capabilities": [
+      "database",
+      "deploy"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "production",
+      "execute_code"
+    ],
+    "sources": [
+      "https://supabase.com/docs/reference/cli/introduction"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "supabase",
+    "command": {
+      "argv": [
+        "db",
+        "push",
+        "--yes"
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 600,
+      "credential_env": {
+        "SUPABASE_ACCESS_TOKEN": "supabase"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "supabase.function_deploy",
+    "provider": "supabase",
+    "title": "Deploy one Supabase function",
+    "capabilities": [
+      "deploy"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "name": "hello"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "production",
+      "execute_code"
+    ],
+    "sources": [
+      "https://supabase.com/docs/reference/cli/introduction"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "supabase",
+    "command": {
+      "argv": [
+        "functions",
+        "deploy",
+        {
+          "input": "name"
+        }
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 300,
+      "credential_env": {
+        "SUPABASE_ACCESS_TOKEN": "supabase"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "eas.build_list",
+    "provider": "expo_eas",
+    "title": "List Expo EAS builds",
+    "capabilities": [
+      "app",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.expo.dev/eas/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "eas",
+    "command": {
+      "argv": [
+        "build:list",
+        "--json",
+        "--non-interactive"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120,
+      "credential_env": {
+        "EXPO_TOKEN": "expo"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "eas.build",
+    "provider": "expo_eas",
+    "title": "Submit an Expo build, without waiting",
+    "capabilities": [
+      "app",
+      "deploy"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "platform": {
+          "enum": [
+            "android",
+            "ios",
+            "all"
+          ]
+        },
+        "profile": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "platform",
+        "profile"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "platform": "android",
+      "profile": "preview"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://docs.expo.dev/eas/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "eas",
+    "command": {
+      "argv": [
+        "build",
+        "--platform",
+        {
+          "input": "platform"
+        },
+        "--profile",
+        {
+          "input": "profile"
+        },
+        "--non-interactive",
+        "--no-wait",
+        "--json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 300,
+      "credential_env": {
+        "EXPO_TOKEN": "expo"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "godot.export",
+    "provider": "godot",
+    "title": "Export an existing Godot project",
+    "capabilities": [
+      "game",
+      "deploy"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "preset": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "project",
+        "preset"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "project": ".",
+      "preset": "Web"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "godot",
+    "command": {
+      "argv": [
+        "--headless",
+        "--path",
+        {
+          "dir": "project"
+        },
+        "--export-release",
+        {
+          "input": "preset"
+        },
+        {
+          "output": "game.zip"
+        }
+      ],
+      "output": "text",
+      "outputs": [
+        "game.zip"
+      ],
+      "timeout": 600
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "butler.status",
+    "provider": "itch_butler",
+    "title": "Read itch.io channel status",
+    "capabilities": [
+      "game",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "target": "user/game:web"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://itch.io/docs/butler/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "butler",
+    "command": {
+      "argv": [
+        "status",
+        {
+          "input": "target"
+        }
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "butler.push",
+    "provider": "itch_butler",
+    "title": "Upload a game archive to itch.io",
+    "capabilities": [
+      "game",
+      "deploy"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "archive": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "archive",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "archive": "game.zip",
+      "target": "user/game:web"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://itch.io/docs/butler/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "butler",
+    "command": {
+      "argv": [
+        "push",
+        {
+          "file": "archive"
+        },
+        {
+          "input": "target"
+        }
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 600
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "buffer.channels",
+    "provider": "buffer",
+    "title": "List connected Buffer channels",
+    "capabilities": [
+      "social",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.buffer.com/guides/cli.html",
+      "https://buffer.com/resources/buffer-api-is-here/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "buffer",
+    "command": {
+      "argv": [
+        "channels",
+        "list",
+        "--output",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "buffer.posts",
+    "provider": "buffer",
+    "title": "Read posts for a specific channel",
+    "capabilities": [
+      "social",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "channel_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "channel_id"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "channel_id": "channel123"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.buffer.com/guides/cli.html",
+      "https://buffer.com/resources/buffer-api-is-here/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "buffer",
+    "command": {
+      "argv": [
+        "posts",
+        "list",
+        "--channel-id",
+        {
+          "input": "channel_id"
+        },
+        "--output",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "buffer.schedule",
+    "provider": "buffer",
+    "title": "Add a post to a channel queue",
+    "capabilities": [
+      "social",
+      "publish"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "channel_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "channel_id",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "channel_id": "channel123",
+      "text": "Approved product announcement"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://developers.buffer.com/guides/cli.html",
+      "https://buffer.com/resources/buffer-api-is-here/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "buffer",
+    "command": {
+      "argv": [
+        "posts",
+        "create",
+        "--channel-id",
+        {
+          "input": "channel_id"
+        },
+        "--scheduling-type",
+        "automatic",
+        "--mode",
+        "addToQueue",
+        "--text",
+        {
+          "input": "text"
+        },
+        "--output",
+        "json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "buffer.schema",
+    "provider": "buffer",
+    "title": "Read post creation schema from installed Buffer version",
+    "capabilities": [
+      "social",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.buffer.com/guides/cli.html",
+      "https://buffer.com/resources/buffer-api-is-here/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "buffer",
+    "command": {
+      "argv": [
+        "schema",
+        "describe",
+        "posts",
+        "create"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "postiz.integrations",
+    "provider": "postiz",
+    "title": "Read Postiz connected channels",
+    "capabilities": [
+      "social",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/gitroomhq/postiz-app",
+      "https://github.com/gitroomhq/postiz-agent"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "postiz",
+    "request": {
+      "path": "/public/v1/integrations",
+      "method": "GET",
+      "auth": "header:Authorization",
+      "origin_setting": true
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "postiz.posts",
+    "provider": "postiz",
+    "title": "Read Postiz scheduled posts",
+    "capabilities": [
+      "social",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "startDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "endDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "startDate",
+        "endDate"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "startDate": "2026-09-01T00:00:00Z",
+      "endDate": "2026-09-30T23:59:59Z"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/gitroomhq/postiz-app",
+      "https://github.com/gitroomhq/postiz-agent"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "postiz",
+    "request": {
+      "path": "/public/v1/posts",
+      "method": "GET",
+      "auth": "header:Authorization",
+      "origin_setting": true,
+      "query": {
+        "startDate": "$startDate",
+        "endDate": "$endDate"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "wordpress.posts",
+    "provider": "wordpress",
+    "title": "List WordPress posts",
+    "capabilities": [
+      "publish",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "sources": [
+      "https://developer.wordpress.org/cli/commands/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "wp",
+    "command": {
+      "argv": [
+        "post",
+        "list",
+        "--format=json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "wordpress.draft",
+    "provider": "wordpress",
+    "title": "Create WordPress draft from local content",
+    "capabilities": [
+      "publish"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "content",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "content": "post.md",
+      "title": "Product update"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://developer.wordpress.org/cli/commands/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "wp",
+    "command": {
+      "argv": [
+        "post",
+        "create",
+        {
+          "file": "content"
+        },
+        "--post_status=draft",
+        "--post_title",
+        {
+          "input": "title"
+        },
+        "--porcelain"
+      ],
+      "output": "text",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "ghost.posts",
+    "provider": "ghost",
+    "title": "List Ghost posts",
+    "capabilities": [
+      "publish",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.ghost.org/admin-api/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "ghost",
+    "request": {
+      "path": "/ghost/api/admin/posts/",
+      "method": "GET",
+      "auth": "ghost",
+      "origin_setting": true,
+      "query": {
+        "limit": 20
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "ghost.draft",
+    "provider": "ghost",
+    "title": "Create a Ghost draft",
+    "capabilities": [
+      "publish"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "html": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "title",
+        "html"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "title": "Launch",
+      "html": "<p>New product</p>"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://docs.ghost.org/admin-api/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "ghost",
+    "request": {
+      "path": "/ghost/api/admin/posts/",
+      "method": "POST",
+      "auth": "ghost",
+      "origin_setting": true,
+      "body": {
+        "posts": [
+          {
+            "title": "$title",
+            "html": "$html",
+            "status": "draft"
+          }
+        ]
+      },
+      "query": {
+        "source": "html"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "stripe.products",
+    "provider": "stripe",
+    "title": "List Stripe products",
+    "capabilities": [
+      "payments",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.stripe.com/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "stripe",
+    "request": {
+      "path": "/v1/products",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://api.stripe.com",
+      "query": {
+        "limit": 20
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "stripe.checkout_test",
+    "provider": "stripe",
+    "title": "Create a Stripe test checkout session",
+    "capabilities": [
+      "payments"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "price_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "success_url": {
+          "type": "string",
+          "pattern": "^https://[^\\s]+$",
+          "maxLength": 4096
+        },
+        "cancel_url": {
+          "type": "string",
+          "pattern": "^https://[^\\s]+$",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "price_id",
+        "success_url",
+        "cancel_url"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "price_id": "price_test",
+      "success_url": "https://example.com/ok",
+      "cancel_url": "https://example.com/cancel"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://docs.stripe.com/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "stripe",
+    "request": {
+      "path": "/v1/checkout/sessions",
+      "method": "POST",
+      "auth": "bearer",
+      "form": true,
+      "idempotency_header": "Idempotency-Key",
+      "test_key_only": true,
+      "origin": "https://api.stripe.com",
+      "body": {
+        "mode": "payment",
+        "line_items[0][price]": "$price_id",
+        "line_items[0][quantity]": 1,
+        "success_url": "$success_url",
+        "cancel_url": "$cancel_url"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "stripe.events",
+    "provider": "stripe",
+    "title": "List Stripe events in CLI",
+    "capabilities": [
+      "payments",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.stripe.com/cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "stripe",
+    "command": {
+      "argv": [
+        "events",
+        "list",
+        "--limit",
+        "10"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "shopify.theme_list",
+    "provider": "shopify_cli",
+    "title": "List Shopify themes",
+    "capabilities": [
+      "commerce",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "store": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+\\.myshopify\\.com$"
+        }
+      },
+      "required": [
+        "store"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "store": "example.myshopify.com"
+    },
+    "adapter": "command",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://shopify.dev/docs/api/shopify-cli"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "executable": "shopify",
+    "command": {
+      "argv": [
+        "theme",
+        "list",
+        "--store",
+        {
+          "input": "store"
+        },
+        "--json"
+      ],
+      "output": "json",
+      "outputs": [],
+      "timeout": 120
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "shopify.products",
+    "provider": "shopify_admin",
+    "title": "Read Shopify product records",
+    "capabilities": [
+      "commerce",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://shopify.dev/docs/api/admin-graphql/latest"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "shopify_admin",
+    "request": {
+      "path": "/admin/api/2026-07/graphql.json",
+      "method": "POST",
+      "auth": "header:X-Shopify-Access-Token",
+      "host_suffix": ".myshopify.com",
+      "origin_setting": true,
+      "body": {
+        "query": "query { products(first: 20) { nodes { id title status } pageInfo { hasNextPage endCursor } } }"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "shopify.product_draft",
+    "provider": "shopify_admin",
+    "title": "Create a Shopify product draft",
+    "capabilities": [
+      "commerce"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "title": "Sample product"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://shopify.dev/docs/api/admin-graphql/latest"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "shopify_admin",
+    "request": {
+      "path": "/admin/api/2026-07/graphql.json",
+      "method": "POST",
+      "auth": "header:X-Shopify-Access-Token",
+      "host_suffix": ".myshopify.com",
+      "origin_setting": true,
+      "body": {
+        "query": "mutation($product: ProductCreateInput!) { productCreate(product: $product) { product { id title status } userErrors { field message } } }",
+        "variables": {
+          "product": {
+            "title": "$title",
+            "status": "DRAFT"
+          }
+        }
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "printful.products",
+    "provider": "printful",
+    "title": "Read Printful product catalog",
+    "capabilities": [
+      "commerce",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.printful.com/docs/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "printful",
+    "request": {
+      "path": "/products",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://api.printful.com"
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "printful.order_draft",
+    "provider": "printful",
+    "title": "Create an unconfirmed Printful order",
+    "capabilities": [
+      "commerce",
+      "fulfillment"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "recipient": {
+          "type": "object"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "minItems": 1,
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "recipient",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "recipient": {
+        "name": "Test Recipient",
+        "address1": "Example street",
+        "city": "Test",
+        "country_code": "US",
+        "zip": "10001"
+      },
+      "items": [
+        {
+          "sync_variant_id": 123,
+          "quantity": 1
+        }
+      ]
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://developers.printful.com/docs/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "printful",
+    "request": {
+      "path": "/orders",
+      "method": "POST",
+      "auth": "bearer",
+      "origin": "https://api.printful.com",
+      "body": {
+        "recipient": "$recipient",
+        "items": "$items"
+      },
+      "query": {
+        "confirm": "false"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "resend.send",
+    "provider": "resend",
+    "title": "Send an explicitly approved email",
+    "capabilities": [
+      "email"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "to": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "subject",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "from": "team@example.com",
+      "to": [
+        "user@example.com"
+      ],
+      "subject": "Delivery",
+      "text": "Approved message"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://resend.com/docs/introduction"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "resend",
+    "request": {
+      "path": "/emails",
+      "method": "POST",
+      "auth": "bearer",
+      "idempotency_header": "Idempotency-Key",
+      "origin": "https://api.resend.com",
+      "body": {
+        "from": "$from",
+        "to": "$to",
+        "subject": "$subject",
+        "text": "$text"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "hubspot.contacts",
+    "provider": "hubspot",
+    "title": "Read one page of HubSpot contacts",
+    "capabilities": [
+      "crm",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.hubspot.com/docs/api-reference/latest/overview"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "hubspot",
+    "request": {
+      "path": "/crm/v3/objects/contacts",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://api.hubapi.com",
+      "query": {
+        "limit": 20,
+        "properties": "email,firstname,lastname"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "slack.history",
+    "provider": "slack",
+    "title": "Read authorized channel history",
+    "capabilities": [
+      "office",
+      "search"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "channel": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "channel": "C123"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.slack.dev/apis/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "slack",
+    "request": {
+      "path": "/api/conversations.history",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://slack.com",
+      "query": {
+        "channel": "$channel",
+        "limit": 20
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "slack.send",
+    "provider": "slack",
+    "title": "Send an approved Slack message",
+    "capabilities": [
+      "notify"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "channel": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "channel",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "channel": "C123",
+      "text": "Build ready for review"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://docs.slack.dev/apis/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "slack",
+    "request": {
+      "path": "/api/chat.postMessage",
+      "method": "POST",
+      "auth": "bearer",
+      "origin": "https://slack.com",
+      "body": {
+        "channel": "$channel",
+        "text": "$text"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "telegram.me",
+    "provider": "telegram",
+    "title": "Inspect the configured Telegram bot",
+    "capabilities": [
+      "notify",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://core.telegram.org/bots/api"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "telegram",
+    "request": {
+      "path": "/bot__TOKEN__/getMe",
+      "method": "GET",
+      "auth": "telegram",
+      "origin": "https://api.telegram.org"
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "telegram.send",
+    "provider": "telegram",
+    "title": "Send an approved message to a chat",
+    "capabilities": [
+      "notify"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "chat_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "chat_id",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "chat_id": "12345",
+      "text": "Task completed"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [
+      "external_write"
+    ],
+    "sources": [
+      "https://core.telegram.org/bots/api"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "telegram",
+    "request": {
+      "path": "/bot__TOKEN__/sendMessage",
+      "method": "POST",
+      "auth": "telegram",
+      "origin": "https://api.telegram.org",
+      "body": {
+        "chat_id": "$chat_id",
+        "text": "$text"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "posthog.query",
+    "provider": "posthog",
+    "title": "Run a project analytics query",
+    "capabilities": [
+      "analytics"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "query": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "project_id",
+        "query"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "project_id": "123",
+      "query": {
+        "kind": "HogQLQuery",
+        "query": "select event, count() from events group by event limit 10"
+      }
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [],
+    "sources": [
+      "https://posthog.com/product-analytics",
+      "https://posthog.com/docs/model-context-protocol/cursor"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "posthog",
+    "request": {
+      "path": "/api/projects/{project_id}/query/",
+      "method": "POST",
+      "auth": "bearer",
+      "origin_setting": true,
+      "body": {
+        "query": "$query"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "sentry.issues",
+    "provider": "sentry",
+    "title": "Read Sentry project issues",
+    "capabilities": [
+      "debug",
+      "analytics"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "organization": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "organization",
+        "project"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "organization": "my-org",
+      "project": "web"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://mcp.sentry.dev/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "sentry",
+    "request": {
+      "path": "/api/0/projects/{organization}/{project}/issues/",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://sentry.io",
+      "query": {
+        "query": "is:unresolved"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "search_console.sites",
+    "provider": "search_console",
+    "title": "List authorized Search Console sites",
+    "capabilities": [
+      "analytics",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.google.com/webmaster-tools/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "google_oauth",
+    "request": {
+      "path": "/webmasters/v3/sites",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://www.googleapis.com"
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "youtube.analytics",
+    "provider": "youtube_analytics",
+    "title": "Read authorized channel analytics",
+    "capabilities": [
+      "analytics"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "start_date": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "end_date": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "start_date",
+        "end_date"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "start_date": "2026-09-01",
+      "end_date": "2026-09-28"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.google.com/youtube/analytics"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "google_oauth",
+    "request": {
+      "path": "/v2/reports",
+      "method": "GET",
+      "auth": "bearer",
+      "origin": "https://youtubeanalytics.googleapis.com",
+      "query": {
+        "ids": "channel==MINE",
+        "startDate": "$start_date",
+        "endDate": "$end_date",
+        "metrics": "views,estimatedMinutesWatched",
+        "dimensions": "day"
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "n8n.workflows",
+    "provider": "n8n",
+    "title": "Read configured n8n workflow page",
+    "capabilities": [
+      "automation",
+      "inspect"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://docs.n8n.io/api"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "n8n",
+    "request": {
+      "path": "/api/v1/workflows",
+      "method": "GET",
+      "auth": "header:X-N8N-API-KEY",
+      "origin_setting": true,
+      "query": {
+        "limit": 20
+      }
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "n8n.activate",
+    "provider": "n8n",
+    "title": "Activate an existing n8n workflow",
+    "capabilities": [
+      "automation"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "workflow_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+        }
+      },
+      "required": [
+        "workflow_id"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "workflow_id": "123"
+    },
+    "adapter": "rest",
+    "implementation": "native",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "production",
+      "execute_code"
+    ],
+    "sources": [
+      "https://docs.n8n.io/api"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "contract_tests_not_vendor_live",
+    "credential": "n8n",
+    "request": {
+      "path": "/api/v1/workflows/{workflow_id}/activate",
+      "method": "POST",
+      "auth": "header:X-N8N-API-KEY",
+      "origin_setting": true,
+      "body": {}
+    },
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "marvelous_designer.handoff",
+    "provider": "marvelous_designer",
+    "title": "Marvelous Designer garment workflow",
+    "capabilities": [
+      "handoff",
+      "design"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "desktop",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developer.marvelousdesigner.com/",
+      "https://developer.marvelousdesigner.com/python.html"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://developer.marvelousdesigner.com/",
+    "instructions": [
+      "Use the installed licensed application and its version-matched Python API. Save the editable project and export assets. Do not treat a 3D garment as a tested physical pattern."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "clo.handoff",
+    "provider": "clo",
+    "title": "CLO garment and BOM workflow",
+    "capabilities": [
+      "handoff",
+      "design"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "desktop",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developer.clo3d.com/",
+      "https://support.clo3d.com/hc/en-us/articles/115000525207-BOM-XML-Export"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://developer.clo3d.com/",
+    "instructions": [
+      "Use the installed licensed CLO application. Return project, export and BOM; physical fitting remains a separate acceptance task."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "freecad.handoff",
+    "provider": "freecad",
+    "title": "FreeCAD parametric engineering handoff",
+    "capabilities": [
+      "handoff",
+      "design"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "desktop",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://www.freecad.org/features.php"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://www.freecad.org/",
+    "instructions": [
+      "Use the installed application/Python console. Preserve FCStd and exports; manufacturability requires separate review."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "photopea.handoff",
+    "provider": "photopea",
+    "title": "Photopea layered source editing",
+    "capabilities": [
+      "handoff",
+      "design"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "desktop",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://www.photopea.com/api/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://www.photopea.com/",
+    "instructions": [
+      "Use the host browser and scripting API with a reviewed script. Return layered source and flattened exports."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "upwork.handoff",
+    "provider": "upwork",
+    "title": "Upwork quotation and expert handoff",
+    "capabilities": [
+      "handoff",
+      "outsourcing"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "human",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://support.upwork.com/hc/en-us/articles/115015857647-How-to-request-an-API-key-from-Upwork",
+      "https://support.upwork.com/hc/en-us/sections/17976982721555-Upwork-API"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://www.upwork.com/",
+    "instructions": [
+      "Prepare brief and candidates. Do not hire or pay without separate approval. API onboarding and site access are not assumed."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "fiverr.handoff",
+    "provider": "fiverr",
+    "title": "Fiverr expert handoff",
+    "capabilities": [
+      "handoff",
+      "outsourcing"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "human",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://www.fiverr.com/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://www.fiverr.com/",
+    "instructions": [
+      "Prepare deliverables, budget and acceptance criteria. Await selected provider and explicit purchase approval."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "freelancer.handoff",
+    "provider": "freelancer",
+    "title": "Freelancer expert handoff",
+    "capabilities": [
+      "handoff",
+      "outsourcing"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "human",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.freelancer.com/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://www.freelancer.com/",
+    "instructions": [
+      "Compare quotations. Hiring, milestones, payment and final acceptance are separate approvals."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "tally.handoff",
+    "provider": "tally",
+    "title": "Tally survey and webhook setup",
+    "capabilities": [
+      "handoff",
+      "research"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "browser",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://tally.so/help/webhooks"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://tally.so/",
+    "instructions": [
+      "Create or open a survey in host browser. Configure webhook at a user-controlled endpoint. No public inbound server is started by ATM."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "google_trends.handoff",
+    "provider": "google_trends",
+    "title": "Google Trends browser research",
+    "capabilities": [
+      "handoff",
+      "research"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "browser",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.google.com/search/apis/trends"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://trends.google.com/trends/",
+    "instructions": [
+      "Read trend data in host browser. API alpha requires separate approval; do not invent access."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "tiktok_posting.handoff",
+    "provider": "tiktok_posting",
+    "title": "TikTok publishing approval",
+    "capabilities": [
+      "handoff",
+      "research"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "browser",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.tiktok.com/docs/en/content-posting-api-get-started"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://www.tiktok.com/",
+    "instructions": [
+      "Use an approved app/account. Do not assume public posting permission or bypass unaudited-client visibility limits."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "google_ads.handoff",
+    "provider": "google_ads",
+    "title": "Google Ads review and reporting handoff",
+    "capabilities": [
+      "handoff",
+      "research"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "task"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "task": "Prepare a reviewed deliverable"
+    },
+    "adapter": "browser",
+    "implementation": "handoff",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.google.com/google-ads/api/docs/get-started/introduction"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "handoff_contract_only",
+    "url": "https://ads.google.com/",
+    "instructions": [
+      "Review reports or prepare drafts. Do not activate campaigns or change spend without campaign-specific approval."
+    ],
+    "extensions": [
+      ".json",
+      ".md",
+      ".png",
+      ".glb",
+      ".mp4",
+      ".txt"
+    ],
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "figma.mcp_tools",
+    "provider": "figma",
+    "title": "figma MCP tools",
+    "capabilities": [
+      "design"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/",
+      "https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "figma",
+    "mcp_operation": "tools",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "figma.mcp_batch",
+    "provider": "figma",
+    "title": "figma MCP batch",
+    "capabilities": [
+      "design"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "arguments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+              },
+              "arguments": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "calls"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "calls": [
+        {
+          "name": "use-discovered-tool-name",
+          "arguments": {}
+        }
+      ]
+    },
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/",
+      "https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "figma",
+    "mcp_operation": "batch",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "notion.mcp_tools",
+    "provider": "notion",
+    "title": "notion MCP tools",
+    "capabilities": [
+      "office",
+      "planning"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://developers.notion.com/guides/mcp/overview"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "notion",
+    "mcp_operation": "tools",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "notion.mcp_batch",
+    "provider": "notion",
+    "title": "notion MCP batch",
+    "capabilities": [
+      "office",
+      "planning"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "arguments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+              },
+              "arguments": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "calls"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "calls": [
+        {
+          "name": "use-discovered-tool-name",
+          "arguments": {}
+        }
+      ]
+    },
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://developers.notion.com/guides/mcp/overview"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "notion",
+    "mcp_operation": "batch",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "linear.mcp_tools",
+    "provider": "linear",
+    "title": "linear MCP tools",
+    "capabilities": [
+      "planning"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://linear.app/docs/mcp"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "linear",
+    "mcp_operation": "tools",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "linear.mcp_batch",
+    "provider": "linear",
+    "title": "linear MCP batch",
+    "capabilities": [
+      "planning"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "arguments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+              },
+              "arguments": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "calls"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "calls": [
+        {
+          "name": "use-discovered-tool-name",
+          "arguments": {}
+        }
+      ]
+    },
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://linear.app/docs/mcp"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "linear",
+    "mcp_operation": "batch",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "playwright.mcp_tools",
+    "provider": "playwright",
+    "title": "playwright MCP tools",
+    "capabilities": [
+      "browser",
+      "debug"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/microsoft/playwright-mcp"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "playwright",
+    "mcp_operation": "tools",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "playwright.mcp_batch",
+    "provider": "playwright",
+    "title": "playwright MCP batch",
+    "capabilities": [
+      "browser",
+      "debug"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "arguments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+              },
+              "arguments": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "calls"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "calls": [
+        {
+          "name": "use-discovered-tool-name",
+          "arguments": {}
+        }
+      ]
+    },
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://github.com/microsoft/playwright-mcp"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "playwright",
+    "mcp_operation": "batch",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "chrome_devtools.mcp_tools",
+    "provider": "chrome_devtools",
+    "title": "chrome_devtools MCP tools",
+    "capabilities": [
+      "debug",
+      "browser"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://github.com/ChromeDevTools/chrome-devtools-mcp"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "chrome_devtools",
+    "mcp_operation": "tools",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "chrome_devtools.mcp_batch",
+    "provider": "chrome_devtools",
+    "title": "chrome_devtools MCP batch",
+    "capabilities": [
+      "debug",
+      "browser"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "arguments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+              },
+              "arguments": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "calls"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "calls": [
+        {
+          "name": "use-discovered-tool-name",
+          "arguments": {}
+        }
+      ]
+    },
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://github.com/ChromeDevTools/chrome-devtools-mcp"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "chrome_devtools",
+    "mcp_operation": "batch",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "posthog.mcp_tools",
+    "provider": "posthog",
+    "title": "posthog MCP tools",
+    "capabilities": [
+      "analytics"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://posthog.com/product-analytics",
+      "https://posthog.com/docs/model-context-protocol/cursor"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "posthog",
+    "mcp_operation": "tools",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "posthog.mcp_batch",
+    "provider": "posthog",
+    "title": "posthog MCP batch",
+    "capabilities": [
+      "analytics"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "arguments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+              },
+              "arguments": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "calls"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "calls": [
+        {
+          "name": "use-discovered-tool-name",
+          "arguments": {}
+        }
+      ]
+    },
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://posthog.com/product-analytics",
+      "https://posthog.com/docs/model-context-protocol/cursor"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "posthog",
+    "mcp_operation": "batch",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "sentry.mcp_tools",
+    "provider": "sentry",
+    "title": "sentry MCP tools",
+    "capabilities": [
+      "debug",
+      "analytics"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "example": {},
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": false,
+    "permissions": [],
+    "sources": [
+      "https://mcp.sentry.dev/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "sentry",
+    "mcp_operation": "tools",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  },
+  {
+    "id": "sentry.mcp_batch",
+    "provider": "sentry",
+    "title": "sentry MCP batch",
+    "capabilities": [
+      "debug",
+      "analytics"
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "calls": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "arguments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$"
+              },
+              "arguments": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "calls"
+      ],
+      "additionalProperties": false
+    },
+    "example": {
+      "calls": [
+        {
+          "name": "use-discovered-tool-name",
+          "arguments": {}
+        }
+      ]
+    },
+    "adapter": "mcp",
+    "implementation": "bridge",
+    "paid": true,
+    "permissions": [
+      "external_write",
+      "execute_code"
+    ],
+    "sources": [
+      "https://mcp.sentry.dev/"
+    ],
+    "checked_on": "2026-09-29",
+    "verification": "generic_mcp_protocol_not_vendor_live",
+    "server": "sentry",
+    "mcp_operation": "batch",
+    "notes": "Finite action only; pagination, OAuth renewal and vendor-wide feature coverage are not implied."
+  }
+]

@@ -1,0 +1,2006 @@
+{
+  "project": "Agent Tool Maker",
+  "version": "0.2.0",
+  "date": "2026-09-29",
+  "scope_count": 66,
+  "action_count": 157,
+  "scope_summary": {
+    "native_partial": 56,
+    "handoff_only": 9,
+    "mcp_bridge": 1
+  },
+  "status_definitions": {
+    "native_partial": "已实现有限动作",
+    "mcp_bridge": "MCP 协议桥接",
+    "handoff_only": "交接入口，待外部执行",
+    "planned": "未实现"
+  },
+  "evidence_boundary": "目录覆盖不是供应商全功能实现。CLI/API 协议测试与真实账号/桌面验收分开记录；所有云端生产账号 live_tested=false。",
+  "records": [
+    {
+      "id": "opencli",
+      "name": "OpenCLI",
+      "stage": "01 需求与信息收集",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "opencli.list",
+        "opencli.doctor",
+        "opencli.hackernews_top",
+        "opencli.bilibili_hot",
+        "opencli.zhihu_hot",
+        "opencli.browser_state",
+        "opencli.xiaohongshu_search",
+        "opencli.xiaohongshu_note",
+        "opencli.xiaohongshu_comments",
+        "opencli.twitter_search",
+        "opencli.reddit_read"
+      ],
+      "native_actions": [
+        "opencli.list",
+        "opencli.doctor",
+        "opencli.hackernews_top",
+        "opencli.bilibili_hot",
+        "opencli.zhihu_hot",
+        "opencli.browser_state",
+        "opencli.xiaohongshu_search",
+        "opencli.xiaohongshu_note",
+        "opencli.xiaohongshu_comments",
+        "opencli.twitter_search",
+        "opencli.reddit_read"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "OpenCLI command registry",
+        "OpenCLI browser connection diagnostics",
+        "Hacker News top stories",
+        "Bilibili trending discussions",
+        "Zhihu trending discussions",
+        "Read an existing browser session state",
+        "小红书 search notes",
+        "小红书 read signed note URL",
+        "小红书 comments and replies",
+        "X/Twitter live search",
+        "Read Reddit thread and bounded replies"
+      ],
+      "remaining_work": "更多站点动作按安装版本逐项生成适配器；真实登录、站点返回和发布操作验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://github.com/jackwener/OpenCLI"
+      ]
+    },
+    {
+      "id": "exa",
+      "name": "Exa",
+      "stage": "01 需求与信息收集",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "exa.search"
+      ],
+      "native_actions": [
+        "exa.search"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Exa 网页搜索 / web research"
+      ],
+      "remaining_work": "真实搜索配额与结果来源验收；高级搜索、分页和资料更新策略。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://exa.ai/docs/reference/search"
+      ]
+    },
+    {
+      "id": "firecrawl",
+      "name": "Firecrawl",
+      "stage": "01 需求与信息收集",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "firecrawl.scrape"
+      ],
+      "native_actions": [
+        "firecrawl.scrape"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Firecrawl 网页转 Markdown"
+      ],
+      "remaining_work": "真实网站抓取、登录/反自动化边界、分页和作业恢复；保留资料来源。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.firecrawl.dev/api-reference/endpoint/scrape"
+      ]
+    },
+    {
+      "id": "apify",
+      "name": "Apify CLI / Actors",
+      "stage": "01 需求与信息收集",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "apify.run",
+        "apify.run_status",
+        "apify.dataset_items"
+      ],
+      "native_actions": [
+        "apify.run",
+        "apify.run_status",
+        "apify.dataset_items"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Start a selected Apify Actor",
+        "Read existing Actor run",
+        "Retrieve one bounded dataset page"
+      ],
+      "remaining_work": "Actor 级输出和费用约束、运行轮询到结果的复用工作流；当前分别提供提交、状态与数据页。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.apify.com/cli/docs"
+      ]
+    },
+    {
+      "id": "dataforseo",
+      "name": "DataForSEO",
+      "stage": "01 需求与信息收集",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "dataforseo.search_volume"
+      ],
+      "native_actions": [
+        "dataforseo.search_volume"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Keyword search-volume request"
+      ],
+      "remaining_work": "地域/语言与付费账户验收；扩展其他关键词接口与异步任务。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://dataforseo.com/apis/keyword-data-api"
+      ]
+    },
+    {
+      "id": "google_trends",
+      "name": "Google Trends API",
+      "stage": "01 需求与信息收集",
+      "status": "handoff_only",
+      "priority": "P2",
+      "action_ids": [
+        "google_trends.handoff"
+      ],
+      "native_actions": [],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "google_trends.handoff"
+      ],
+      "implemented_scope": [
+        "Google Trends browser research"
+      ],
+      "remaining_work": "官方 API alpha 准入与账号验收；本版只产出浏览器任务单。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.google.com/search/apis/trends"
+      ]
+    },
+    {
+      "id": "youtube_data",
+      "name": "YouTube Data API",
+      "stage": "01 需求与信息收集",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "youtube.search",
+        "youtube.comments"
+      ],
+      "native_actions": [
+        "youtube.search",
+        "youtube.comments"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Search YouTube metadata (OAuth bearer)",
+        "Read one page of YouTube comment threads"
+      ],
+      "remaining_work": "OAuth 登录/刷新和上传流程；分页、权限与配额测试。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.google.com/youtube/v3/docs"
+      ]
+    },
+    {
+      "id": "gws",
+      "name": "Google Workspace CLI (gws)",
+      "stage": "02 需求验证、办公与项目记录",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "gws.drive_files",
+        "gws.gmail_messages",
+        "gws.calendar_events"
+      ],
+      "native_actions": [
+        "gws.drive_files",
+        "gws.gmail_messages",
+        "gws.calendar_events"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Google Workspace drive_files",
+        "Google Workspace gmail_messages",
+        "Google Workspace calendar_events"
+      ],
+      "remaining_work": "细粒度 OAuth 引导与续期、文档编辑和邮件发送；当前只有三个有限读取动作。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://github.com/googleworkspace/cli"
+      ]
+    },
+    {
+      "id": "notion",
+      "name": "Notion MCP",
+      "stage": "02 需求验证、办公与项目记录",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "notion.search",
+        "notion.create_page",
+        "notion.mcp_tools",
+        "notion.mcp_batch"
+      ],
+      "native_actions": [
+        "notion.search",
+        "notion.create_page"
+      ],
+      "mcp_bridge_actions": [
+        "notion.mcp_tools",
+        "notion.mcp_batch"
+      ],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Search connected Notion workspace",
+        "Create a Notion page",
+        "notion MCP tools",
+        "notion MCP batch"
+      ],
+      "remaining_work": "托管 MCP OAuth、工作区真实读写；版本特定文档结构验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.notion.com/guides/mcp/overview"
+      ]
+    },
+    {
+      "id": "linear",
+      "name": "Linear MCP",
+      "stage": "02 需求验证、办公与项目记录",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "linear.issues",
+        "linear.create_issue",
+        "linear.mcp_tools",
+        "linear.mcp_batch"
+      ],
+      "native_actions": [
+        "linear.issues",
+        "linear.create_issue"
+      ],
+      "mcp_bridge_actions": [
+        "linear.mcp_tools",
+        "linear.mcp_batch"
+      ],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read Linear issues",
+        "Create a Linear issue",
+        "linear MCP tools",
+        "linear MCP batch"
+      ],
+      "remaining_work": "托管 MCP OAuth、真实团队/权限回读和完整分页。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://linear.app/docs/mcp"
+      ]
+    },
+    {
+      "id": "tally",
+      "name": "Tally Webhooks",
+      "stage": "02 需求验证、办公与项目记录",
+      "status": "handoff_only",
+      "priority": "P1",
+      "action_ids": [
+        "tally.handoff"
+      ],
+      "native_actions": [],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "tally.handoff"
+      ],
+      "implemented_scope": [
+        "Tally survey and webhook setup"
+      ],
+      "remaining_work": "公共 webhook 接收器、签名校验、去重与响应持久化；当前只交接配置工作。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://tally.so/help/webhooks"
+      ]
+    },
+    {
+      "id": "typeform",
+      "name": "Typeform Developer Platform",
+      "stage": "02 需求验证、办公与项目记录",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "typeform.forms",
+        "typeform.responses",
+        "typeform.create"
+      ],
+      "native_actions": [
+        "typeform.forms",
+        "typeform.responses",
+        "typeform.create"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List Typeform forms",
+        "Read Typeform responses",
+        "Create a Typeform survey"
+      ],
+      "remaining_work": "真实账户创建/回读、webhook 收件与表单展示验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://www.typeform.com/developers/"
+      ]
+    },
+    {
+      "id": "pandoc",
+      "name": "Pandoc",
+      "stage": "02 需求验证、办公与项目记录",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "pandoc.to_markdown",
+        "pandoc.to_docx"
+      ],
+      "native_actions": [
+        "pandoc.to_markdown",
+        "pandoc.to_docx"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Convert a local document to Markdown",
+        "Convert local Markdown to DOCX"
+      ],
+      "remaining_work": "跨平台与复杂版式验收。DOCX 动作采用固定无过滤器命令并要求 execute_code，不宣称 Pandoc 沙箱隔离。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [
+        "pandoc.to_markdown",
+        "pandoc.to_docx"
+      ],
+      "sources": [
+        "https://pandoc.org/MANUAL.html"
+      ]
+    },
+    {
+      "id": "upwork",
+      "name": "Upwork",
+      "stage": "03 外包与人工工作交接",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "opencli.upwork_search",
+        "opencli.upwork_detail",
+        "upwork.handoff"
+      ],
+      "native_actions": [
+        "opencli.upwork_search",
+        "opencli.upwork_detail"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "upwork.handoff"
+      ],
+      "implemented_scope": [
+        "Read Upwork search via existing OpenCLI browser login",
+        "Read Upwork job details without applying or hiring",
+        "Upwork quotation and expert handoff"
+      ],
+      "remaining_work": "当前 OpenCLI 仅搜索/读取；官方 API 准入、报价/授标/付款均未自动实现。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://support.upwork.com/hc/en-us/articles/115015857647-How-to-request-an-API-key-from-Upwork",
+        "https://support.upwork.com/hc/en-us/sections/17976982721555-Upwork-API"
+      ]
+    },
+    {
+      "id": "freelancer",
+      "name": "Freelancer API",
+      "stage": "03 外包与人工工作交接",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "freelancer.active_projects",
+        "freelancer.handoff"
+      ],
+      "native_actions": [
+        "freelancer.active_projects"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "freelancer.handoff"
+      ],
+      "implemented_scope": [
+        "Search active Freelancer projects",
+        "Freelancer expert handoff"
+      ],
+      "remaining_work": "真实 API 权限及分页；选人、授标、里程碑与付款的分别审批。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.freelancer.com/"
+      ]
+    },
+    {
+      "id": "fiverr",
+      "name": "Fiverr",
+      "stage": "03 外包与人工工作交接",
+      "status": "handoff_only",
+      "priority": "P2",
+      "action_ids": [
+        "fiverr.handoff"
+      ],
+      "native_actions": [],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "fiverr.handoff"
+      ],
+      "implemented_scope": [
+        "Fiverr expert handoff"
+      ],
+      "remaining_work": "未依赖未经核实的通用 API；目前只生成并跟踪人工任务与文件交付。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://www.fiverr.com/"
+      ]
+    },
+    {
+      "id": "figma",
+      "name": "Figma MCP",
+      "stage": "04 设计与原始素材制作",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "figma.file",
+        "figma.mcp_tools",
+        "figma.mcp_batch"
+      ],
+      "native_actions": [
+        "figma.file"
+      ],
+      "mcp_bridge_actions": [
+        "figma.mcp_tools",
+        "figma.mcp_batch"
+      ],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read a Figma file tree",
+        "figma MCP tools",
+        "figma MCP batch"
+      ],
+      "remaining_work": "托管 MCP 认证与版本协商、真实文件写入和可编辑结构验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/",
+        "https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/"
+      ]
+    },
+    {
+      "id": "fal",
+      "name": "fal",
+      "stage": "04 设计与原始素材制作",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "fal.generate"
+      ],
+      "native_actions": [
+        "fal.generate"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "fal 多模型图片、视频、音频、3D"
+      ],
+      "remaining_work": "模型级 schema/价格同步、真实付费请求、下载与费用对账。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://fal.ai/docs/documentation/model-apis/inference/queue"
+      ]
+    },
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "stage": "04 设计与原始素材制作",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "elevenlabs.tts",
+        "elevenlabs.web"
+      ],
+      "native_actions": [
+        "elevenlabs.tts"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "elevenlabs.web"
+      ],
+      "implemented_scope": [
+        "ElevenLabs 文字转语音 / narration",
+        "ElevenLabs 网页语音"
+      ],
+      "remaining_work": "真实音色权限、音频质量、用量与账单验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://elevenlabs.io/docs/api-reference/text-to-speech/convert"
+      ]
+    },
+    {
+      "id": "higgsfield",
+      "name": "Higgsfield",
+      "stage": "04 设计与原始素材制作",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "higgsfield.generate",
+        "higgsfield.web"
+      ],
+      "native_actions": [
+        "higgsfield.generate"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "higgsfield.web"
+      ],
+      "implemented_scope": [
+        "Higgsfield API 图片 / 视频",
+        "Higgsfield 网页会员创作"
+      ],
+      "remaining_work": "真实 API/网页两个计费路径独立验收；不自动跨账号或跨余额回退。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://higgsfield.ai/creator-hub/help-center/integrations/what-is-the-higgsfield-api"
+      ]
+    },
+    {
+      "id": "tripo",
+      "name": "Tripo",
+      "stage": "04 设计与原始素材制作",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "tripo.text_to_3d",
+        "tripo.web"
+      ],
+      "native_actions": [
+        "tripo.text_to_3d"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "tripo.web"
+      ],
+      "implemented_scope": [
+        "Tripo 文本生成 GLB / text to 3D",
+        "Tripo Studio 网页生成 3D"
+      ],
+      "remaining_work": "真实模型任务、材质/拓扑与网页端 GLB 性能验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.tripo3d.ai/en/docs/sdk"
+      ]
+    },
+    {
+      "id": "xyq",
+      "name": "小云雀 CLI",
+      "stage": "04 设计与原始素材制作",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "xyq.image",
+        "xyq.video"
+      ],
+      "native_actions": [
+        "xyq.image",
+        "xyq.video"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "小云雀 CLI image",
+        "小云雀 CLI video"
+      ],
+      "remaining_work": "在安装官方 CLI 并登录的设备上验证真实生图/生视频；不搬运原始网页登录凭证。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://github.com/Pippit-dev/cli"
+      ]
+    },
+    {
+      "id": "comfyui",
+      "name": "ComfyUI",
+      "stage": "04 设计与原始素材制作",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "comfyui.queue",
+        "comfyui.submit",
+        "comfyui.history"
+      ],
+      "native_actions": [
+        "comfyui.queue",
+        "comfyui.submit",
+        "comfyui.history"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read explicitly configured local ComfyUI queue",
+        "Submit an approved local ComfyUI workflow",
+        "Get completed ComfyUI history"
+      ],
+      "remaining_work": "已安装模型/节点的真实队列验收；模型资源和节点代码并不由 ATM 提供或沙箱化。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.comfy.org/development/comfyui-server/comms_routes"
+      ]
+    },
+    {
+      "id": "pexels",
+      "name": "Pexels API",
+      "stage": "04 设计与原始素材制作",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "pexels.web",
+        "pexels.photos",
+        "pexels.videos"
+      ],
+      "native_actions": [
+        "pexels.photos",
+        "pexels.videos"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "pexels.web"
+      ],
+      "implemented_scope": [
+        "Pexels 可授权图片与视频素材",
+        "Search Pexels stock photos",
+        "Search Pexels stock video"
+      ],
+      "remaining_work": "真实 API 查询、分页与素材许可/来源留存；本版不自动下载所有检索结果。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://www.pexels.com/api/documentation/"
+      ]
+    },
+    {
+      "id": "ffmpeg",
+      "name": "FFmpeg / FFprobe",
+      "stage": "05 修改、后期处理与资产验收",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "ffmpeg.probe",
+        "ffmpeg.audio_to_mp3",
+        "ffmpeg.trim",
+        "ffmpeg.thumbnail"
+      ],
+      "native_actions": [
+        "ffmpeg.probe",
+        "ffmpeg.audio_to_mp3",
+        "ffmpeg.trim",
+        "ffmpeg.thumbnail"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "ffprobe 检查媒体格式与时长",
+        "FFmpeg 本地音频转 MP3",
+        "Trim a local video or audio clip",
+        "Extract a video thumbnail"
+      ],
+      "remaining_work": "增补字幕、拼接、混音等经过独立测试的动作；音视频内容质量另行判断。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [
+        "ffmpeg.probe",
+        "ffmpeg.audio_to_mp3",
+        "ffmpeg.trim",
+        "ffmpeg.thumbnail"
+      ],
+      "sources": [
+        "https://ffmpeg.org/ffmpeg.html",
+        "https://ffmpeg.org/ffprobe.html"
+      ]
+    },
+    {
+      "id": "imagemagick",
+      "name": "ImageMagick",
+      "stage": "05 修改、后期处理与资产验收",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "imagemagick.resize",
+        "imagemagick.webp"
+      ],
+      "native_actions": [
+        "imagemagick.resize",
+        "imagemagick.webp"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Resize a local raster image",
+        "Convert a raster image to WebP"
+      ],
+      "remaining_work": "更多固定编辑操作、资源配额、跨平台与异常图片测试。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [
+        "imagemagick.resize",
+        "imagemagick.webp"
+      ],
+      "sources": [
+        "https://imagemagick.org/command-line-tools/"
+      ]
+    },
+    {
+      "id": "remotion",
+      "name": "Remotion",
+      "stage": "05 修改、后期处理与资产验收",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "remotion.compositions",
+        "remotion.render"
+      ],
+      "native_actions": [
+        "remotion.compositions",
+        "remotion.render"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Inspect a trusted Remotion project",
+        "Render an existing Remotion composition"
+      ],
+      "remaining_work": "安装对应版本与运行真实项目；模板、字体和许可由项目维护，不自动安装运行陌生代码。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://www.remotion.dev/docs/cli"
+      ]
+    },
+    {
+      "id": "photopea",
+      "name": "Photopea Scripting API",
+      "stage": "05 修改、后期处理与资产验收",
+      "status": "handoff_only",
+      "priority": "P1",
+      "action_ids": [
+        "photopea.web",
+        "photopea.handoff"
+      ],
+      "native_actions": [],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "photopea.web",
+        "photopea.handoff"
+      ],
+      "implemented_scope": [
+        "Photopea 网页图片编辑",
+        "Photopea layered source editing"
+      ],
+      "remaining_work": "浏览器内脚本桥接与 PSD 图层验收；本版交接，不自动执行用户脚本。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://www.photopea.com/api/"
+      ]
+    },
+    {
+      "id": "whisper_cpp",
+      "name": "whisper.cpp",
+      "stage": "05 修改、后期处理与资产验收",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "whisper.transcribe"
+      ],
+      "native_actions": [
+        "whisper.transcribe"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Transcribe local WAV with whisper.cpp"
+      ],
+      "remaining_work": "模型安装与真实语音转写、字幕时间轴/语言质量验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://github.com/ggml-org/whisper.cpp"
+      ]
+    },
+    {
+      "id": "blender",
+      "name": "Blender",
+      "stage": "05 修改、后期处理与资产验收",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "blender.inspect",
+        "blender.render"
+      ],
+      "native_actions": [
+        "blender.inspect",
+        "blender.render"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Inspect a blend project without auto-run scripts",
+        "Render one frame of an approved blend project"
+      ],
+      "remaining_work": "安装 Blender 后验证两个打包脚本；模型优化、动画、材质及 GPU 渲染矩阵。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.blender.org/api/current/",
+        "https://docs.blender.org/manual/zh-hans/4.4/advanced/command_line/arguments.html"
+      ]
+    },
+    {
+      "id": "gltf_transform",
+      "name": "glTF Transform",
+      "stage": "05 修改、后期处理与资产验收",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "gltf.inspect",
+        "gltf.optimize"
+      ],
+      "native_actions": [
+        "gltf.inspect",
+        "gltf.optimize"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Inspect glTF/GLB structure",
+        "Optimize a GLB for web delivery"
+      ],
+      "remaining_work": "实际 CLI 与模型检查/优化结果；不把 GLB 体积变小当成视觉无损证明。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://gltf-transform.dev/cli"
+      ]
+    },
+    {
+      "id": "marvelous_designer",
+      "name": "Marvelous Designer",
+      "stage": "06 服装、工业与硬件",
+      "status": "handoff_only",
+      "priority": "P2",
+      "action_ids": [
+        "marvelous_designer.handoff"
+      ],
+      "native_actions": [],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "marvelous_designer.handoff"
+      ],
+      "implemented_scope": [
+        "Marvelous Designer garment workflow"
+      ],
+      "remaining_work": "需要有许可且已安装的桌面软件和匹配版本 Python API；原生脚本自动执行、工程输出、试穿/打样未实现。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developer.marvelousdesigner.com/",
+        "https://developer.marvelousdesigner.com/python.html"
+      ]
+    },
+    {
+      "id": "clo",
+      "name": "CLO",
+      "stage": "06 服装、工业与硬件",
+      "status": "handoff_only",
+      "priority": "P2",
+      "action_ids": [
+        "clo.handoff"
+      ],
+      "native_actions": [],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "clo.handoff"
+      ],
+      "implemented_scope": [
+        "CLO garment and BOM workflow"
+      ],
+      "remaining_work": "需要已许可桌面环境；自动导出工程、BOM/纸样及实物打样验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developer.clo3d.com/",
+        "https://support.clo3d.com/hc/en-us/articles/115000525207-BOM-XML-Export"
+      ]
+    },
+    {
+      "id": "freecad",
+      "name": "FreeCAD",
+      "stage": "06 服装、工业与硬件",
+      "status": "handoff_only",
+      "priority": "P2",
+      "action_ids": [
+        "freecad.handoff"
+      ],
+      "native_actions": [],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "freecad.handoff"
+      ],
+      "implemented_scope": [
+        "FreeCAD parametric engineering handoff"
+      ],
+      "remaining_work": "安装并验证 FreeCAD Python/控制台，参数化脚本、FCStd 与制造文件导出；本版桌面交接。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://www.freecad.org/features.php"
+      ]
+    },
+    {
+      "id": "kicad",
+      "name": "KiCad CLI",
+      "stage": "06 服装、工业与硬件",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "kicad.drc",
+        "kicad.gerbers"
+      ],
+      "native_actions": [
+        "kicad.drc",
+        "kicad.gerbers"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Run PCB design-rule checks",
+        "Export PCB Gerber files"
+      ],
+      "remaining_work": "安装匹配 KiCad 后用真实板卡进行 DRC/Gerber 验收；实板安全与电路效果另行评审。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.kicad.org/9.0/en/cli/cli.html"
+      ]
+    },
+    {
+      "id": "github_cli",
+      "name": "GitHub CLI (gh)",
+      "stage": "07 开发、调试与验收",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "github.repo",
+        "github.issues",
+        "github.runs",
+        "github.pr_checks",
+        "github.create_issue"
+      ],
+      "native_actions": [
+        "github.repo",
+        "github.issues",
+        "github.runs",
+        "github.pr_checks",
+        "github.create_issue"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "GitHub repo",
+        "GitHub issues",
+        "GitHub runs",
+        "GitHub pr_checks",
+        "Create GitHub issue"
+      ],
+      "remaining_work": "真实 gh 登录与指定仓库权限、CI 回查；暂不提供自动 merge 或任意 shell。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://cli.github.com/manual/"
+      ]
+    },
+    {
+      "id": "docker",
+      "name": "Docker",
+      "stage": "07 开发、调试与验收",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "docker.ps",
+        "docker.build"
+      ],
+      "native_actions": [
+        "docker.ps",
+        "docker.build"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Inspect Docker containers",
+        "Build an approved Docker project"
+      ],
+      "remaining_work": "真实 Docker 守护进程与受控构建；不把 Docker socket 当作安全沙箱。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.docker.com/reference/cli/docker/"
+      ]
+    },
+    {
+      "id": "playwright",
+      "name": "Playwright CLI / MCP",
+      "stage": "07 开发、调试与验收",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "playwright.test",
+        "playwright.mcp_tools",
+        "playwright.mcp_batch"
+      ],
+      "native_actions": [
+        "playwright.test"
+      ],
+      "mcp_bridge_actions": [
+        "playwright.mcp_tools",
+        "playwright.mcp_batch"
+      ],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Run existing trusted Playwright tests",
+        "playwright MCP tools",
+        "playwright MCP batch"
+      ],
+      "remaining_work": "真实应用端到端测试与账号授权；MCP 仅协议桥，不假设自带浏览器登录。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://github.com/microsoft/playwright-mcp"
+      ]
+    },
+    {
+      "id": "chrome_devtools",
+      "name": "Chrome DevTools MCP",
+      "stage": "07 开发、调试与验收",
+      "status": "mcp_bridge",
+      "priority": "P0",
+      "action_ids": [
+        "chrome_devtools.mcp_tools",
+        "chrome_devtools.mcp_batch"
+      ],
+      "native_actions": [],
+      "mcp_bridge_actions": [
+        "chrome_devtools.mcp_tools",
+        "chrome_devtools.mcp_batch"
+      ],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "chrome_devtools MCP tools",
+        "chrome_devtools MCP batch"
+      ],
+      "remaining_work": "连接已批准的调试浏览器，发现真实工具并加入白名单后验收；未内置浏览器实例管理。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://github.com/ChromeDevTools/chrome-devtools-mcp"
+      ]
+    },
+    {
+      "id": "cloudflare_wrangler",
+      "name": "Cloudflare Wrangler",
+      "stage": "08 部署与软件分发",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "wrangler.deployments",
+        "wrangler.build",
+        "wrangler.preview",
+        "wrangler.deploy",
+        "wrangler.d1_list",
+        "wrangler.d1_local"
+      ],
+      "native_actions": [
+        "wrangler.deployments",
+        "wrangler.build",
+        "wrangler.preview",
+        "wrangler.deploy",
+        "wrangler.d1_list",
+        "wrangler.d1_local"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read Worker deployment history",
+        "Build Worker without deployment",
+        "Create Worker preview deployment (requires compatible Wrangler)",
+        "Deploy Worker to named environment",
+        "List D1 databases",
+        "Execute reviewed local D1 SQL"
+      ],
+      "remaining_work": "真实账号预览/生产部署、费用、HTTP 与业务回读；数据存储需独立回滚方案。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.cloudflare.com/workers/wrangler/",
+        "https://developers.cloudflare.com/workers/wrangler/commands/"
+      ]
+    },
+    {
+      "id": "cloudflared",
+      "name": "Cloudflare Tunnel / cloudflared",
+      "stage": "08 部署与软件分发",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "cloudflared.tunnels"
+      ],
+      "native_actions": [
+        "cloudflared.tunnels"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List named Cloudflare tunnels"
+      ],
+      "remaining_work": "当前只列出现有命名 Tunnel；长驻进程监督、启动/停止/健康检查和共享 URL 生命周期尚未实现。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.cloudflare.com/tunnel/get-started/"
+      ]
+    },
+    {
+      "id": "cloudflare_dns",
+      "name": "Cloudflare DNS API",
+      "stage": "08 部署与软件分发",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "cloudflare.dns_list",
+        "cloudflare.dns_create"
+      ],
+      "native_actions": [
+        "cloudflare.dns_list",
+        "cloudflare.dns_create"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read Cloudflare DNS records",
+        "Create a Cloudflare DNS record"
+      ],
+      "remaining_work": "真实受限域名 token 的记录创建/传播回查；未实现域名购买或全账户 DNS 任意修改。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.cloudflare.com/api/resources/dns/subresources/records/"
+      ]
+    },
+    {
+      "id": "vercel",
+      "name": "Vercel CLI",
+      "stage": "08 部署与软件分发",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "vercel.list",
+        "vercel.preview",
+        "vercel.production"
+      ],
+      "native_actions": [
+        "vercel.list",
+        "vercel.preview",
+        "vercel.production"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List Vercel deployments",
+        "Deploy Vercel preview",
+        "Deploy Vercel production"
+      ],
+      "remaining_work": "账号与项目实测、部署 URL 验收、日志/回滚；生产和预览权限分开。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://vercel.com/docs/cli"
+      ]
+    },
+    {
+      "id": "supabase",
+      "name": "Supabase CLI",
+      "stage": "08 部署与软件分发",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "supabase.projects",
+        "supabase.migrations",
+        "supabase.db_push",
+        "supabase.function_deploy"
+      ],
+      "native_actions": [
+        "supabase.projects",
+        "supabase.migrations",
+        "supabase.db_push",
+        "supabase.function_deploy"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List Supabase projects",
+        "List linked Supabase migrations",
+        "Apply linked remote database migrations",
+        "Deploy one Supabase function"
+      ],
+      "remaining_work": "生产迁移恢复演练、真实 Function 回查；读取动作不导出服务密钥。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://supabase.com/docs/reference/cli/introduction"
+      ]
+    },
+    {
+      "id": "expo_eas",
+      "name": "Expo EAS",
+      "stage": "08 部署与软件分发",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "eas.build_list",
+        "eas.build"
+      ],
+      "native_actions": [
+        "eas.build_list",
+        "eas.build"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List Expo EAS builds",
+        "Submit an Expo build, without waiting"
+      ],
+      "remaining_work": "当前提交构建与查看构建，不包含应用商店提交/签名自动管理；提交不等于构建或上架完成。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.expo.dev/eas/"
+      ]
+    },
+    {
+      "id": "godot",
+      "name": "Godot command line",
+      "stage": "08 部署与软件分发",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "godot.export"
+      ],
+      "native_actions": [
+        "godot.export"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Export an existing Godot project"
+      ],
+      "remaining_work": "真实引擎、导出模板和可运行游戏验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html"
+      ]
+    },
+    {
+      "id": "itch_butler",
+      "name": "itch.io butler",
+      "stage": "08 部署与软件分发",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "butler.status",
+        "butler.push"
+      ],
+      "native_actions": [
+        "butler.status",
+        "butler.push"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read itch.io channel status",
+        "Upload a game archive to itch.io"
+      ],
+      "remaining_work": "实际上传渠道和可见性验证；上传命令完成不等于发布内容获人工认可。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://itch.io/docs/butler/"
+      ]
+    },
+    {
+      "id": "buffer",
+      "name": "Buffer CLI / MCP / API",
+      "stage": "09 内容发布与营销",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "buffer.channels",
+        "buffer.posts",
+        "buffer.schedule",
+        "buffer.schema"
+      ],
+      "native_actions": [
+        "buffer.channels",
+        "buffer.posts",
+        "buffer.schedule",
+        "buffer.schema"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List connected Buffer channels",
+        "Read posts for a specific channel",
+        "Add a post to a channel queue",
+        "Read post creation schema from installed Buffer version"
+      ],
+      "remaining_work": "真实连接频道、排期与已发布状态回读；CLI schema 漂移和失败后的对账。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.buffer.com/guides/cli.html",
+        "https://buffer.com/resources/buffer-api-is-here/"
+      ]
+    },
+    {
+      "id": "postiz",
+      "name": "Postiz / Postiz Agent CLI",
+      "stage": "09 内容发布与营销",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "postiz.integrations",
+        "postiz.posts"
+      ],
+      "native_actions": [
+        "postiz.integrations",
+        "postiz.posts"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read Postiz connected channels",
+        "Read Postiz scheduled posts"
+      ],
+      "remaining_work": "当前读取集成和帖子；媒体上传、平台特有发布参数、排期写操作仍在计划。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://github.com/gitroomhq/postiz-app",
+        "https://github.com/gitroomhq/postiz-agent"
+      ]
+    },
+    {
+      "id": "tiktok_posting",
+      "name": "TikTok Content Posting API",
+      "stage": "09 内容发布与营销",
+      "status": "handoff_only",
+      "priority": "P2",
+      "action_ids": [
+        "tiktok_posting.handoff"
+      ],
+      "native_actions": [],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "tiktok_posting.handoff"
+      ],
+      "implemented_scope": [
+        "TikTok publishing approval"
+      ],
+      "remaining_work": "需要合规应用授权/审核及公开可见性条件；本版只交接，不自动上传发布。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.tiktok.com/docs/en/content-posting-api-get-started"
+      ]
+    },
+    {
+      "id": "wordpress",
+      "name": "WP-CLI",
+      "stage": "09 内容发布与营销",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "wordpress.posts",
+        "wordpress.draft"
+      ],
+      "native_actions": [
+        "wordpress.posts",
+        "wordpress.draft"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List WordPress posts",
+        "Create WordPress draft from local content"
+      ],
+      "remaining_work": "真实站点草稿/读取；主题插件与数据库高风险维护未开放。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developer.wordpress.org/cli/commands/"
+      ]
+    },
+    {
+      "id": "ghost",
+      "name": "Ghost Admin API",
+      "stage": "09 内容发布与营销",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "ghost.posts",
+        "ghost.draft"
+      ],
+      "native_actions": [
+        "ghost.posts",
+        "ghost.draft"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List Ghost posts",
+        "Create a Ghost draft"
+      ],
+      "remaining_work": "真实站点草稿回读、图片上传与公开发布的独立授权。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.ghost.org/admin-api/"
+      ]
+    },
+    {
+      "id": "google_ads",
+      "name": "Google Ads API",
+      "stage": "09 内容发布与营销",
+      "status": "handoff_only",
+      "priority": "P2",
+      "action_ids": [
+        "google_ads.handoff"
+      ],
+      "native_actions": [],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [
+        "google_ads.handoff"
+      ],
+      "implemented_scope": [
+        "Google Ads review and reporting handoff"
+      ],
+      "remaining_work": "开发者 token/OAuth 准入、报表与广告草稿；本版不运行广告或变更预算。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.google.com/google-ads/api/docs/get-started/introduction"
+      ]
+    },
+    {
+      "id": "stripe",
+      "name": "Stripe API / CLI",
+      "stage": "10 收款、交付、客服与协作",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "stripe.products",
+        "stripe.checkout_test",
+        "stripe.events"
+      ],
+      "native_actions": [
+        "stripe.products",
+        "stripe.checkout_test",
+        "stripe.events"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List Stripe products",
+        "Create a Stripe test checkout session",
+        "List Stripe events in CLI"
+      ],
+      "remaining_work": "仅测试 Key 的 Checkout 创建；webhook 验签和交付、真实收款/退款全部需额外实现和验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.stripe.com/cli"
+      ]
+    },
+    {
+      "id": "shopify_cli",
+      "name": "Shopify CLI",
+      "stage": "10 收款、交付、客服与协作",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "shopify.theme_list"
+      ],
+      "native_actions": [
+        "shopify.theme_list"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List Shopify themes"
+      ],
+      "remaining_work": "本版列出主题；主题构建/上传与应用发布需要真实店铺授权验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://shopify.dev/docs/api/shopify-cli"
+      ]
+    },
+    {
+      "id": "shopify_admin",
+      "name": "Shopify Admin GraphQL API",
+      "stage": "10 收款、交付、客服与协作",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "shopify.products",
+        "shopify.product_draft"
+      ],
+      "native_actions": [
+        "shopify.products",
+        "shopify.product_draft"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read Shopify product records",
+        "Create a Shopify product draft"
+      ],
+      "remaining_work": "本版产品读取与 DRAFT 创建；库存、公开上架、订单履约与退款分开实现。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://shopify.dev/docs/api/admin-graphql/latest"
+      ]
+    },
+    {
+      "id": "printful",
+      "name": "Printful API",
+      "stage": "10 收款、交付、客服与协作",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "printful.products",
+        "printful.order_draft"
+      ],
+      "native_actions": [
+        "printful.products",
+        "printful.order_draft"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read Printful product catalog",
+        "Create an unconfirmed Printful order"
+      ],
+      "remaining_work": "仅目录和未确认订单草稿；禁止自动确认生产/付款，实物履约单独验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.printful.com/docs/"
+      ]
+    },
+    {
+      "id": "resend",
+      "name": "Resend",
+      "stage": "10 收款、交付、客服与协作",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "resend.send"
+      ],
+      "native_actions": [
+        "resend.send"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Send an explicitly approved email"
+      ],
+      "remaining_work": "已验证发信域、明确收件人及真实邮件到达；退信、退订/收件事件未实现。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://resend.com/docs/introduction"
+      ]
+    },
+    {
+      "id": "hubspot",
+      "name": "HubSpot APIs",
+      "stage": "10 收款、交付、客服与协作",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "hubspot.contacts"
+      ],
+      "native_actions": [
+        "hubspot.contacts"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read one page of HubSpot contacts"
+      ],
+      "remaining_work": "当前只读取联系人；真实 CRM 写入、分页与团队工作流验收。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.hubspot.com/docs/api-reference/latest/overview"
+      ]
+    },
+    {
+      "id": "slack",
+      "name": "Slack APIs",
+      "stage": "10 收款、交付、客服与协作",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "slack.history",
+        "slack.send"
+      ],
+      "native_actions": [
+        "slack.history",
+        "slack.send"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read authorized channel history",
+        "Send an approved Slack message"
+      ],
+      "remaining_work": "真实工作区/频道最小权限与消息回读；不自动收集任意历史。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.slack.dev/apis/"
+      ]
+    },
+    {
+      "id": "telegram",
+      "name": "Telegram Bot API",
+      "stage": "10 收款、交付、客服与协作",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "telegram.me",
+        "telegram.send"
+      ],
+      "native_actions": [
+        "telegram.me",
+        "telegram.send"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Inspect the configured Telegram bot",
+        "Send an approved message to a chat"
+      ],
+      "remaining_work": "真实 Bot/chat 授权及消息回读；入站 webhook 和回调审批身份尚未实现。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://core.telegram.org/bots/api"
+      ]
+    },
+    {
+      "id": "posthog",
+      "name": "PostHog",
+      "stage": "11 数据反馈与持续运行",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "posthog.query",
+        "posthog.mcp_tools",
+        "posthog.mcp_batch"
+      ],
+      "native_actions": [
+        "posthog.query"
+      ],
+      "mcp_bridge_actions": [
+        "posthog.mcp_tools",
+        "posthog.mcp_batch"
+      ],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Run a project analytics query",
+        "posthog MCP tools",
+        "posthog MCP batch"
+      ],
+      "remaining_work": "实际埋点覆盖与查询验收、托管 MCP OAuth；查询成功不代表数据完整或分析正确。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://posthog.com/product-analytics",
+        "https://posthog.com/docs/model-context-protocol/cursor"
+      ]
+    },
+    {
+      "id": "sentry",
+      "name": "Sentry MCP",
+      "stage": "11 数据反馈与持续运行",
+      "status": "native_partial",
+      "priority": "P0",
+      "action_ids": [
+        "sentry.issues",
+        "sentry.mcp_tools",
+        "sentry.mcp_batch"
+      ],
+      "native_actions": [
+        "sentry.issues"
+      ],
+      "mcp_bridge_actions": [
+        "sentry.mcp_tools",
+        "sentry.mcp_batch"
+      ],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read Sentry project issues",
+        "sentry MCP tools",
+        "sentry MCP batch"
+      ],
+      "remaining_work": "真实项目错误、MCP 工具兼容、修复后复测；不会自动关闭 Issue 或宣称错误消失。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://mcp.sentry.dev/"
+      ]
+    },
+    {
+      "id": "search_console",
+      "name": "Google Search Console API",
+      "stage": "11 数据反馈与持续运行",
+      "status": "native_partial",
+      "priority": "P1",
+      "action_ids": [
+        "search_console.sites"
+      ],
+      "native_actions": [
+        "search_console.sites"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "List authorized Search Console sites"
+      ],
+      "remaining_work": "当前只列站点；搜索表现查询、分页和数据窗口检查尚未实现。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.google.com/webmaster-tools/"
+      ]
+    },
+    {
+      "id": "youtube_analytics",
+      "name": "YouTube Analytics API",
+      "stage": "11 数据反馈与持续运行",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "youtube.analytics"
+      ],
+      "native_actions": [
+        "youtube.analytics"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read authorized channel analytics"
+      ],
+      "remaining_work": "真实频道 OAuth 与报告权限、覆盖窗口及分页；不提供竞品内部数据。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://developers.google.com/youtube/analytics"
+      ]
+    },
+    {
+      "id": "n8n",
+      "name": "n8n",
+      "stage": "11 数据反馈与持续运行",
+      "status": "native_partial",
+      "priority": "P2",
+      "action_ids": [
+        "n8n.workflows",
+        "n8n.activate"
+      ],
+      "native_actions": [
+        "n8n.workflows",
+        "n8n.activate"
+      ],
+      "mcp_bridge_actions": [],
+      "handoff_actions": [],
+      "implemented_scope": [
+        "Read configured n8n workflow page",
+        "Activate an existing n8n workflow"
+      ],
+      "remaining_work": "已有工作流读取/激活；签名入站接收和长流程调度依赖实际 n8n 部署，不是 ATM 的后台承诺。",
+      "next_acceptance_gate": "安装和授权真实依赖后，以明确的小额或只读任务验收结果与权限；保存版本及证据。",
+      "native_vendor_live_tested": false,
+      "local_real_test_actions": [],
+      "sources": [
+        "https://docs.n8n.io/api"
+      ]
+    }
+  ],
+  "platform_roadmap": [
+    {
+      "id": "oauth",
+      "phase": "0.3 · 实际账号验收",
+      "name": "OAuth 登录和刷新",
+      "gate": "不复制明文令牌到 Agent 对话；撤销、失效和刷新失败均可复现。"
+    },
+    {
+      "id": "live-matrix",
+      "phase": "0.3 · 实际账号验收",
+      "name": "跨平台 CLI / SaaS 实测矩阵",
+      "gate": "先 Cloudflare、OpenCLI、Buffer、Figma；记录 OS、版本、权限和消费，不以模拟代替生产。"
+    },
+    {
+      "id": "webhook",
+      "phase": "0.3 · 事件与长任务",
+      "name": "Webhook 收件、签名校验、幂等与重放",
+      "gate": "Tally/Stripe/Resend 的重复或伪造事件不能引发重复发布/交付。"
+    },
+    {
+      "id": "supervisor",
+      "phase": "0.3 · 事件与长任务",
+      "name": "长驻进程与挂起工作流管理",
+      "gate": "Tunnel/MCP 进程启动、停止、恢复和崩溃回收可观测。"
+    },
+    {
+      "id": "desktop",
+      "phase": "0.4 · 垂直工具包",
+      "name": "Marvelous Designer / CLO / FreeCAD",
+      "gate": "许可软件 + 版本匹配脚本 + 可编辑工程和导出文件真实验收；实物另外确认。"
+    },
+    {
+      "id": "social",
+      "phase": "0.4 · 垂直工具包",
+      "name": "社交发布与外包采购",
+      "gate": "账号/素材/时间或合同/金额有独立批准；超时先对账，不盲目重发/付款。"
+    },
+    {
+      "id": "isolation",
+      "phase": "后续 · 强权限边界",
+      "name": "受限执行侧车与可信批准界面",
+      "gate": "不能由同一不可信 Agent 自己给自己升权；明确操作系统威胁模型。"
+    },
+    {
+      "id": "wallet",
+      "phase": "后续 · 可选托管平台",
+      "name": "统一余额、Crypto、报价和预算预留",
+      "gate": "合法供给、并发预留、最大成本、退款和对账先于商业开放；BYOK 永久可用。"
+    }
+  ]
+}

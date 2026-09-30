@@ -1,0 +1,33 @@
+{
+  "id": "custom.public_repo",
+  "provider": "github_public",
+  "title": "Public repository metadata",
+  "capabilities": [
+    "inspect"
+  ],
+  "adapter": "rest",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "owner": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+$"
+      },
+      "repo": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.-]+$"
+      }
+    },
+    "required": [
+      "owner",
+      "repo"
+    ],
+    "additionalProperties": false
+  },
+  "request": {
+    "origin": "https://api.github.com",
+    "path": "/repos/{owner}/{repo}",
+    "method": "GET",
+    "auth": "none"
+  }
+}

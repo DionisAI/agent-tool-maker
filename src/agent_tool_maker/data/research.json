@@ -1,0 +1,1618 @@
+{
+  "title": "ATR 工具能力地图与接入候选",
+  "schema_version": "research_catalog/1.0",
+  "review_date": "2026-09-29",
+  "scope": "老板使用 Agent 从需求发现到制作、发布、收款、运营和外包交接",
+  "record_count": 66,
+  "important": "调研目录，不是可执行插件配置；本轮没有修改 ATR v0.1、安装全部工具、执行生产账号测试或产生外部写操作。",
+  "priority_definition": {
+    "P0": "建议先接入或保留的通用主路径",
+    "P1": "第二批，按实际任务需求接入",
+    "P2": "垂直领域或有额外准入条件，需求出现后再接入"
+  },
+  "priority_is": "作者的工程优先级判断，不是市场份额或实际调用量排名",
+  "verification_note": "来源核查与实际接入/生产验收是不同维度；所有本轮 live_tested 均为 false。现有项目能力仅按已提供的 v0.1 工具目录标记。",
+  "records": [
+    {
+      "id": "opencli",
+      "name": "OpenCLI",
+      "stage": "01 需求与信息收集",
+      "interfaces": [
+        "cli",
+        "browser"
+      ],
+      "capabilities": [
+        "社交搜索",
+        "阅读帖子评论",
+        "浏览器操作"
+      ],
+      "recommended_use": "复用已登录浏览器和现有站点命令；先读取实际命令注册表，再选择可用动作。",
+      "limitations": "社区项目，不等于每个平台官方支持；按安装版本、账户和命令实测。读取和发布必须分权限。",
+      "source_urls": [
+        "https://github.com/jackwener/OpenCLI"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_repository",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "exa",
+      "name": "Exa",
+      "stage": "01 需求与信息收集",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "网页检索",
+        "资料发现"
+      ],
+      "recommended_use": "保留现有搜索入口，返回来源和检索上下文。",
+      "limitations": "已有初版适配器不代表本轮实测生产 API。",
+      "source_urls": [
+        "https://exa.ai/docs/reference/search"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "existing_reference",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "firecrawl",
+      "name": "Firecrawl",
+      "stage": "01 需求与信息收集",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "网页提取",
+        "网页转Markdown"
+      ],
+      "recommended_use": "把找到的网页变成可处理资料，保存来源。",
+      "limitations": "登录页面、反自动化页面另行判断；不保证每个站点可提取。",
+      "source_urls": [
+        "https://docs.firecrawl.dev/api-reference/endpoint/scrape"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "existing_reference",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "apify",
+      "name": "Apify CLI / Actors",
+      "stage": "01 需求与信息收集",
+      "interfaces": [
+        "cli",
+        "api"
+      ],
+      "capabilities": [
+        "结构化采集",
+        "云端任务",
+        "数据集导出"
+      ],
+      "recommended_use": "复用特定网站 Actor，获取结构化记录。",
+      "limitations": "Actor 的维护者、收费、权限与实际输出应逐个验收，平台接入不等于全部 Actor 验证。",
+      "source_urls": [
+        "https://docs.apify.com/cli/docs"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "dataforseo",
+      "name": "DataForSEO",
+      "stage": "01 需求与信息收集",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "关键词数据",
+        "搜索需求",
+        "SEO研究"
+      ],
+      "recommended_use": "补充搜索量、竞争和商业关键词数据。",
+      "limitations": "搜索量或 CPC 不是付费意愿的直接证明；注意地区、时间和数据来源。",
+      "source_urls": [
+        "https://dataforseo.com/apis/keyword-data-api"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "google_trends",
+      "name": "Google Trends API",
+      "stage": "01 需求与信息收集",
+      "interfaces": [
+        "api",
+        "browser"
+      ],
+      "capabilities": [
+        "趋势变化",
+        "地域比较"
+      ],
+      "recommended_use": "辅助判断需求季节性与热度变化。",
+      "limitations": "官方 API 仍为申请访问的 alpha，不应列为人人可即用的依赖；网页路线独立。",
+      "source_urls": [
+        "https://developers.google.com/search/apis/trends"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "youtube_data",
+      "name": "YouTube Data API",
+      "stage": "01 需求与信息收集",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "视频信息",
+        "评论",
+        "搜索",
+        "授权上传"
+      ],
+      "recommended_use": "研究内容和用户反馈；上传作为独立写动作处理。",
+      "limitations": "配额和 OAuth 权限按动作区分；不提供任意下载或再剪辑授权。",
+      "source_urls": [
+        "https://developers.google.com/youtube/v3/docs"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "gws",
+      "name": "Google Workspace CLI (gws)",
+      "stage": "02 需求验证、办公与项目记录",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "邮件",
+        "日历",
+        "文档",
+        "表格",
+        "文件"
+      ],
+      "recommended_use": "连接老板已有的工作资料、客户沟通与决策记录。",
+      "limitations": "googleworkspace 组织仓库明确说明不是 Google 官方支持产品；OAuth 范围按需授权。",
+      "source_urls": [
+        "https://github.com/googleworkspace/cli"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_repository",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "notion",
+      "name": "Notion MCP",
+      "stage": "02 需求验证、办公与项目记录",
+      "interfaces": [
+        "mcp"
+      ],
+      "capabilities": [
+        "知识库",
+        "页面",
+        "任务记录"
+      ],
+      "recommended_use": "保存需求、研究证据和项目约束。",
+      "limitations": "由用户连接工作区；不同资源按权限可见。",
+      "source_urls": [
+        "https://developers.notion.com/guides/mcp/overview"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "linear",
+      "name": "Linear MCP",
+      "stage": "02 需求验证、办公与项目记录",
+      "interfaces": [
+        "mcp"
+      ],
+      "capabilities": [
+        "工单",
+        "项目",
+        "评论"
+      ],
+      "recommended_use": "拆解工作、保存验收条件和阻塞项。",
+      "limitations": "写入和读取分开；不要求没有 Linear 的个人开发者额外开户。",
+      "source_urls": [
+        "https://linear.app/docs/mcp"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "tally",
+      "name": "Tally Webhooks",
+      "stage": "02 需求验证、办公与项目记录",
+      "interfaces": [
+        "webhook",
+        "browser"
+      ],
+      "capabilities": [
+        "表单收集",
+        "提交事件"
+      ],
+      "recommended_use": "收集候补名单、用户访谈和需求反馈。",
+      "limitations": "这里确认的是 webhook；没有把表单全生命周期都宣称为 API 自动化。",
+      "source_urls": [
+        "https://tally.so/help/webhooks"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "typeform",
+      "name": "Typeform Developer Platform",
+      "stage": "02 需求验证、办公与项目记录",
+      "interfaces": [
+        "api",
+        "webhook"
+      ],
+      "capabilities": [
+        "创建表单",
+        "读取回答",
+        "响应通知"
+      ],
+      "recommended_use": "需要 API 创建问卷时的替代方案。",
+      "limitations": "不同接口、套餐和权限需实际验收。",
+      "source_urls": [
+        "https://www.typeform.com/developers/"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "pandoc",
+      "name": "Pandoc",
+      "stage": "02 需求验证、办公与项目记录",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "文档转换",
+        "提案输出",
+        "交付文档"
+      ],
+      "recommended_use": "整理需求、说明和交付材料。",
+      "limitations": "格式转换不保证复杂排版完全保真；需要可读性验收。",
+      "source_urls": [
+        "https://pandoc.org/MANUAL.html"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "upwork",
+      "name": "Upwork",
+      "stage": "03 外包与人工工作交接",
+      "interfaces": [
+        "api",
+        "browser",
+        "human_handoff"
+      ],
+      "capabilities": [
+        "研究外包需求",
+        "项目沟通",
+        "寻找承包人"
+      ],
+      "recommended_use": "既可观察付费需求，也可把专家任务交给人。",
+      "limitations": "API 有严格资格与审核；一般申请面向内部用途，商业集成需另获许可。不能承诺任意职位抓取。",
+      "source_urls": [
+        "https://support.upwork.com/hc/en-us/articles/115015857647-How-to-request-an-API-key-from-Upwork",
+        "https://support.upwork.com/hc/en-us/sections/17976982721555-Upwork-API"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "freelancer",
+      "name": "Freelancer API",
+      "stage": "03 外包与人工工作交接",
+      "interfaces": [
+        "api",
+        "human_handoff"
+      ],
+      "capabilities": [
+        "项目",
+        "竞赛",
+        "自由职业者协作"
+      ],
+      "recommended_use": "将询价、提交任务、里程碑和验收建模为可跟踪的人工任务。",
+      "limitations": "API 支持范围和账户需验收；选人、预算、授标和付款是不同审批动作。",
+      "source_urls": [
+        "https://developers.freelancer.com/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "fiverr",
+      "name": "Fiverr",
+      "stage": "03 外包与人工工作交接",
+      "interfaces": [
+        "browser",
+        "human_handoff"
+      ],
+      "capabilities": [
+        "专家服务采购",
+        "服务比较"
+      ],
+      "recommended_use": "用于 Logo、剪辑、翻译、专业设计等明确交付任务。",
+      "limitations": "本轮未验证通用公开 API，按网页与人工交接候选处理；不将存在网页视为可无限自动抓取。",
+      "source_urls": [
+        "https://www.fiverr.com/"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_website",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "figma",
+      "name": "Figma MCP",
+      "stage": "04 设计与原始素材制作",
+      "interfaces": [
+        "mcp"
+      ],
+      "capabilities": [
+        "设计读取",
+        "原生画布写入",
+        "设计系统"
+      ],
+      "recommended_use": "读取既有组件并产出可编辑界面，而不仅是效果图。",
+      "limitations": "写入需要相应席位与文件编辑权限；并非所有客户端、工具和账户都具备相同能力。",
+      "source_urls": [
+        "https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/",
+        "https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "fal",
+      "name": "fal",
+      "stage": "04 设计与原始素材制作",
+      "interfaces": [
+        "api",
+        "cli"
+      ],
+      "capabilities": [
+        "图片",
+        "视频",
+        "音频",
+        "3D"
+      ],
+      "recommended_use": "复用初版聚合生成入口，减少重复供应商集成。",
+      "limitations": "具体模型参数、收费、许可和输出按模型独立处理。",
+      "source_urls": [
+        "https://fal.ai/docs/documentation/model-apis/inference/queue"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "existing_reference",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "stage": "04 设计与原始素材制作",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "语音生成"
+      ],
+      "recommended_use": "保留现有旁白入口。",
+      "limitations": "权限、音色和用量按账户；本轮不重复声称生产调用成功。",
+      "source_urls": [
+        "https://elevenlabs.io/docs/api-reference/text-to-speech/convert"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "existing_reference",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "higgsfield",
+      "name": "Higgsfield",
+      "stage": "04 设计与原始素材制作",
+      "interfaces": [
+        "api",
+        "cli",
+        "browser"
+      ],
+      "capabilities": [
+        "图像",
+        "视频"
+      ],
+      "recommended_use": "保留 API 和网页账号路线。",
+      "limitations": "API 美元余额与网页版/CLI 计划额度不应混为一体，切换计费来源需明确。",
+      "source_urls": [
+        "https://higgsfield.ai/creator-hub/help-center/integrations/what-is-the-higgsfield-api"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "existing_reference",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "tripo",
+      "name": "Tripo",
+      "stage": "04 设计与原始素材制作",
+      "interfaces": [
+        "api",
+        "browser"
+      ],
+      "capabilities": [
+        "3D生成"
+      ],
+      "recommended_use": "保留 3D 生成与网页交接；后续交给编辑和优化工具。",
+      "limitations": "生成成功不等于模型满足项目性能或可制造要求。",
+      "source_urls": [
+        "https://developers.tripo3d.ai/en/docs/sdk"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "existing_reference",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "xyq",
+      "name": "小云雀 CLI",
+      "stage": "04 设计与原始素材制作",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "图片生成",
+        "视频生成"
+      ],
+      "recommended_use": "复用官方 CLI 登录，不搬运其会话秘密。",
+      "limitations": "具体命令与登录行为按已安装版本验收。",
+      "source_urls": [
+        "https://github.com/Pippit-dev/cli"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "existing_reference",
+      "evidence_type": "maintainer_repository",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "comfyui",
+      "name": "ComfyUI",
+      "stage": "04 设计与原始素材制作",
+      "interfaces": [
+        "local_api",
+        "websocket"
+      ],
+      "capabilities": [
+        "图像工作流",
+        "本地生成管线"
+      ],
+      "recommended_use": "接入本地或自管的生成节点图与队列。",
+      "limitations": "需要可用模型和计算资源；第三方节点不是默认可信代码。",
+      "source_urls": [
+        "https://docs.comfy.org/development/comfyui-server/comms_routes"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "pexels",
+      "name": "Pexels API",
+      "stage": "04 设计与原始素材制作",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "图片搜索",
+        "视频素材搜索"
+      ],
+      "recommended_use": "把现有网页素材入口升级为可搜索的结构化接口。",
+      "limitations": "保留来源与适用许可；不能推导所有第三方素材都可任意重用。",
+      "source_urls": [
+        "https://www.pexels.com/api/documentation/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "upgrade_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "ffmpeg",
+      "name": "FFmpeg / FFprobe",
+      "stage": "05 修改、后期处理与资产验收",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "媒体检查",
+        "转码",
+        "剪辑",
+        "音视频组合"
+      ],
+      "recommended_use": "从初版有限动作扩展常用后期处理。",
+      "limitations": "新增操作仍需实现与测试；不得把原本单一转码动作称为已覆盖完整编辑器。",
+      "source_urls": [
+        "https://ffmpeg.org/ffmpeg.html",
+        "https://ffmpeg.org/ffprobe.html"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "upgrade_candidate",
+      "evidence_type": "maintainer_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "imagemagick",
+      "name": "ImageMagick",
+      "stage": "05 修改、后期处理与资产验收",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "图片转换",
+        "缩放",
+        "拼接",
+        "批处理"
+      ],
+      "recommended_use": "修改已有图片尺寸、布局和输出格式，不反复重新生图。",
+      "limitations": "限制输入大小、执行资源与读写目录。",
+      "source_urls": [
+        "https://imagemagick.org/command-line-tools/"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "remotion",
+      "name": "Remotion",
+      "stage": "05 修改、后期处理与资产验收",
+      "interfaces": [
+        "cli",
+        "code_library"
+      ],
+      "capabilities": [
+        "程序化视频",
+        "模板渲染",
+        "批量版本"
+      ],
+      "recommended_use": "把脚本、素材、字幕和时序做成可编辑视频项目。",
+      "limitations": "需要维护源代码及渲染环境；使用许可单独核对，不在此宣称全部商用免费。",
+      "source_urls": [
+        "https://www.remotion.dev/docs/cli"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "photopea",
+      "name": "Photopea Scripting API",
+      "stage": "05 修改、后期处理与资产验收",
+      "interfaces": [
+        "browser_script"
+      ],
+      "capabilities": [
+        "分层图像编辑",
+        "脚本化图像处理"
+      ],
+      "recommended_use": "升级现有网页交接，尽可能使用浏览器内脚本。",
+      "limitations": "这是浏览器应用接口，不是已验证的无界面云端 REST 渲染服务。",
+      "source_urls": [
+        "https://www.photopea.com/api/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "upgrade_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "whisper_cpp",
+      "name": "whisper.cpp",
+      "stage": "05 修改、后期处理与资产验收",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "本地语音转写"
+      ],
+      "recommended_use": "会议、访谈、视频音轨转文字供整理或字幕处理。",
+      "limitations": "转写质量随音质和语言变化；字幕时间轴与说话人等需求另行验证。",
+      "source_urls": [
+        "https://github.com/ggml-org/whisper.cpp"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_repository",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "blender",
+      "name": "Blender",
+      "stage": "05 修改、后期处理与资产验收",
+      "interfaces": [
+        "cli",
+        "desktop_script"
+      ],
+      "capabilities": [
+        "模型编辑",
+        "渲染",
+        "场景处理"
+      ],
+      "recommended_use": "把初版目录项升级为真实可执行的 3D 后处理。",
+      "limitations": "脚本需要受限运行；保留 .blend 源文件和导出结果；不自动执行不可信项目脚本。",
+      "source_urls": [
+        "https://docs.blender.org/api/current/",
+        "https://docs.blender.org/manual/zh-hans/4.4/advanced/command_line/arguments.html"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "upgrade_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "gltf_transform",
+      "name": "glTF Transform",
+      "stage": "05 修改、后期处理与资产验收",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "glTF检查",
+        "优化",
+        "纹理和几何处理"
+      ],
+      "recommended_use": "让生成的 GLB 更适合网页加载，并输出实际检查报告。",
+      "limitations": "文件检查和优化不代表视觉效果或所有引擎兼容性已通过。",
+      "source_urls": [
+        "https://gltf-transform.dev/cli"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "marvelous_designer",
+      "name": "Marvelous Designer",
+      "stage": "06 服装、工业与硬件",
+      "interfaces": [
+        "desktop_script",
+        "computer_use"
+      ],
+      "capabilities": [
+        "服装3D",
+        "布料模拟",
+        "服装导入导出"
+      ],
+      "recommended_use": "优先使用官方 Python 脚本接口；必要时再做桌面操作交接。",
+      "limitations": "需已安装且有许可的软件和正确桌面环境；不是免费云 API，也不在此宣称完整 headless 自动化已验证。",
+      "source_urls": [
+        "https://developer.marvelousdesigner.com/",
+        "https://developer.marvelousdesigner.com/python.html"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "clo",
+      "name": "CLO",
+      "stage": "06 服装、工业与硬件",
+      "interfaces": [
+        "desktop_script",
+        "computer_use"
+      ],
+      "capabilities": [
+        "服装开发",
+        "服装工程资料",
+        "BOM导出"
+      ],
+      "recommended_use": "用于服装项目及物料资料交付；与打样验收衔接。",
+      "limitations": "数字衣服不能替代实物试穿和制造验证；BOM 导出不等于整套生产工艺已经完成。",
+      "source_urls": [
+        "https://developer.clo3d.com/",
+        "https://support.clo3d.com/hc/en-us/articles/115000525207-BOM-XML-Export"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "freecad",
+      "name": "FreeCAD",
+      "stage": "06 服装、工业与硬件",
+      "interfaces": [
+        "desktop_script"
+      ],
+      "capabilities": [
+        "参数化CAD",
+        "工程文件"
+      ],
+      "recommended_use": "适合实体产品、结构件和参数化几何。",
+      "limitations": "几何模型不等于已完成可制造性验证；应保留参数和工程源文件。",
+      "source_urls": [
+        "https://www.freecad.org/features.php"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "kicad",
+      "name": "KiCad CLI",
+      "stage": "06 服装、工业与硬件",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "电路设计检查",
+        "制造文件导出"
+      ],
+      "recommended_use": "电子产品项目中的设计检查和导出入口。",
+      "limitations": "电气安全、器件选型和实板验证不是 CLI 自动保证的。",
+      "source_urls": [
+        "https://docs.kicad.org/9.0/en/cli/cli.html"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "github_cli",
+      "name": "GitHub CLI (gh)",
+      "stage": "07 开发、调试与验收",
+      "interfaces": [
+        "cli",
+        "api"
+      ],
+      "capabilities": [
+        "仓库",
+        "Issue",
+        "PR",
+        "CI",
+        "Release"
+      ],
+      "recommended_use": "让项目资产、修改、测试与版本有可追踪记录。",
+      "limitations": "默认区分读、开 PR、合并、发布；不要因工具已连接就授予全部写权限。",
+      "source_urls": [
+        "https://cli.github.com/manual/"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "docker",
+      "name": "Docker",
+      "stage": "07 开发、调试与验收",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "运行环境",
+        "容器构建",
+        "本地服务"
+      ],
+      "recommended_use": "复现构建测试及依赖服务。",
+      "limitations": "Docker 权限影响宿主安全；不是任意命令的无条件安全沙箱。",
+      "source_urls": [
+        "https://docs.docker.com/reference/cli/docker/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "playwright",
+      "name": "Playwright CLI / MCP",
+      "stage": "07 开发、调试与验收",
+      "interfaces": [
+        "cli",
+        "mcp"
+      ],
+      "capabilities": [
+        "浏览器操作",
+        "自动化验收"
+      ],
+      "recommended_use": "测试页面表单、导航和关键用户流程。",
+      "limitations": "网站真实状态需要回读验收；不将一次点击成功视为业务完成。",
+      "source_urls": [
+        "https://github.com/microsoft/playwright-mcp"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_repository",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "chrome_devtools",
+      "name": "Chrome DevTools MCP",
+      "stage": "07 开发、调试与验收",
+      "interfaces": [
+        "mcp"
+      ],
+      "capabilities": [
+        "网络检查",
+        "控制台",
+        "性能调试"
+      ],
+      "recommended_use": "定位页面报错、资源失败与性能问题。",
+      "limitations": "需要连接正确浏览器实例；敏感请求和页面数据应限制日志暴露。",
+      "source_urls": [
+        "https://github.com/ChromeDevTools/chrome-devtools-mcp"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_repository",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "cloudflare_wrangler",
+      "name": "Cloudflare Wrangler",
+      "stage": "08 部署与软件分发",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "Workers开发部署",
+        "R2",
+        "D1",
+        "KV",
+        "平台资源"
+      ],
+      "recommended_use": "Web 产品优先接入的部署底座。",
+      "limitations": "不是覆盖所有 Cloudflare 账户功能的万能 CLI；数据库等状态需要独立变更和回滚策略。",
+      "source_urls": [
+        "https://developers.cloudflare.com/workers/wrangler/",
+        "https://developers.cloudflare.com/workers/wrangler/commands/"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "cloudflared",
+      "name": "Cloudflare Tunnel / cloudflared",
+      "stage": "08 部署与软件分发",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "本地预览",
+        "连接源站"
+      ],
+      "recommended_use": "把正在运行的本地服务交给别人预览。",
+      "limitations": "Tunnel 不等于把代码部署到云端；源站需要持续运行，Quick Tunnel 面向开发测试。",
+      "source_urls": [
+        "https://developers.cloudflare.com/tunnel/get-started/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "cloudflare_dns",
+      "name": "Cloudflare DNS API",
+      "stage": "08 部署与软件分发",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "域名解析",
+        "DNS记录"
+      ],
+      "recommended_use": "给部署结果连接自定义域名。",
+      "limitations": "DNS 写操作按域和记录授权；域名注册购买不是此接口同一项能力。",
+      "source_urls": [
+        "https://developers.cloudflare.com/api/resources/dns/subresources/records/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "vercel",
+      "name": "Vercel CLI",
+      "stage": "08 部署与软件分发",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "预览部署",
+        "生产部署"
+      ],
+      "recommended_use": "作为 Web 发布的可选路线，不必与 Cloudflare 同时首发。",
+      "limitations": "明确项目和环境；部署之后还需要 HTTP 与业务冒烟测试。",
+      "source_urls": [
+        "https://vercel.com/docs/cli"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "supabase",
+      "name": "Supabase CLI",
+      "stage": "08 部署与软件分发",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "本地后端",
+        "数据库迁移",
+        "Functions"
+      ],
+      "recommended_use": "给产品补数据库和后端开发流程。",
+      "limitations": "生产迁移具有数据副作用；需要独立批准及数据恢复策略。",
+      "source_urls": [
+        "https://supabase.com/docs/reference/cli/introduction"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "expo_eas",
+      "name": "Expo EAS",
+      "stage": "08 部署与软件分发",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "移动应用构建",
+        "提交",
+        "更新"
+      ],
+      "recommended_use": "未来 App 产品包的构建与提交入口。",
+      "limitations": "签名、开发者账户及商店审核仍需处理；提交不等于上架成功。",
+      "source_urls": [
+        "https://docs.expo.dev/eas/"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "godot",
+      "name": "Godot command line",
+      "stage": "08 部署与软件分发",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "游戏编辑",
+        "导出",
+        "自动化构建"
+      ],
+      "recommended_use": "游戏产品的构建入口。",
+      "limitations": "需要正确导出模板和项目配置；不代表素材和玩法已自动验收。",
+      "source_urls": [
+        "https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "itch_butler",
+      "name": "itch.io butler",
+      "stage": "08 部署与软件分发",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "游戏构建上传",
+        "分发"
+      ],
+      "recommended_use": "游戏包或交互作品的发布入口。",
+      "limitations": "上传渠道与可见性需要明确批准，回读最终构建状态。",
+      "source_urls": [
+        "https://itch.io/docs/butler/"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "buffer",
+      "name": "Buffer CLI / MCP / API",
+      "stage": "09 内容发布与营销",
+      "interfaces": [
+        "cli",
+        "mcp",
+        "api"
+      ],
+      "capabilities": [
+        "社交草稿",
+        "排期",
+        "多渠道发布"
+      ],
+      "recommended_use": "优先复用现有跨平台分发能力。",
+      "limitations": "先列出已连接渠道及支持动作；发帖需对账号、文案、素材和时间明确授权。",
+      "source_urls": [
+        "https://developers.buffer.com/guides/cli.html",
+        "https://buffer.com/resources/buffer-api-is-here/"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "postiz",
+      "name": "Postiz / Postiz Agent CLI",
+      "stage": "09 内容发布与营销",
+      "interfaces": [
+        "cli",
+        "api",
+        "mcp"
+      ],
+      "capabilities": [
+        "内容排期",
+        "素材上传",
+        "社交发布"
+      ],
+      "recommended_use": "希望自托管时的可选分发底座。",
+      "limitations": "开源不等于社交账户、API 条件或基础设施零成本；仓库许可 AGPL-3.0，不能直接当 MIT 代码复制。",
+      "source_urls": [
+        "https://github.com/gitroomhq/postiz-app",
+        "https://github.com/gitroomhq/postiz-agent"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_repository",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "tiktok_posting",
+      "name": "TikTok Content Posting API",
+      "stage": "09 内容发布与营销",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "授权内容发布"
+      ],
+      "recommended_use": "需要直连短视频平台时的候选。",
+      "limitations": "需要用户授权；未经审计的客户端发布受 private-only 等限制，不可默认公开发布。",
+      "source_urls": [
+        "https://developers.tiktok.com/docs/en/content-posting-api-get-started"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "wordpress",
+      "name": "WP-CLI",
+      "stage": "09 内容发布与营销",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "文章",
+        "媒体",
+        "站点管理"
+      ],
+      "recommended_use": "已有 WordPress 站点的内容发布和维护。",
+      "limitations": "需要服务器执行权限；内容操作和插件、数据库高风险动作分开。",
+      "source_urls": [
+        "https://developer.wordpress.org/cli/commands/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "maintainer_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "ghost",
+      "name": "Ghost Admin API",
+      "stage": "09 内容发布与营销",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "文章发布",
+        "内容管理"
+      ],
+      "recommended_use": "内容网站和品牌博客的发布入口。",
+      "limitations": "Admin Key 只在执行层使用；草稿与公开发布是不同动作。",
+      "source_urls": [
+        "https://docs.ghost.org/admin-api/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "google_ads",
+      "name": "Google Ads API",
+      "stage": "09 内容发布与营销",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "广告配置",
+        "报表"
+      ],
+      "recommended_use": "后续需要付费获客时使用，先做报表与草稿。",
+      "limitations": "需要正确账户和开发者访问条件；实际投放必须有明确预算、受众和期限授权。",
+      "source_urls": [
+        "https://developers.google.com/google-ads/api/docs/get-started/introduction"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "stripe",
+      "name": "Stripe API / CLI",
+      "stage": "10 收款、交付、客服与协作",
+      "interfaces": [
+        "api",
+        "cli"
+      ],
+      "capabilities": [
+        "支付集成",
+        "Webhook调试",
+        "事件检查"
+      ],
+      "recommended_use": "让产品可以收款，并验证付费后的交付流程。",
+      "limitations": "默认测试环境；真实收费、退款和账户变更分别授权。",
+      "source_urls": [
+        "https://docs.stripe.com/cli"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "shopify_cli",
+      "name": "Shopify CLI",
+      "stage": "10 收款、交付、客服与协作",
+      "interfaces": [
+        "cli"
+      ],
+      "capabilities": [
+        "主题开发",
+        "应用开发"
+      ],
+      "recommended_use": "店铺主题与应用的开发部署。",
+      "limitations": "不要把 CLI 主题开发误称为商品库存订单管理。",
+      "source_urls": [
+        "https://shopify.dev/docs/api/shopify-cli"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "shopify_admin",
+      "name": "Shopify Admin GraphQL API",
+      "stage": "10 收款、交付、客服与协作",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "商品",
+        "库存",
+        "订单"
+      ],
+      "recommended_use": "把设计结果变成可售商品，连接库存订单。",
+      "limitations": "产品草稿、公开上架、订单履约和退款分别控制。",
+      "source_urls": [
+        "https://shopify.dev/docs/api/admin-graphql/latest"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "printful",
+      "name": "Printful API",
+      "stage": "10 收款、交付、客服与协作",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "按需印制",
+        "订单",
+        "履约"
+      ],
+      "recommended_use": "现成产品的印花和按需生产履约路线。",
+      "limitations": "POD 不等于任意服装设计都可定制生产；创建草稿与确认付费生产必须分开。",
+      "source_urls": [
+        "https://developers.printful.com/docs/"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "resend",
+      "name": "Resend",
+      "stage": "10 收款、交付、客服与协作",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "交易邮件",
+        "通知邮件"
+      ],
+      "recommended_use": "发送注册、付款确认和交付通知。",
+      "limitations": "不是读取老板个人邮箱；发信域、收件人与邮件类型需要正确配置。",
+      "source_urls": [
+        "https://resend.com/docs/introduction"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "hubspot",
+      "name": "HubSpot APIs",
+      "stage": "10 收款、交付、客服与协作",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "CRM",
+        "联系人",
+        "销售记录"
+      ],
+      "recommended_use": "沉淀询盘、客户跟进和销售上下文。",
+      "limitations": "读取和批量修改、外发联系动作应区分；不以邮件群发替代客户管理。",
+      "source_urls": [
+        "https://developers.hubspot.com/docs/api-reference/latest/overview"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "slack",
+      "name": "Slack APIs",
+      "stage": "10 收款、交付、客服与协作",
+      "interfaces": [
+        "api",
+        "events"
+      ],
+      "capabilities": [
+        "团队消息",
+        "审批通知",
+        "反馈"
+      ],
+      "recommended_use": "把项目状态与等待决策的事项交给老板和团队。",
+      "limitations": "只处理授权工作区和频道；消息读取不是无限历史访问。",
+      "source_urls": [
+        "https://docs.slack.dev/apis/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "telegram",
+      "name": "Telegram Bot API",
+      "stage": "10 收款、交付、客服与协作",
+      "interfaces": [
+        "api",
+        "webhook"
+      ],
+      "capabilities": [
+        "通知",
+        "机器人交互"
+      ],
+      "recommended_use": "轻量任务通知和授权确认候选。",
+      "limitations": "机器人不能因此读取用户所有私人聊天；限制聊天 ID 与回调权限。",
+      "source_urls": [
+        "https://core.telegram.org/bots/api"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "posthog",
+      "name": "PostHog",
+      "stage": "11 数据反馈与持续运行",
+      "interfaces": [
+        "mcp",
+        "api"
+      ],
+      "capabilities": [
+        "事件分析",
+        "漏斗",
+        "用户行为"
+      ],
+      "recommended_use": "验证是否有人使用、卡在哪里，并把证据带回下一轮开发。",
+      "limitations": "正确埋点先于分析；不能把缺失事件解释成没有行为。",
+      "source_urls": [
+        "https://posthog.com/product-analytics",
+        "https://posthog.com/docs/model-context-protocol/cursor"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "sentry",
+      "name": "Sentry MCP",
+      "stage": "11 数据反馈与持续运行",
+      "interfaces": [
+        "mcp"
+      ],
+      "capabilities": [
+        "错误追踪",
+        "生产故障上下文"
+      ],
+      "recommended_use": "上线后发现问题并提供可定位的证据。",
+      "limitations": "修复、部署和关闭 Issue 是不同动作；不能自动确认所有错误已消失。",
+      "source_urls": [
+        "https://mcp.sentry.dev/"
+      ],
+      "priority_suggestion": "P0",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "search_console",
+      "name": "Google Search Console API",
+      "stage": "11 数据反馈与持续运行",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "自然搜索表现",
+        "索引检查"
+      ],
+      "recommended_use": "衡量搜索曝光、点击与网站可发现性。",
+      "limitations": "需要站点权限；报告覆盖、时间窗口与隐私限制不能省略。",
+      "source_urls": [
+        "https://developers.google.com/webmaster-tools/"
+      ],
+      "priority_suggestion": "P1",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "youtube_analytics",
+      "name": "YouTube Analytics API",
+      "stage": "11 数据反馈与持续运行",
+      "interfaces": [
+        "api"
+      ],
+      "capabilities": [
+        "频道表现",
+        "内容反馈"
+      ],
+      "recommended_use": "分析已授权频道的内容表现。",
+      "limitations": "不是任意竞品频道的内部留存或收入数据接口。",
+      "source_urls": [
+        "https://developers.google.com/youtube/analytics"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    },
+    {
+      "id": "n8n",
+      "name": "n8n",
+      "stage": "11 数据反馈与持续运行",
+      "interfaces": [
+        "api",
+        "webhook",
+        "workflow"
+      ],
+      "capabilities": [
+        "事件触发",
+        "长流程",
+        "等待任务"
+      ],
+      "recommended_use": "已有自动化平台承担触发、等待和周期性执行；ATR 提供工具执行。",
+      "limitations": "本轮未给 ATR 添加定时器或后台任务系统；需要实际部署执行环境。",
+      "source_urls": [
+        "https://docs.n8n.io/api"
+      ],
+      "priority_suggestion": "P2",
+      "v0_1_relation": "new_candidate",
+      "evidence_type": "vendor_documentation",
+      "verification": "documentation_review_only",
+      "integration_status": "not_implemented_by_this_research",
+      "live_tested_in_this_research": false
+    }
+  ]
+}

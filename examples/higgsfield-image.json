@@ -1,0 +1,6 @@
+{
+  "endpoint": "higgsfield-ai/soul/v2/standard",
+  "arguments": {
+    "prompt": "A quiet alpine lake at sunrise"
+  }
+}

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-tool-maker-local"
+version = "0.2.0"
+description = "Local-first Agent Tool Maker: discover, execute, create and compose tools"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = ["httpx>=0.27,<1", "cryptography>=43", "jsonschema>=4.23,<5", "Pillow>=10"]
+
+[project.optional-dependencies]
+secure = ["keyring>=25"]
+test = ["pytest>=8", "pytest-cov>=5"]
+browser-test = ["playwright>=1.45"]
+
+[project.scripts]
+atm = "agent_tool_maker.cli:main"
+atr = "agent_tool_maker.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+agent_tool_maker = ["data/*.json", "data/*.md", "data/*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = ["browser: local Chromium integration", "integration: real local subprocess or HTTP integration"]

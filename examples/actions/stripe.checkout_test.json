@@ -1,0 +1,5 @@
+{
+  "price_id": "price_test",
+  "success_url": "https://example.com/ok",
+  "cancel_url": "https://example.com/cancel"
+}

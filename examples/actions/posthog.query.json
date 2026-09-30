@@ -1,0 +1,7 @@
+{
+  "project_id": "123",
+  "query": {
+    "kind": "HogQLQuery",
+    "query": "select event, count() from events group by event limit 10"
+  }
+}

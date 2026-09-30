@@ -1,0 +1,92 @@
+{
+  "wheel": "agent_tool_maker_local-0.2.0-py3-none-any.whl",
+  "installed_module": "/tmp/atm-wheel-smoke-anc9ayo9/venv/lib/python3.13/site-packages/agent_tool_maker/__init__.py",
+  "reused_system_dependencies": true,
+  "dependency_source": "/opt/pyvenv/lib/python3.13/site-packages",
+  "fresh_network_dependency_resolution": false,
+  "atm_version": "0.2.0",
+  "atr_alias_version": "0.2.0",
+  "commands": [
+    {
+      "command": [
+        "atm",
+        "init"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "atm",
+        "stats"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "atm",
+        "roadmap"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "atm",
+        "skill",
+        "export",
+        "--destination",
+        "/tmp/atm-wheel-smoke-anc9ayo9/skills"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "atm",
+        "make",
+        "scaffold",
+        "my.resize",
+        "--from",
+        "imagemagick.resize",
+        "--out",
+        "/tmp/atm-wheel-smoke-anc9ayo9/resize.json"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "atm",
+        "make",
+        "validate",
+        "/tmp/atm-wheel-smoke-anc9ayo9/resize.json"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "atm",
+        "make",
+        "install",
+        "/tmp/atm-wheel-smoke-anc9ayo9/resize.json",
+        "--approve",
+        "f798a06321f2b09086fc2991c8c1f6c92b3b59f73dd045dd0d2be4940efe174c"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "atm",
+        "describe",
+        "my.resize"
+      ],
+      "success": true
+    }
+  ],
+  "synthetic_media_demo": {
+    "demo": "synthetic offline fixtures, not vendor-generated work",
+    "index": "/tmp/atm-wheel-smoke-anc9ayo9/fixture-demo/index.html",
+    "receipt": "/tmp/atm-wheel-smoke-anc9ayo9/fixture-demo/receipt.json",
+    "completed_jobs": 3,
+    "browser_handoff": "/tmp/atm-wheel-smoke-anc9ayo9/fixture-demo/browser-handoff.json",
+    "live_provider_calls": 0
+  },
+  "result": "passed"
+}

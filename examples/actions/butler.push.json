@@ -1,0 +1,4 @@
+{
+  "archive": "game.zip",
+  "target": "user/game:web"
+}

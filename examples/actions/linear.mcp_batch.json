@@ -1,0 +1,8 @@
+{
+  "calls": [
+    {
+      "name": "use-discovered-tool-name",
+      "arguments": {}
+    }
+  ]
+}

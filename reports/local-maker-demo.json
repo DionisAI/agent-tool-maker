@@ -1,0 +1,67 @@
+{
+  "mode": "real_local_ImageMagick_with_synthetic_input",
+  "created_tool": "workflow.web_assets",
+  "manifest_sha256": "14d7afad91ac6783e672b9412380c2210f6fd98c30777a8122054aab1962c458",
+  "workflow_status": "completed",
+  "children": [
+    {
+      "job_id": "ee9b8ba5-cee1-48c5-a057-9dd8b2e392df",
+      "name": "resize",
+      "status": "completed"
+    },
+    {
+      "job_id": "d430eb07-a769-43f2-ada1-d383d5c31b64",
+      "name": "webp",
+      "status": "completed"
+    }
+  ],
+  "duplicate_request_did_not_resubmit": true,
+  "local_job_count": 3,
+  "network_calls": 0,
+  "live_vendor_calls": 0,
+  "real_money_spent": 0,
+  "artifacts": [
+    {
+      "bytes": 2191,
+      "extension": ".png",
+      "path": "/mnt/data/atm-local-demo/.atm/artifacts/ee9b8ba5-cee1-48c5-a057-9dd8b2e392df/resized.png",
+      "sha256": "6555302c4d7c2de54b42bebcea4f3991a8e214fa9ecc1a062b575009da8df8d5",
+      "validation": {
+        "level": "file_exists_and_hash",
+        "semantic_quality_checked": false
+      }
+    },
+    {
+      "bytes": 28,
+      "extension": ".json",
+      "path": "/mnt/data/atm-local-demo/.atm/artifacts/ee9b8ba5-cee1-48c5-a057-9dd8b2e392df/85124b340315bb701565.json",
+      "sha256": "85124b340315bb70156508b2262a6526d8b10674a851060245792fda18f8338e",
+      "validation": {
+        "details": {},
+        "level": "parsed_json",
+        "semantic_quality_checked": false
+      }
+    },
+    {
+      "bytes": 354,
+      "extension": ".webp",
+      "path": "/mnt/data/atm-local-demo/.atm/artifacts/d430eb07-a769-43f2-ada1-d383d5c31b64/image.webp",
+      "sha256": "1c5ea522c3ed5b3692a08a763d180e2a1c218f33912ae6884ed60bdf89b24519",
+      "validation": {
+        "level": "file_exists_and_hash",
+        "semantic_quality_checked": false
+      }
+    },
+    {
+      "bytes": 28,
+      "extension": ".json",
+      "path": "/mnt/data/atm-local-demo/.atm/artifacts/d430eb07-a769-43f2-ada1-d383d5c31b64/85124b340315bb701565.json",
+      "sha256": "85124b340315bb70156508b2262a6526d8b10674a851060245792fda18f8338e",
+      "validation": {
+        "details": {},
+        "level": "parsed_json",
+        "semantic_quality_checked": false
+      }
+    }
+  ]
+}
