@@ -1,0 +1,26 @@
+{
+  "version": "0.3.0",
+  "baseline_commit": "c535e57f36db3fbb376e7d7e844b053c87b4b7c7",
+  "baseline_tree": "c17e66a8c816ed7b4cacec9f2f2279e24de2ccfc",
+  "local_tests": {
+    "passed": 351,
+    "failed": 0,
+    "skipped": 0,
+    "xfail": 0,
+    "deselected": 0,
+    "duration_seconds": 156.8
+  },
+  "line_coverage": {
+    "covered": 1825,
+    "total": 2072,
+    "percent": 88.08
+  },
+  "runtime": "Linux, Python 3.13.5",
+  "package_smoke": "wheel installed outside source; six independent CLI processes; repeated setup unchanged",
+  "dependency_install": "host dependencies reused in a separate environment; network package resolution unavailable",
+  "real_vendor_calls": 0,
+  "real_vendor_spend_usd": 0,
+  "native_os_keyring_verified": false,
+  "claude_codex_host_loading_verified": false,
+  "oauth_refresh_implemented": false
+}

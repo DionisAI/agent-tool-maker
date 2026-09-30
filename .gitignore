@@ -17,3 +17,9 @@ demo-output/
 .atm/
 .atm-home/
 reports/local-demo/
+
+.venv-*/
+reports/v03/coverage.json
+reports/v03/junit.xml
+reports/v03/full-test.log
+reports/v03/package-smoke.json

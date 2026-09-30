@@ -4,9 +4,31 @@
 
 本地优先、MIT 开源的 Agent 工具管理与制作程序。一次配置自己的凭证和 CLI，供多个 Agent 共用。Agent 可以发现工具、执行已批准的动作、起草新的声明式工具，也可以把多个工具组合成可恢复的工作流。
 
-版本 **0.2.0** · Python **3.11+** · 主命令 **`atm`** · 兼容命令 **`atr`**。
+版本 **0.3.0** · Python **3.11+** · 主命令 **`atm`** · 兼容命令 **`atr`**。
 
 这不是另一个通用聊天 Agent，不附送供应商账号、不自动充值、不替用户购买许可证，不在后台自行发帖或部署。
+
+## v0.3：配置一次，后续会话复用
+
+新增内置 `atm setup`、增强 `doctor`、显式账户 `verify`、用户级Agent注册与凭证有效期元数据。
+本版优先修复配置体验，不增加动作目录数量。已有v0.2密文和状态目录原地复用。
+
+```sh
+# 在经审阅的源码目录内，用户级长期安装；开发venv见下方
+pipx install '.[secure]'
+pipx ensurepath
+# 新终端，先预览再应用；只选实际使用的客户端/已安装工具
+atm setup --agent codex --agent claude --cli ffprobe --cli magick
+atm setup --agent codex --agent claude --cli ffprobe --cli magick --apply
+atm doctor --tool ffmpeg.probe
+```
+
+Agent可准备并应用已批准的非秘密配置；人只输入缺少的Key、完成官方登录和关键授权。
+setup不安装第三方软件、不初始化/重置vault、不联网。相同配置重复执行不覆盖；冲突要审阅。
+connect已有Key时默认保留，轮换才加--replace。原生keyring按操作系统权限解锁；
+口令模式不是永久免解锁。OAuth自动刷新与远程Agent连接仍未实现。
+
+[完整一次配置指南](docs/SETUP_ONCE.md) · [Agent仓库指引](AGENTS.md)
 
 ## 这版交付了什么
 
@@ -21,16 +43,16 @@
 | 组合工具 | 1–20 步串行工作流，类型保留引用、持久化子任务、等待/恢复和请求去重 |
 | 凭证 | AES-256-GCM；操作系统凭证库或明确选择的口令模式；旧 vault 兼容读取 |
 
-**实现状态不是测试等级。** 商业 API 使用协议模拟；大多数第三方 CLI 使用真实子进程中的协议测试程序；部分本地程序确实运行。没有使用私人供应商账号进行发布、付费生成、真实部署或商业交易。具体证据见 [测试报告](docs/TEST_REPORT.md)。
+**实现状态不是测试等级。** 商业 API 使用协议模拟；大多数第三方 CLI 使用真实子进程中的协议测试程序；部分本地程序确实运行。没有使用私人供应商账号进行发布、付费生成、真实部署或商业交易。具体证据见 [测试报告](docs/TEST_REPORT_V03.md)。
 
 - [可搜索的计划图](docs/ROADMAP.html)
 - [逐项路线图](docs/ROADMAP.md) / [机器可读路线图](docs/ROADMAP.json)
 - [完整动作目录](docs/TOOL_CATALOG.md)
 - [威胁模型](SECURITY.md) / [架构](docs/ARCHITECTURE.md) / [升级说明](docs/MIGRATION.md)
 
-## 安装
+## 开发安装（与日常用户级安装分开）
 
-源码目录内：
+修改和测试源码时：
 
 ```bash
 python3 -m venv .venv
@@ -41,10 +63,10 @@ atm init
 atm stats
 ```
 
-或者从本交付的 wheel 安装（不是假定 PyPI 已有同名包）：
+或者从版本交付包的 wheel 安装（Git clone 不含 dist/）（不是假定 PyPI 已有同名包）：
 
 ```bash
-python -m pip install ./dist/agent_tool_maker_local-0.2.0-py3-none-any.whl
+python -m pip install ./dist/agent_tool_maker_local-0.3.0-py3-none-any.whl
 # 需要操作系统凭证库时，再安装可选依赖 keyring。
 ```
 
@@ -67,7 +89,7 @@ atm connect tripo
 atm vault init --backend passphrase
 ```
 
-两种模式任选其一，已经初始化的库不会被上述命令重置。口令模式每次需要解锁；无人值守调用可由用户自行提供 `ATM_VAULT_PASSWORD`，它不会被传给工具子进程。这仍是操作系统环境变量，不等于强进程隔离。
+两种模式任选其一，已经初始化的库不会被上述命令重置。重复 `atm connect` 默认保留已有Key；轮换时明确使用 `--replace`。口令模式每次需要解锁；无人值守调用可由用户自行提供 `ATM_VAULT_PASSWORD`，它不会被传给工具子进程。这仍是操作系统环境变量，不等于强进程隔离。
 
 已有 Key 可一次性显式导入，例如 `atm connect fal --env FAL_KEY`，随后移除不再需要的旧环境变量。Higgsfield 填 `KEY_ID:KEY_SECRET`；DataForSEO 填 `login:password`；Ghost 填 `id:hexsecret`；Google API 当前接收用户自己的 OAuth access token，**没有自动刷新实现**。
 
@@ -81,7 +103,7 @@ atm cli bind magick "$(command -v magick)"
 atm doctor
 ```
 
-绑定时保存入口文件 SHA-256，升级后需要复核并重新绑定。不会自动 `npx -y` 下载未知程序。Node CLI 必须安装到稳定路径；哈希只覆盖入口文件，不覆盖其整个依赖树。`doctor` 报“已配置”不等于账号已认证。
+绑定时保存入口文件 SHA-256，升级后需要复核并重新绑定。不会自动 `npx -y` 下载未知程序。Node CLI 必须安装到稳定路径；哈希只覆盖入口文件，不覆盖其整个依赖树。`doctor` 现在检查入口哈希、权限和凭证库状态；“已配置”仍不等于账号已认证。
 
 部分 API 需要明确站点 origin，**不能把 token 放在 URL**：
 
@@ -99,7 +121,7 @@ atm origin set comfyui http://127.0.0.1:8188 --approve-origin
 atm skill export --destination ./skills
 ```
 
-把 `skills/agent-tool-maker/` 通过宿主 Agent 支持的机制加载。启动宿主的环境必须能找到 `atm`。本机 Skill 不会自动让远端纯网页 Agent 访问你的电脑。
+这是文件导出；日常跨项目使用优先 `atm setup --agent codex --agent claude --apply`。也可把 `skills/agent-tool-maker/` 通过宿主 Agent 支持的机制加载。启动宿主的环境必须能找到 `atm`。本机 Skill 不会自动让远端纯网页 Agent 访问你的电脑。
 
 典型工作流：
 
@@ -242,8 +264,10 @@ python -m pip install -e '.[secure,test,browser-test]'
 pytest -q
 ```
 
-没有依赖的真实本地集成测试会明确 skip；本次交付环境、实际运行结果、覆盖率、已修复问题和未验证项以 [测试报告](docs/TEST_REPORT.md) 为准。供应商测试默认不访问生产环境、不消费、不发真实邮件。CI 文件只是提供给仓库使用，未声称已经在线运行。
+没有依赖的真实本地集成测试会明确 skip；本次交付环境、实际运行结果、覆盖率、已修复问题和未验证项以 [测试报告](docs/TEST_REPORT_V03.md) 为准。供应商测试默认不访问生产环境、不消费、不发真实邮件。v0.2已在GitHub运行过CI；v0.3拆分契约、本地工具、浏览器验收，具体远端结果以对应提交的Actions为准。
 
 源码结构：`catalog` 发现；`engine` 状态机；`actions` 声明式 API/CLI；`mcp_bridge` 协议；`maker` 定义/组合；`vault` 秘密；`storage` 状态。`scripts/build_v02_catalog.py` 与 `build_release_docs.py` 可重建目录和路线图。
 
-外部工具依赖各自许可证和账户条款；ATM 的 MIT 不替代它们。没有打包第三方完整产品代码或字体文件。尚未发布到 GitHub/PyPI，也未宣称 ATM 名称已获得商标或包名专有权。
+外部工具依赖各自许可证和账户条款；ATM 的 MIT 不替代它们。没有打包第三方完整产品代码或字体文件。已在私有GitHub仓库开发；未发布PyPI，也未宣称 ATM 名称已获得商标或包名专有权。
+
+历史v0.2交付清单位于 `reports/v02-source-manifest.json`；新版源码以Git tree、CI与交付ZIP校验文件为准。

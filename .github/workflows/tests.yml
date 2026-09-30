@@ -3,7 +3,7 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
-  unit-and-local-cli:
+  contracts:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -14,6 +14,53 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - run: python -m pip install -e '.[test]'
-      - run: pytest -q -m 'not browser' --cov=agent_tool_maker
-# The workflow is supplied, not claimed to have run on GitHub.
+      - run: python -m pip install -e '.[secure,test]'
+      - run: python -m pytest -q -m 'not browser and not integration' --junitxml=reports/contracts.xml
+      - run: python scripts/check_test_receipt.py reports/contracts.xml
+  local-tools:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: brew install ffmpeg imagemagick pandoc
+      - run: python -m pip install -e '.[secure,test]'
+      - run: python -m pytest -q -m 'integration and not browser' --junitxml=reports/local-tools.xml
+      - run: python scripts/check_test_receipt.py reports/local-tools.xml
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e '.[test,browser-test]'
+      - run: python -m playwright install --with-deps chromium
+      - name: Select actual Playwright browser
+        run: |
+          python - <<'PY'
+          import os
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p:
+              with open(os.environ['GITHUB_ENV'], 'a') as out:
+                  out.write('ATM_CHROMIUM=' + p.chromium.executable_path + '\n')
+          PY
+      - run: python -m pytest -q -m browser --junitxml=reports/browser.xml
+      - run: python scripts/check_test_receipt.py reports/browser.xml
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip wheel --no-deps --wheel-dir dist .
+      - run: python -m pip install dist/*.whl
+      - name: Outside-source package smoke
+        working-directory: ${{ runner.temp }}
+        run: |
+          atm --version
+          atm --home "$RUNNER_TEMP/atm-state" init
+          atm --home "$RUNNER_TEMP/atm-state" setup --agent codex
+          atm --home "$RUNNER_TEMP/atm-state" doctor --tool ffmpeg.probe

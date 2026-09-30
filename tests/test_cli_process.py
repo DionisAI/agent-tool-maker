@@ -88,7 +88,7 @@ def test_cli_command_interface(tmp_path):
     r=call('skill','export','--destination',str(tmp_path/'skills'))
     assert r.returncode==0
     assert (tmp_path/'skills/agent-tool-maker/SKILL.md').exists()
-    assert call('skill','export','--destination',str(tmp_path/'skills')).returncode==2
+    assert call('skill','export','--destination',str(tmp_path/'skills')).returncode==0  # identical export is now idempotent
 
 @pytest.mark.integration
 def test_cli_missing_input_structured_error(tmp_path):

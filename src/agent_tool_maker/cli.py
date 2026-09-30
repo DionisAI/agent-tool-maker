@@ -20,12 +20,26 @@ def parser():
     p.add_argument("--home",type=Path,default=Path(os.environ.get("ATM_HOME",os.environ.get("ATR_HOME","~/.local/share/agent-tool-maker"))).expanduser())
     sub=p.add_subparsers(dest="command",required=True)
     sub.add_parser("init",help="Create local state without network calls")
-    sub.add_parser("doctor",help="Report setup state; does not claim logins are valid")
+    doc=sub.add_parser("doctor",help="Local preflight; no vendor calls or implicit secret prompts")
+    doc.add_argument("--tool", action="append", default=[])
+    doc.add_argument("--check-unlock", action="store_true")
+    doc.add_argument("--strict", action="store_true")
+    setup=sub.add_parser("setup", help="Preview reusable user-level configuration; --apply writes reviewed changes")
+    setup.add_argument("--agent", action="append", choices=["codex", "claude"], default=[])
+    setup.add_argument("--cli", action="append", default=[])
+    setup.add_argument("--atm-executable")
+    setup.add_argument("--apply", action="store_true")
+    setup.add_argument("--replace-skills", action="store_true")
+    verify=sub.add_parser("verify", help="Preview a fixed account probe; --allow-network performs it")
+    verify.add_argument("provider")
+    verify.add_argument("--allow-network", action="store_true")
     v=sub.add_parser("vault"); vs=v.add_subparsers(dest="operation",required=True)
     vi=vs.add_parser("init"); vi.add_argument("--backend",choices=["keyring","passphrase"],default="keyring")
     vs.add_parser("status")
     vr=vs.add_parser("remove"); vr.add_argument("provider")
     c=sub.add_parser("connect",help="Human credential setup; never paste keys into an agent transcript")
+    c.add_argument("--replace", action="store_true", help="Explicitly replace an already saved credential")
+    c.add_argument("--expires-at", help="Optional ISO-8601 credential expiry with timezone; no automatic refresh")
     c.add_argument("provider"); c.add_argument("--env",help="Explicit one-time import from this environment variable")
     cl=sub.add_parser("cli"); cls=cl.add_subparsers(dest="operation",required=True)
     cb=cls.add_parser("bind"); cb.add_argument("name",); cb.add_argument("path")
@@ -48,7 +62,7 @@ def parser():
     done.add_argument("--source-url",required=True)
     block=js.add_parser("block"); block.add_argument("id"); block.add_argument("--reason",required=True,choices=["login_required","awaiting_confirmation","requires_browser","requires_desktop","requires_human"])
     skill=sub.add_parser("skill"); ss=skill.add_subparsers(dest="operation",required=True)
-    exp=ss.add_parser("export"); exp.add_argument("--destination",type=Path,required=True)
+    exp=ss.add_parser("export"); exp.add_argument("--destination",type=Path,required=True); exp.add_argument("--replace-skills",action="store_true")
     custom=sub.add_parser("add-browser"); custom.add_argument("id"); custom.add_argument("--title",required=True)
     custom.add_argument("--url",required=True); custom.add_argument("--capability",required=True)
     demo=sub.add_parser("demo",help="Offline synthetic fixture demo; no provider credentials or billing")
@@ -83,9 +97,18 @@ def dispatch(args,router):
     if cmd=="init":
         return {"home":str(router.state.home),"tools":len(router.catalog.tools),"network_calls":0,"version":__version__}
     if cmd=="doctor":
-        return {"home":str(router.state.home),"vault":router.state.setting("vault",{}).get("backend","not_initialized"),
-                "tools":[{"id":t["id"],"state":router.readiness(t)} for t in router.catalog.tools.values()],
-                "notes":["Configuration is not authentication verification.","Browser handoffs require a host browser tool and user login.","No provider calls were made."]}
+        from .health import doctor
+        result=doctor(router,tool_ids=args.tool,check_unlock=args.check_unlock)
+        if args.strict and result["local_blockers"]:
+            result["status"]="blocked"
+        return result
+    if cmd=="setup":
+        from .onboarding import setup
+        return setup(router,agents=args.agent,cli_names=args.cli,executable=args.atm_executable,
+                     apply=args.apply,replace_skills=args.replace_skills)
+    if cmd=="verify":
+        from .verification import verify
+        return verify(router,args.provider,allow_network=args.allow_network)
     if cmd=="vault":
         if args.operation=="init": return router.vault.init(args.backend)
         if args.operation=="status": return {"backend":router.state.setting("vault",{}).get("backend"),"credential_names":router.state.secret_names(),"secrets_returned":False}
@@ -93,20 +116,24 @@ def dispatch(args,router):
     if cmd=="connect":
         providers={t.get("credential") for t in router.catalog.tools.values()}-{None}
         for t in router.catalog.tools.values():providers.update(t.get('command',{}).get('credential_env',{}).values())
-        providers.update({'google_oauth','cloudflare','supabase','expo'})
+        providers.update({'google_oauth','cloudflare','supabase','expo','github'})
         for key in ['figma','notion','linear','playwright','chrome_devtools','posthog','sentry']:
             cfg=router.state.setting('mcp:'+key,{})
             if cfg.get('credential'):providers.add(cfg['credential'])
             providers.update(cfg.get('env_credentials',{}).values())
         if args.provider not in providers:
             raise RouterError("unknown_provider","No native API credential adapter for this provider; browser logins and CLI logins are separate.")
+        if args.provider in router.state.secret_names() and not args.replace:
+            return {"provider": args.provider, "status": "already_configured", "secrets_read": False, "next_action": "Existing credential preserved. Use --replace only to rotate this connection."}
+        from .health import parse_expiry
+        expiry = parse_expiry(args.expires_at)
         if args.env:
             value=os.environ.get(args.env,"")
             if not value: raise RouterError("missing_environment","Named environment variable is empty or unset.")
         elif args.provider=="higgsfield":
             value=prompt_secret("Higgsfield API key ID: ")+":"+prompt_secret("Higgsfield API key secret: ")
         else: value=prompt_secret(f"{args.provider} API key: ")
-        router.vault.put(args.provider,value)
+        router.vault.put(args.provider,value,expires_at=expiry)
         return {"provider":args.provider,"saved_encrypted":True,"authentication":"not_verified","one_time_env_import":bool(args.env)}
     if cmd=="cli": return bind_cli(router.state,args.name,args.path)
     if cmd in ["list","search"]:
@@ -156,10 +183,8 @@ def dispatch(args,router):
         if args.operation=="complete": return router.public_job(router.complete_browser(args.id,args.file,args.source_url))
         return router.public_job(router.block_browser(args.id,args.reason))
     if cmd=="skill":
-        target=args.destination.expanduser().resolve()/"agent-tool-maker"/"SKILL.md"
-        if target.exists(): raise RouterError("file_exists","Skill already exists; inspect it rather than overwriting silently.")
-        atomic_write(target,files("agent_tool_maker.data").joinpath("SKILL.md").read_bytes())
-        return {"skill_path":str(target),"host_registration":"Load this directory through your agent's supported skill mechanism."}
+        from .onboarding import export_skill
+        return export_skill(args.destination,replace=args.replace_skills)
     if cmd=="add-browser": return add_browser_tool(router.state,args.id,args.title,args.url,args.capability)
     raise RouterError("unknown_command","Unknown command.")
 
@@ -175,6 +200,10 @@ def main(argv=None):
             router=Router(args.home)
             value=dispatch(args,router)
         print(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False))
+        if args.command=="verify" and args.allow_network and value.get("status")!="probe_passed":
+            return 2
+        if args.command=="setup" and args.apply and value.get("status") in {"needs_review", "needs_dependencies"}:
+            return 2
         return 2 if isinstance(value,dict) and value.get("status") in ["failed","submission_unknown","download_failed","delivery_failed","blocked"] else 0
     except RouterError as e:
         print(json.dumps({"error":e.as_dict()},ensure_ascii=False,indent=2))
