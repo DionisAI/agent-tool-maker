@@ -15,7 +15,7 @@ its plan before --apply. Install only selected maintained packages, outside this
 command. Existing different Skills need review and --replace-skills; changed CLI
 binaries require explicit rebinding. Do not automatically approve such changes.
 
-Humans provide secrets via a private local terminal, complete official login/consent,
+Humans provide secrets via a private local terminal or authenticated loopback console, complete official login/consent,
 and approve scope and spending. Never print secrets, read unrelated env files,
 extract browser cookies, or copy credentials into Skills, source, reports or Git.
 `atm connect` preserves an existing credential; --replace is explicit rotation.
@@ -28,7 +28,8 @@ is opt-in because native keyring access may prompt. A locked vault is not a lost
 `atm verify PROVIDER` previews; --allow-network performs a fixed account GET only.
 Probes do not prove generation/deployment scopes, sufficient credits or future uptime.
 Unsupported probes never fall back to a chargeable task. OAuth refresh is not built.
-JSON output is default: do not invent --json, atm unlock, an ATM daemon or MCP server.
+JSON output is default: do not invent --json, atm unlock, a background unlock daemon or ATM MCP server.
+The optional `atm ui` is a foreground local management server, not a tool-execution endpoint.
 
 Use describe and dry-run before unfamiliar operations. Bind credentials, accounts,
 projects and operation authorization separately. Flags assert prior authorization;
@@ -48,3 +49,16 @@ Use docs/SETUP_ONCE.md for fresh-process and fresh-client acceptance criteria.
 Do not alter evaluators to hide failures. No automatic merge, release or visibility
 change. Preserve v0.2 compatibility unless a migration is documented. Current default
 state/vault encryption format remains compatible; new metadata does not re-encrypt keys.
+
+## v0.4 management rules
+
+`atm setup` defaults to Claude Code and Codex. Use --no-agents for CLI-only setup.
+CLI and Web share the same database/vault. Do not copy Keys or create another store.
+`atm agents list/register/unregister`, `atm tools list/enable/disable`, `atm cli list`
+and `atm connections list` are supported. Tool toggles affect all local clients, not
+an individual Agent ACL. Disabled actions must not be bypassed through workflows.
+Do not read ui-session-*.token files into model context or expose them in logs.
+Web is loopback-only; never publish it with Tunnel/reverse proxy. No remote host option.
+UI GETs do not authenticate with providers; write operations are bounded management.
+Run native browser navigation acceptance separately. Do not change a managed browser
+policy when it forbids localhost. Report component vs HTTP vs native browser evidence.

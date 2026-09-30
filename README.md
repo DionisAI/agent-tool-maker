@@ -4,9 +4,37 @@
 
 本地优先、MIT 开源的 Agent 工具管理与制作程序。一次配置自己的凭证和 CLI，供多个 Agent 共用。Agent 可以发现工具、执行已批准的动作、起草新的声明式工具，也可以把多个工具组合成可恢复的工作流。
 
-版本 **0.3.0** · Python **3.11+** · 主命令 **`atm`** · 兼容命令 **`atr`**。
+版本 **0.4.0** · Python **3.11+** · 主命令 **`atm`** · 兼容命令 **`atr`**。
 
 这不是另一个通用聊天 Agent，不附送供应商账号、不自动充值、不替用户购买许可证，不在后台自行发帖或部署。
+
+## v0.4.0：默认双客户端 + 本地网页管理
+
+**Claude Code、Codex 默认接入同一工具箱；CLI 与网页管理同一配置。**
+
+```bash
+atm setup          # 默认预览两个客户端，不写 Key、不安装软件
+atm setup --apply   # 应用经审阅的本地注册
+atm ui             # 打开本机管理台；Ctrl-C 关闭
+```
+
+网页包含总览、Agent 客户端、工具目录、连接与凭证、任务记录。支持全局动作开关、
+查看输入 schema、配置计划、加密写入凭证与明确授权的账户检查。界面本身不执行工具、
+不发帖、不部署、不提供远端控制，也不等于真实 Claude/Codex 已加载验收。
+
+```bash
+atm agents list
+atm tools list fal
+atm tools disable fal.generate --apply
+atm tools enable fal.generate --apply
+atm connections list
+atm cli list
+```
+
+默认仅本机 127.0.0.1，随机端口、每进程会话码、同源防护。无 CDN/额外前端构建；
+凭证不可回读。`atm setup --no-agents` 保留仅配置 CLI 的方式。
+[网页与 CLI 指南](docs/WEB_CONSOLE.md) · [本轮测试](docs/TEST_REPORT_V04.md) ·
+[管理层路线图](docs/ROADMAP_V04.md)
 
 ## v0.3：配置一次，后续会话复用
 
@@ -43,7 +71,7 @@ connect已有Key时默认保留，轮换才加--replace。原生keyring按操作
 | 组合工具 | 1–20 步串行工作流，类型保留引用、持久化子任务、等待/恢复和请求去重 |
 | 凭证 | AES-256-GCM；操作系统凭证库或明确选择的口令模式；旧 vault 兼容读取 |
 
-**实现状态不是测试等级。** 商业 API 使用协议模拟；大多数第三方 CLI 使用真实子进程中的协议测试程序；部分本地程序确实运行。没有使用私人供应商账号进行发布、付费生成、真实部署或商业交易。具体证据见 [测试报告](docs/TEST_REPORT_V03.md)。
+**实现状态不是测试等级。** 商业 API 使用协议模拟；大多数第三方 CLI 使用真实子进程中的协议测试程序；部分本地程序确实运行。没有使用私人供应商账号进行发布、付费生成、真实部署或商业交易。具体证据见 [测试报告](docs/TEST_REPORT_V04.md)。
 
 - [可搜索的计划图](docs/ROADMAP.html)
 - [逐项路线图](docs/ROADMAP.md) / [机器可读路线图](docs/ROADMAP.json)
@@ -66,7 +94,7 @@ atm stats
 或者从版本交付包的 wheel 安装（Git clone 不含 dist/）（不是假定 PyPI 已有同名包）：
 
 ```bash
-python -m pip install ./dist/agent_tool_maker_local-0.3.0-py3-none-any.whl
+python -m pip install ./dist/agent_tool_maker_local-0.4.0-py3-none-any.whl
 # 需要操作系统凭证库时，再安装可选依赖 keyring。
 ```
 
@@ -74,7 +102,7 @@ Windows 的虚拟环境激活使用 `.venv\Scripts\Activate.ps1`。本次实际�
 
 ## 1. 一次配置，多个 Agent 共用
 
-凭证初始化与输入在**用户自己的终端**完成，不把密钥发送进 Agent 对话：
+凭证初始化与输入在**用户自己的终端或已认证的本地管理台**完成，不把密钥发送进 Agent 对话。以下是终端方式：
 
 ```bash
 atm vault init --backend keyring
@@ -264,7 +292,7 @@ python -m pip install -e '.[secure,test,browser-test]'
 pytest -q
 ```
 
-没有依赖的真实本地集成测试会明确 skip；本次交付环境、实际运行结果、覆盖率、已修复问题和未验证项以 [测试报告](docs/TEST_REPORT_V03.md) 为准。供应商测试默认不访问生产环境、不消费、不发真实邮件。v0.2已在GitHub运行过CI；v0.3拆分契约、本地工具、浏览器验收，具体远端结果以对应提交的Actions为准。
+没有依赖的真实本地集成测试会明确 skip；本次交付环境、实际运行结果、覆盖率、已修复问题和未验证项以 [测试报告](docs/TEST_REPORT_V04.md) 为准。供应商测试默认不访问生产环境、不消费、不发真实邮件。v0.2已在GitHub运行过CI；v0.3拆分契约、本地工具、浏览器验收，具体远端结果以对应提交的Actions为准。
 
 源码结构：`catalog` 发现；`engine` 状态机；`actions` 声明式 API/CLI；`mcp_bridge` 协议；`maker` 定义/组合；`vault` 秘密；`storage` 状态。`scripts/build_v02_catalog.py` 与 `build_release_docs.py` 可重建目录和路线图。
 

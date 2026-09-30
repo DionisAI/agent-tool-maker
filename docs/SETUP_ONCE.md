@@ -1,4 +1,10 @@
-# 一次配置，后续会话复用 — ATM v0.3.0
+# v0.4 补充
+
+默认客户端为 Claude Code、Codex：`atm setup` 预览，`atm setup --apply` 应用。
+仅绑定 CLI 使用 `--no-agents`。`atm ui` 打开同一套状态的本地网页管理台，参见
+[WEB_CONSOLE.md](WEB_CONSOLE.md)。原有凭证不必迁移，不删除/重建库。
+
+# 一次配置，后续会话复用 — ATM v0.4.0
 
 ## 承诺与边界
 
@@ -62,7 +68,7 @@ atm connect fal
 atm connect tripo
 ```
 
-必须在自己的私密终端输入，不向 Agent 对话粘贴 Key。已保存的 connect 默认保留原值且不再提示；
+通过自己的私密终端或 `atm ui` 已认证的本地连接表单输入，不向 Agent 对话粘贴 Key。已保存的 connect 默认保留原值且不再提示；
 更新某一个 Key 才用 `atm connect PROVIDER --replace`。不需要配置所有157个动作。
 需要有效期时可加 `--expires-at 2026-10-01T12:00:00Z`，未知时不要编造。
 重新连接会清除旧有效期；未指定时回到 unknown，不把未知当作永不过期。

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-tool-maker-local"
-version = "0.3.0"
+version = "0.4.0"
 description = "Local-first Agent Tool Maker: discover, execute, create and compose tools"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -24,7 +24,7 @@ atr = "agent_tool_maker.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-agent_tool_maker = ["data/*.json", "data/*.md", "data/*.py"]
+agent_tool_maker = ["data/*.json", "data/*.md", "data/*.py", "data/web/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,3 +1,13 @@
+## 0.4.0 — 2026-09-30
+
+- Default Claude Code/Codex user-level onboarding, opt-out for CLI-only configuration.
+- Shared management service for CLI and local Web: clients, tools, connections, jobs.
+- Persistent global enable/disable enforcement in execution, routing and workflow resume.
+- Loopback-only authenticated Web console; write-only encrypted credential entry.
+- Bundled dependency-free UI, exact-origin/Host checks, bounded JSON and no-store responses.
+- Separate native-browser acceptance job; component tests do not claim native navigation.
+- No change to the 157-action supplier catalog. No remote hosting or arbitrary Web execution.
+
 # 0.3.0 — persistent onboarding
 
 - Add local preview/apply setup and user-level Codex/Claude Skill registration.

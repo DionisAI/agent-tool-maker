@@ -75,6 +75,9 @@ def binary_health(path, expected) -> dict:
 
 
 def tool_health(router, tool: dict, *, vault=None, cache=None) -> dict:
+    from .management import enabled
+    if not enabled(router.state, tool["id"]):
+        return {"id": tool["id"], "state": "disabled", "authentication": "not_verified"}
     state, kind = router.state, tool["adapter"]
     result = {"id": tool["id"], "state": "configured_not_verified", "authentication": "not_verified"}
     if kind in {"browser", "desktop", "human", "catalog_only", "workflow"}:
