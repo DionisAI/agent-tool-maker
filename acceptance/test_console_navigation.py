@@ -39,7 +39,7 @@ def test_real_browser_localhost_navigation_and_security_headers(tmp_path):
             page.get_by_label('搜索工具').fill('fal.generate')
             page.get_by_role('button',name='已停用 · 启用').wait_for()
             page.get_by_role('button',name='查看',exact=True).click()
-            assert 'fal.generate' in page.locator('#modal-body').inner_text()
+            expect(page.locator('#modal-body')).to_contain_text('fal.generate')
             page.get_by_role('button',name='关闭',exact=True).click()
             page.set_viewport_size({'width':390,'height':844})
             assert page.evaluate('document.body.scrollWidth <= innerWidth')

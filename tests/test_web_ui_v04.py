@@ -19,7 +19,7 @@ from agent_tool_maker.onboarding import setup
 
 @pytest.mark.browser
 def test_dom_console_flows_and_cli_state_reuse(tmp_path):
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import sync_playwright, expect
     browser_path=os.environ.get('ATM_CHROMIUM') or shutil.which('chromium')
     if not browser_path:pytest.skip('Chromium unavailable')
     exe=tmp_path/'atm';exe.write_text('#!/bin/sh\nexit 0\n');exe.chmod(0o700)
@@ -49,9 +49,9 @@ def test_dom_console_flows_and_cli_state_reuse(tmp_path):
             assert page.locator('#gate').is_hidden()
             page.get_by_role('button',name='配置默认客户端 →').click()
             page.get_by_role('button',name='预览变更',exact=True).click()
-            page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(x=>x.textContent==='批准并应用').disabled")
+            expect(page.get_by_role('button',name='批准并应用',exact=True)).to_be_enabled()
             page.get_by_role('button',name='批准并应用',exact=True).click()
-            page.wait_for_function("document.querySelectorAll('.card .badge.good').length === 2")
+            expect(page.locator('.card .badge.good')).to_have_count(2)
             # These are clearly synthetic home/state fixtures, not live client accounts.
             page.locator('footer').evaluate("e=>e.textContent+=' · 临时测试状态 / UI 组件测试（HTTP 传输桥接）'")
             screenshot=os.environ.get('ATM_SCREENSHOT_DIR')
@@ -70,7 +70,7 @@ def test_dom_console_flows_and_cli_state_reuse(tmp_path):
             finally:fresh.close()
             if screenshot:page.screenshot(path=str(Path(screenshot)/'atm-v0.4.0-tools.png'),full_page=True)
             page.get_by_role('button',name='查看',exact=True).click()
-            assert 'fal.generate' in page.locator('#modal-body').inner_text()
+            expect(page.locator('#modal-body')).to_contain_text('fal.generate')
             page.get_by_role('button',name='关闭',exact=True).click()
             page.get_by_role('button',name='连接与凭证').click()
             page.get_by_role('button',name='初始化凭证库',exact=True).click()
