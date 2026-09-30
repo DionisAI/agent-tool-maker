@@ -11,7 +11,7 @@ from agent_tool_maker.webapp import Console
 
 
 def test_real_browser_localhost_navigation_and_security_headers(tmp_path):
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import sync_playwright, expect
     executable=shutil.which('atm')
     assert executable, 'Install the ATM package before acceptance.'
     server=Console(tmp_path/'state',executable=executable,user_home=tmp_path/'user')
@@ -29,9 +29,9 @@ def test_real_browser_localhost_navigation_and_security_headers(tmp_path):
             page.get_by_role('heading',name='连接一次，持续使用。').wait_for()
             page.get_by_role('button',name='配置默认客户端 →').click()
             page.get_by_role('button',name='预览变更',exact=True).click()
-            page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(x=>x.textContent==='批准并应用').disabled")
+            expect(page.get_by_role('button',name='批准并应用',exact=True)).to_be_enabled()
             page.get_by_role('button',name='批准并应用',exact=True).click()
-            page.wait_for_function("document.querySelectorAll('.card .badge.good').length === 2")
+            expect(page.locator('.card .badge.good')).to_have_count(2)
             page.get_by_role('button',name='工具目录').click()
             page.get_by_label('搜索工具').fill('fal.generate')
             page.on('dialog',lambda d:d.accept())

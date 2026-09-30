@@ -196,3 +196,38 @@ def test_server_never_logs_token_or_secret(console,capsys):
 def test_secret_export_and_bulk_environment_import_are_not_exposed(console):
     for path in ['/api/connections/export','/api/vault/export','/api/env/import']:
         assert post(console,path,{}).status_code==404
+
+
+@pytest.mark.parametrize('failure', [BrokenPipeError, ConnectionResetError])
+@pytest.mark.parametrize('phase', ['headers', 'body'])
+def test_response_client_disconnect_is_not_retried(failure,phase):
+    from agent_tool_maker.webapp import Handler
+    from types import SimpleNamespace
+    handler=object.__new__(Handler)
+    events=[]
+    def disconnect():
+        events.append('disconnect')
+        raise failure('client closed')
+    handler.send_response=lambda status:events.append(status)
+    handler.send_header=lambda *args:None
+    handler.end_headers=disconnect if phase=='headers' else lambda:None
+    handler.wfile=SimpleNamespace(write=lambda raw:disconnect())
+    handler.respond(200,{'ok':True})
+    assert events==[200,'disconnect']
+    assert handler.close_connection is True
+
+
+@pytest.mark.parametrize('route', ['/', '/assets/app.js', '/assets/app.css'])
+def test_static_assets_work_with_python311_single_child_traversable(console, monkeypatch, route):
+    # CPython 3.11 namespace resources accept exactly one joinpath child.
+    # Keep actual files/HTTP execution, replacing only that versioned interface.
+    from agent_tool_maker import webapp
+    original_files = webapp.files
+    class SingleChildPath:
+        def __init__(self, path): self.path = path
+        def joinpath(self, child): return SingleChildPath(self.path.joinpath(child))
+        def read_bytes(self): return self.path.read_bytes()
+    monkeypatch.setattr(webapp, 'files', lambda package: SingleChildPath(original_files(package)))
+    response = console[1].get(route)
+    assert response.status_code == 200
+    assert len(response.content) > 100

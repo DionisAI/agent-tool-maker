@@ -4,15 +4,15 @@
   "base_commit": "a5346ed458ccb416b22e9b0e0b5c3bfdf6d119d3",
   "base_tree": "73f4712c6f257ed445bfdb1d6813bc214bdb5965",
   "local_tests": {
-    "passed": 400,
+    "passed": 407,
     "failed": 0,
     "skipped": 0,
     "xfail": 0,
     "deselected": 0,
-    "seconds": 199.691,
-    "coverage_percent": 89.41,
-    "covered_lines": 2203,
-    "total_lines": 2464
+    "seconds": 203.388,
+    "coverage_percent": 89.42,
+    "covered_lines": 2206,
+    "total_lines": 2467
   },
   "environment": {
     "os": "Linux",
@@ -41,5 +41,10 @@
   "real_spend": 0,
   "native_keyring_tested": false,
   "actual_claude_codex_client_loading_tested": false,
-  "ci_status": "see exact PR commit; not inferred from local results"
+  "ci_status": "see exact PR commit; not inferred from local results",
+  "regressions_fixed_after_initial_ci": [
+    "Python 3.11 namespace Traversable single-child joinpath for static assets",
+    "CSP-compatible native-browser locator assertions, no unsafe-eval enabled",
+    "Clean response termination when browser client disconnects"
+  ]
 }

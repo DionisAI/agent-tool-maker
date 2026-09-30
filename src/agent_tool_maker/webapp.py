@@ -122,16 +122,21 @@ class Handler(BaseHTTPRequestHandler):
 
     def respond(self, status, payload, *, mime="application/json; charset=utf-8"):
         raw = payload if isinstance(payload, bytes) else json.dumps(payload, ensure_ascii=False, allow_nan=False).encode()
-        self.send_response(status)
-        for key, value in {"Content-Type": mime, "Content-Length": str(len(raw)),
-                           "Cache-Control": "no-store", "Content-Security-Policy": CSP,
-                           "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff",
-                           "X-Frame-Options": "DENY", "Cross-Origin-Resource-Policy": "same-origin",
-                           "Connection": "close"}.items():
-            self.send_header(key, value)
-        self.end_headers()
-        self.wfile.write(raw)
-        self.close_connection = True
+        try:
+            self.send_response(status)
+            for key, value in {"Content-Type": mime, "Content-Length": str(len(raw)),
+                               "Cache-Control": "no-store", "Content-Security-Policy": CSP,
+                               "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff",
+                               "X-Frame-Options": "DENY", "Cross-Origin-Resource-Policy": "same-origin",
+                               "Connection": "close"}.items():
+                self.send_header(key, value)
+            self.end_headers()
+            self.wfile.write(raw)
+        except (BrokenPipeError, ConnectionResetError):
+            # Client navigation/close is not a second application failure to write.
+            pass
+        finally:
+            self.close_connection = True
 
     def check_request(self, *, authenticated):
         for header in ("Host", "Origin", "Authorization", "Content-Type", "Content-Length"):
@@ -166,7 +171,7 @@ class Handler(BaseHTTPRequestHandler):
             self.check_request(authenticated=not static)
             if static:
                 name, mime = STATIC[self.path]
-                self.respond(200, files("agent_tool_maker.data").joinpath("web", name).read_bytes(), mime=mime)
+                self.respond(200, files("agent_tool_maker.data").joinpath("web").joinpath(name).read_bytes(), mime=mime)
                 return
             body = {}
             if write:
