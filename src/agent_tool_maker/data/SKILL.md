@@ -86,3 +86,16 @@ licensing or service access rules. After real delivery use
 `atm jobs complete ID --file ABSOLUTE_WORKSPACE_FILE --source-url ACTUAL_ALLOWED_ORIGIN`.
 Missing files must not become receipts. Scheduled != published; submitted != finished;
 file/hash checks != vendor/business acceptance. Costs stay null when unknown.
+
+## Default clients and local management (v0.4)
+
+Claude Code and Codex are the default local clients of this same skill. `atm setup`
+previews both; --apply writes only reviewed non-secret configuration; --no-agents
+skips client registration. Use `atm agents list`, `atm tools list`, `atm cli list`,
+and `atm connections list` for management. Tool enables/disables apply globally to
+ATM, persist across sessions, and are not a per-client authorization sandbox.
+Do not re-enable a deliberately disabled tool without user permission.
+The human can use `atm ui` as an optional local management page. It is not another
+Agent, a cloud control plane, or a Web execution endpoint. Do not read or transmit
+ui-session token files, and never expose the server through a tunnel. Human secret
+entry may use the authenticated local page; raw Keys never belong in model context.

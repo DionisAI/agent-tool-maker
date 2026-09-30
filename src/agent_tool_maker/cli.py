@@ -25,7 +25,9 @@ def parser():
     doc.add_argument("--check-unlock", action="store_true")
     doc.add_argument("--strict", action="store_true")
     setup=sub.add_parser("setup", help="Preview reusable user-level configuration; --apply writes reviewed changes")
-    setup.add_argument("--agent", action="append", choices=["codex", "claude"], default=[])
+    agent_choice=setup.add_mutually_exclusive_group()
+    agent_choice.add_argument("--agent", action="append", choices=["codex", "claude"], default=None)
+    agent_choice.add_argument("--no-agents", action="store_true", help="Only configure selected CLIs; skip default Claude/Codex registration")
     setup.add_argument("--cli", action="append", default=[])
     setup.add_argument("--atm-executable")
     setup.add_argument("--apply", action="store_true")
@@ -42,6 +44,7 @@ def parser():
     c.add_argument("--expires-at", help="Optional ISO-8601 credential expiry with timezone; no automatic refresh")
     c.add_argument("provider"); c.add_argument("--env",help="Explicit one-time import from this environment variable")
     cl=sub.add_parser("cli"); cls=cl.add_subparsers(dest="operation",required=True)
+    cls.add_parser("list", help="Inspect registered/detected CLI entries without executing them")
     cb=cls.add_parser("bind"); cb.add_argument("name",); cb.add_argument("path")
     for name in ["list","search"]:
         s=sub.add_parser(name)
@@ -77,6 +80,18 @@ def parser():
     ins=mk.add_parser('install');ins.add_argument('path');ins.add_argument('--approve',required=True)
     rm=mk.add_parser('remove');rm.add_argument('id');rm.add_argument('--yes',action='store_true')
     sub.add_parser('roadmap');sub.add_parser('stats')
+    agents=sub.add_parser('agents'); ag=agents.add_subparsers(dest='operation',required=True)
+    ag.add_parser('list')
+    reg=ag.add_parser('register'); reg.add_argument('--agent',action='append',choices=['claude','codex'])
+    reg.add_argument('--apply',action='store_true'); reg.add_argument('--replace-skills',action='store_true'); reg.add_argument('--atm-executable')
+    unreg=ag.add_parser('unregister'); unreg.add_argument('agent',choices=['claude','codex']); unreg.add_argument('--apply',action='store_true')
+    tools=sub.add_parser('tools'); ts=tools.add_subparsers(dest='operation',required=True)
+    tl=ts.add_parser('list'); tl.add_argument('query',nargs='?',default=''); tl.add_argument('--capability')
+    for verb in ['enable','disable']:
+        op=ts.add_parser(verb); op.add_argument('tool'); op.add_argument('--apply',action='store_true')
+    connections=sub.add_parser('connections'); cs=connections.add_subparsers(dest='operation',required=True); cs.add_parser('list')
+    ui=sub.add_parser('ui',help='Start the loopback-only local management console; Ctrl-C stops it')
+    ui.add_argument('--port',type=int,default=0); ui.add_argument('--no-browser',action='store_true'); ui.add_argument('--atm-executable')
     return p
 
 
@@ -104,7 +119,9 @@ def dispatch(args,router):
         return result
     if cmd=="setup":
         from .onboarding import setup
-        return setup(router,agents=args.agent,cli_names=args.cli,executable=args.atm_executable,
+        from .management import DEFAULT_AGENTS
+        selected=() if args.no_agents else DEFAULT_AGENTS if args.agent is None else args.agent
+        return setup(router,agents=selected,cli_names=args.cli,executable=args.atm_executable,
                      apply=args.apply,replace_skills=args.replace_skills)
     if cmd=="verify":
         from .verification import verify
@@ -114,13 +131,8 @@ def dispatch(args,router):
         if args.operation=="status": return {"backend":router.state.setting("vault",{}).get("backend"),"credential_names":router.state.secret_names(),"secrets_returned":False}
         return router.vault.delete(args.provider)
     if cmd=="connect":
-        providers={t.get("credential") for t in router.catalog.tools.values()}-{None}
-        for t in router.catalog.tools.values():providers.update(t.get('command',{}).get('credential_env',{}).values())
-        providers.update({'google_oauth','cloudflare','supabase','expo','github'})
-        for key in ['figma','notion','linear','playwright','chrome_devtools','posthog','sentry']:
-            cfg=router.state.setting('mcp:'+key,{})
-            if cfg.get('credential'):providers.add(cfg['credential'])
-            providers.update(cfg.get('env_credentials',{}).values())
+        from .management import known_credentials, connect_value
+        providers = known_credentials(router)
         if args.provider not in providers:
             raise RouterError("unknown_provider","No native API credential adapter for this provider; browser logins and CLI logins are separate.")
         if args.provider in router.state.secret_names() and not args.replace:
@@ -133,9 +145,27 @@ def dispatch(args,router):
         elif args.provider=="higgsfield":
             value=prompt_secret("Higgsfield API key ID: ")+":"+prompt_secret("Higgsfield API key secret: ")
         else: value=prompt_secret(f"{args.provider} API key: ")
-        router.vault.put(args.provider,value,expires_at=expiry)
-        return {"provider":args.provider,"saved_encrypted":True,"authentication":"not_verified","one_time_env_import":bool(args.env)}
-    if cmd=="cli": return bind_cli(router.state,args.name,args.path)
+        saved = connect_value(router,args.provider,value,replace=args.replace,expires_at=args.expires_at)
+        return {**saved,"one_time_env_import":bool(args.env)}
+    if cmd=="cli":
+        if args.operation=="list":
+            from .management import cli_inventory
+            return cli_inventory(router)
+        return bind_cli(router.state,args.name,args.path)
+    if cmd=="agents":
+        from . import management as mg
+        if args.operation=="list": return mg.agents(router)
+        if args.operation=="unregister": return mg.unregister(router,args.agent,apply=args.apply)
+        from .onboarding import setup
+        return setup(router,agents=mg.DEFAULT_AGENTS if args.agent is None else args.agent,
+                     apply=args.apply,replace_skills=args.replace_skills,executable=args.atm_executable)
+    if cmd=="tools":
+        from . import management as mg
+        if args.operation=="list": return mg.tools(router,query=args.query,capability=args.capability)
+        return mg.set_enabled(router,args.tool,args.operation=="enable",apply=args.apply)
+    if cmd=="connections":
+        from .management import connections
+        return connections(router)
     if cmd in ["list","search"]:
         return {"tools":[{k:t[k] for k in ["id","title","capabilities","implementation","readiness"]} for t in router.search(args.query,args.capability)]}
     if cmd=="describe":
@@ -193,6 +223,9 @@ def main(argv=None):
     args=parser().parse_args(argv)
     router=None
     try:
+        if args.command=="ui":
+            from .webapp import serve
+            return serve(args.home,port=args.port,open_browser=not args.no_browser,executable=args.atm_executable)
         if args.command=="demo":
             from .demo import run_demo
             value=run_demo(args.out)

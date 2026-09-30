@@ -23,3 +23,12 @@ reports/v03/coverage.json
 reports/v03/junit.xml
 reports/v03/full-test.log
 reports/v03/package-smoke.json
+
+# Private console sessions and release-only evidence.
+ui-session-*.token
+RELEASE_MANIFEST.sha256.json
+RELEASE_PROVENANCE.json
+reports/v04/*.xml
+reports/v04/*.log
+reports/v04/coverage.json
+reports/v04/package-smoke.json

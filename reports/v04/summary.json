@@ -1,0 +1,45 @@
+{
+  "version": "0.4.0",
+  "date": "2026-09-30",
+  "base_commit": "a5346ed458ccb416b22e9b0e0b5c3bfdf6d119d3",
+  "base_tree": "73f4712c6f257ed445bfdb1d6813bc214bdb5965",
+  "local_tests": {
+    "passed": 400,
+    "failed": 0,
+    "skipped": 0,
+    "xfail": 0,
+    "deselected": 0,
+    "seconds": 199.691,
+    "coverage_percent": 89.41,
+    "covered_lines": 2203,
+    "total_lines": 2464
+  },
+  "environment": {
+    "os": "Linux",
+    "python": "3.13.5"
+  },
+  "actual_local_tools": [
+    "FFmpeg",
+    "FFprobe",
+    "ImageMagick",
+    "Pandoc",
+    "Chromium"
+  ],
+  "web_tests": {
+    "real_http_server": "passed",
+    "chromium_component_dom_with_python_http_bridge": "passed",
+    "native_chromium_localhost_navigation": "blocked_by_managed_browser_policy_locally; separate acceptance test configured in GitHub CI",
+    "policy_modified": false
+  },
+  "package_smoke": {
+    "outside_source": true,
+    "independent_cli_and_http_steps": 9,
+    "real_http": true,
+    "dependencies": "reused_host_packages; not fresh network dependency resolution"
+  },
+  "provider_calls": 0,
+  "real_spend": 0,
+  "native_keyring_tested": false,
+  "actual_claude_codex_client_loading_tested": false,
+  "ci_status": "see exact PR commit; not inferred from local results"
+}

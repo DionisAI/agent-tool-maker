@@ -48,6 +48,14 @@ jobs:
           PY
       - run: python -m pytest -q -m browser --junitxml=reports/browser.xml
       - run: python scripts/check_test_receipt.py reports/browser.xml
+      - name: Native loopback browser acceptance
+        run: python -m pytest -q acceptance/test_console_navigation.py --junitxml=reports/console-native.xml
+      - run: python scripts/check_test_receipt.py reports/console-native.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-test-receipts
+          path: reports/*.xml
   package:
     runs-on: ubuntu-latest
     steps:
@@ -62,5 +70,8 @@ jobs:
         run: |
           atm --version
           atm --home "$RUNNER_TEMP/atm-state" init
-          atm --home "$RUNNER_TEMP/atm-state" setup --agent codex
+          atm --home "$RUNNER_TEMP/atm-state" setup
+          atm --home "$RUNNER_TEMP/atm-state" agents list
+          atm --home "$RUNNER_TEMP/atm-state" tools list fal
+          atm ui --help
           atm --home "$RUNNER_TEMP/atm-state" doctor --tool ffmpeg.probe

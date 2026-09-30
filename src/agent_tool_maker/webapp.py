@@ -1,0 +1,271 @@
+"""Local management console; never a remotely exposed tool-execution server.
+
+Static assets are public shell only. Every data request requires a per-process
+bearer, exact Host, same-origin writes, bounded JSON, and a whitelisted endpoint.
+No arbitrary file read, shell, generation, deployment or job-refresh endpoint.
+"""
+from __future__ import annotations
+
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.resources import files
+import hmac
+import json
+import os
+from pathlib import Path
+import re
+import secrets
+import threading
+import time
+import webbrowser
+
+from . import management as mg
+from .engine import Router
+from .errors import RouterError
+from .storage import State, atomic_write
+from .vault import Vault
+
+MAX_BODY = 65536
+STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
+          "/assets/app.js": ("app.js", "text/javascript; charset=utf-8"),
+          "/assets/app.css": ("app.css", "text/css; charset=utf-8")}
+CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'"
+
+
+class WebVault(Vault):
+    def _password(self):
+        if not self.password:
+            raise RouterError("needs_unlock", "Supply this vault's passphrase in the local form for this request, or use the private terminal.")
+        return self.password
+
+
+def fields(body: dict, required=(), optional=()):
+    if set(body) - set(required) - set(optional) or any(k not in body for k in required):
+        raise RouterError("invalid_request", "Unexpected or missing request fields.")
+
+
+def text(body, key, *, default=None, limit=16384):
+    value = body.get(key, default)
+    if value is None:
+        return None
+    if not isinstance(value, str) or len(value) > limit or any(c in value for c in "\r\n\x00"):
+        raise RouterError("invalid_request", "Expected a bounded, single-line string.")
+    return value
+
+
+def flag(body, key, default=False):
+    value = body.get(key, default)
+    if type(value) is not bool:
+        raise RouterError("invalid_request", "Expected a boolean field.")
+    return value
+
+
+def selections(body, key, allowed=None):
+    value = body.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, list) or len(value) > 80 or any(not isinstance(v, str) or len(v) > 100 for v in value):
+        raise RouterError("invalid_request", "Expected a bounded list of names.")
+    if allowed is not None and any(v not in allowed for v in value):
+        raise RouterError("invalid_request", "Unsupported selection.")
+    return value
+
+
+class Console(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = False
+
+    def __init__(self, home, *, port=0, executable=None, user_home=None, router_factory=None):
+        if type(port) is not int or not 0 <= port <= 65535:
+            raise RouterError("invalid_port", "Port must be between 0 and 65535.")
+        self.home = State(Path(home)).home
+        self.executable, self.user_home = executable, user_home
+        self.router_factory = router_factory
+        self.token = secrets.token_urlsafe(32)
+        self.expires_at = time.monotonic() + 8 * 3600
+        self.lock = threading.RLock()
+        super().__init__(("127.0.0.1", port), Handler)
+        self.authority = f"127.0.0.1:{self.server_port}"
+        self.origin = "http://" + self.authority
+        self.token_path = self.home / (f"ui-session-{self.server_port}.token")
+        atomic_write(self.token_path, self.token.encode())
+
+    def get_request(self):
+        connection, address = super().get_request()
+        connection.settimeout(10)
+        return connection, address
+
+    def open_router(self, password=None):
+        if self.router_factory:
+            return self.router_factory(password)
+        router = Router(self.home)
+        router.vault = WebVault(router.state, password=password)
+        return router
+
+    def server_close(self):
+        super().server_close()
+        if hasattr(self, "token_path"):
+            try:
+                if self.token_path.read_text() == self.token:
+                    self.token_path.unlink()
+            except OSError:
+                pass
+        self.token = ""
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "ATM"
+    sys_version = ""
+    protocol_version = "HTTP/1.0"
+
+    def log_message(self, *args):
+        pass  # Never log URLs, headers, tokens, request bodies or credentials.
+
+    def respond(self, status, payload, *, mime="application/json; charset=utf-8"):
+        raw = payload if isinstance(payload, bytes) else json.dumps(payload, ensure_ascii=False, allow_nan=False).encode()
+        self.send_response(status)
+        for key, value in {"Content-Type": mime, "Content-Length": str(len(raw)),
+                           "Cache-Control": "no-store", "Content-Security-Policy": CSP,
+                           "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff",
+                           "X-Frame-Options": "DENY", "Cross-Origin-Resource-Policy": "same-origin",
+                           "Connection": "close"}.items():
+            self.send_header(key, value)
+        self.end_headers()
+        self.wfile.write(raw)
+        self.close_connection = True
+
+    def check_request(self, *, authenticated):
+        for header in ("Host", "Origin", "Authorization", "Content-Type", "Content-Length"):
+            if len(self.headers.get_all(header, [])) > 1:
+                raise RouterError("forbidden_request", "Duplicate security-sensitive header.")
+        if self.headers.get("Host") != self.server.authority:
+            raise RouterError("forbidden_request", "Invalid local Host.")
+        if self.headers.get("Origin") not in (None, self.server.origin):
+            raise RouterError("forbidden_request", "Cross-origin request rejected.")
+        if self.headers.get("Sec-Fetch-Site") not in (None, "same-origin", "none"):
+            raise RouterError("forbidden_request", "Cross-site request rejected.")
+        if "?" in self.path or "#" in self.path:
+            raise RouterError("forbidden_request", "Query-string tokens and parameters are not accepted.")
+        if authenticated:
+            supplied = self.headers.get("Authorization", "")
+            if time.monotonic() >= self.server.expires_at or not hmac.compare_digest(supplied, "Bearer " + self.server.token):
+                raise RouterError("unauthorized", "Open this running console from its private terminal session.")
+
+    def do_GET(self):
+        self.handle_request(False)
+
+    def do_POST(self):
+        self.handle_request(True)
+
+    def do_OPTIONS(self):
+        self.respond(403, {"error": {"code": "forbidden_request", "message": "Cross-origin access is disabled."}})
+
+    def handle_request(self, write):
+        router = None
+        try:
+            static = self.path in STATIC and not write
+            self.check_request(authenticated=not static)
+            if static:
+                name, mime = STATIC[self.path]
+                self.respond(200, files("agent_tool_maker.data").joinpath("web", name).read_bytes(), mime=mime)
+                return
+            body = {}
+            if write:
+                if self.headers.get("Origin") != self.server.origin:
+                    raise RouterError("forbidden_request", "Writes require the exact local Origin.")
+                if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json" or self.headers.get("Transfer-Encoding"):
+                    raise RouterError("invalid_request", "Only bounded JSON requests are accepted.")
+                length = self.headers.get("Content-Length", "")
+                if not length.isdecimal() or not 1 <= int(length) <= MAX_BODY:
+                    raise RouterError("invalid_request", "Request body exceeds limit or has no valid length.")
+                raw = self.rfile.read(int(length))
+                if len(raw) != int(length):
+                    raise RouterError("invalid_request", "Incomplete request.")
+                body = json.loads(raw, parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+                if not isinstance(body, dict):
+                    raise RouterError("invalid_request", "Expected a JSON object.")
+            with self.server.lock:
+                router = self.server.open_router(text(body, "passphrase"))
+                result = self.mutate(router, body) if write else self.read(router)
+            self.respond(200, result)
+        except RouterError as error:
+            status = 401 if error.code == "unauthorized" else 403 if error.code == "forbidden_request" else 404 if error.code == "not_found" else 409 if error.code in {"setup_changed", "state_changed", "setup_conflict", "registration_changed"} else 400
+            self.respond(status, {"error": error.as_dict()})
+        except (ValueError, TypeError, KeyError, OSError, RecursionError):
+            self.respond(400, {"error": {"code": "invalid_request", "message": "Invalid local input or state. No provider execution was requested."}})
+        finally:
+            if router:
+                router.close()
+                router.vault.password = None
+                router.vault._key = None
+                router.vault._used_secrets.clear()
+
+    def read(self, router):
+        routes = {"/api/overview": lambda: mg.overview(router, user_home=self.server.user_home),
+                  "/api/agents": lambda: mg.agents(router, user_home=self.server.user_home),
+                  "/api/tools": lambda: mg.tools(router), "/api/connections": lambda: mg.connections(router),
+                  "/api/clis": lambda: mg.cli_inventory(router), "/api/jobs": lambda: mg.recent_jobs(router)}
+        if self.path in routes:
+            return routes[self.path]()
+        if self.path.startswith("/api/tools/"):
+            tool = router.catalog.get(self.path.removeprefix("/api/tools/"))
+            # Public schemas only; arbitrary custom headers and example values are not exposed.
+            keys = ("id", "title", "provider", "adapter", "capabilities", "schema", "permissions", "paid", "implementation", "notes")
+            return {**{key: tool.get(key) for key in keys}, "enabled": mg.enabled(router.state, tool["id"])}
+        raise RouterError("not_found", "Unknown console endpoint.")
+
+    def mutate(self, router, body):
+        path = self.path
+        if path in {"/api/setup/preview", "/api/setup/apply"}:
+            fields(body, optional=("agents", "clis", "replace_skills", "approved_sha256"))
+            kwargs = dict(agent_names=selections(body, "agents", mg.DEFAULT_AGENTS), cli_names=selections(body, "clis") or [],
+                          replace_skills=flag(body, "replace_skills"), executable=self.server.executable, user_home=self.server.user_home)
+            if path.endswith("preview"):
+                return mg.setup_plan(router, **kwargs)
+            return mg.apply_setup(router, approved_sha256=text(body, "approved_sha256"), **kwargs)
+        if path == "/api/agents/unregister":
+            fields(body, ("agent", "confirm"))
+            name = text(body, "agent")
+            if text(body, "confirm") != name:
+                raise RouterError("approval_required", "Confirm the selected agent name.")
+            return mg.unregister(router, name, apply=True)
+        if path == "/api/tools/toggle":
+            fields(body, ("tool", "enabled", "expected_enabled"))
+            return mg.set_enabled(router, text(body, "tool"), flag(body, "enabled"), apply=True, expected=flag(body, "expected_enabled"))
+        if path == "/api/vault/init":
+            fields(body, ("backend",), ("passphrase",))
+            backend = text(body, "backend")
+            if backend not in {"keyring", "passphrase"}:
+                raise RouterError("invalid_request", "Unsupported vault backend.")
+            return router.vault.init(backend)
+        if path == "/api/connections/save":
+            fields(body, ("provider", "value"), ("replace", "expires_at", "passphrase"))
+            return mg.connect_value(router, text(body, "provider"), text(body, "value"),
+                                    replace=flag(body, "replace"), expires_at=text(body, "expires_at"))
+        if path == "/api/connections/remove":
+            fields(body, ("provider", "confirm"), ("passphrase",))
+            name = text(body, "provider")
+            if name not in router.state.secret_names() or text(body, "confirm") != name:
+                raise RouterError("approval_required", "Confirm the exact configured connection to remove locally.")
+            return router.vault.delete(name)
+        if path == "/api/verify":
+            fields(body, ("provider",), ("allow_network", "passphrase"))
+            from .verification import verify
+            return verify(router, text(body, "provider"), allow_network=flag(body, "allow_network"))
+        raise RouterError("not_found", "No execution or arbitrary configuration endpoint is exposed.")
+
+
+def serve(home, *, port=0, open_browser=True, executable=None):
+    from .onboarding import executable_path
+    server = Console(home, port=port, executable=str(executable_path(executable)))
+    try:
+        print(json.dumps({"url": server.origin, "session_token_file": str(server.token_path),
+                          "scope": "loopback_only", "expires_after_hours": 8,
+                          "note": "Keep the session token private. Ctrl-C stops the server. No secret is printed here."}), flush=True)
+        if open_browser:
+            webbrowser.open(server.origin + "/#token=" + server.token)
+        server.serve_forever(poll_interval=0.2)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0

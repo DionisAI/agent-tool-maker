@@ -55,6 +55,8 @@ class Router:
         self.net.close()
 
     def readiness(self,tool):
+        from .management import enabled
+        if not enabled(self.state,tool["id"]): return "disabled"
         if tool["adapter"] in {"desktop","human"}: return "host_"+tool["adapter"]+"_required"
         if tool["adapter"]=="workflow": return "workflow_dependencies_not_verified"
         if tool["adapter"]=="mcp": return "configured_not_verified" if self.state.setting("mcp:"+tool["server"]) else "mcp_not_configured"
@@ -75,6 +77,7 @@ class Router:
     def route(self,task,*,capability=None,allow_browser=False,prefer="auto"):
         candidates=[]
         for t in self.search(task,capability):
+            if t["readiness"] == "disabled": continue
             mode=t["adapter"] if t["adapter"] in {"browser","desktop","human","mcp","workflow"} else "cli" if t.get("executable") else "api"
             if t["adapter"]=="catalog_only" or (mode in {"browser","desktop","human"} and not allow_browser): continue
             ready=t["readiness"]=="configured_not_verified" or mode in {"browser","desktop","human"} and allow_browser
@@ -102,6 +105,9 @@ class Router:
 
     def run(self,tool_id,inputs,workspace,*,request_key=None,allow_paid=False,grants=()):
         tool=self.catalog.validate(tool_id,inputs)
+        from .management import enabled
+        if not enabled(self.state,tool_id):
+            raise RouterError("tool_disabled","This action is disabled for all local agents. Enable it explicitly before new execution.")
         if tool["adapter"]=="catalog_only":
             raise RouterError("not_implemented","This item is catalog-only, not an executable adapter.")
         if tool.get("paid") and tool["adapter"]!="browser" and not allow_paid:
@@ -228,6 +234,9 @@ class Router:
     def _refresh(self,job,tool):
         adapter,d,jid=tool["adapter"],job["data"],job["id"]
         if adapter=="workflow":
+            from .management import enabled
+            if not enabled(self.state, tool["id"]):
+                raise RouterError("tool_disabled", "Workflow is disabled; no further steps will start.")
             from .maker import execute_workflow
             return execute_workflow(self,tool,job)
         if adapter=="xyq":
