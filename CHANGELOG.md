@@ -1,3 +1,15 @@
+# 0.3.0 — persistent onboarding
+
+- Add local preview/apply setup and user-level Codex/Claude Skill registration.
+- Repeated setup/export/connect preserves existing credentials and identical files.
+- Explicit replacement backs up Skills; changed CLI bindings never auto-rebind.
+- Doctor checks binary hashes/permissions, vault availability and declared expiry;
+  unlocking is opt-in and vendor authentication is not inferred.
+- Add four fixed account GET probes with explicit network consent and historical
+  credential-bound status. No generation, automatic retries or unknown-cost checks.
+- Add optional expiry metadata; preserve legacy vaults. OAuth refresh remains planned.
+- Add repository instructions, setup-once guide and fresh-process regressions.
+
 # Changelog
 
 ## 0.2.0 · Agent Tool Maker · 2026-09-29

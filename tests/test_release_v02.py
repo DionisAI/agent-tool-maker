@@ -1,4 +1,4 @@
-import copy,json,shutil,subprocess
+import copy,json,shutil,subprocess,os
 from pathlib import Path
 import httpx,pytest
 from agent_tool_maker.catalog import Catalog
@@ -75,7 +75,7 @@ def test_real_added_ffmpeg_actions(router,workspace,tool):
 @pytest.mark.browser
 def test_roadmap_real_browser_search_and_status_filter(tmp_path):
     from playwright.sync_api import sync_playwright
-    exe=shutil.which('chromium')
+    exe=os.environ.get('ATM_CHROMIUM') or shutil.which('chromium')
     if not exe:pytest.skip('Chromium unavailable')
     with sync_playwright() as pw:
         browser=pw.chromium.launch(executable_path=exe,headless=True,args=['--no-sandbox'])

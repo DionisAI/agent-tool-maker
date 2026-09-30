@@ -4,6 +4,7 @@ import getpass
 import hashlib
 import os
 import sys
+import time
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
@@ -113,13 +114,15 @@ class Vault:
         self._key = key
         return key
 
-    def put(self, name: str, value: str):
+    def put(self, name: str, value: str, *, expires_at: float | None = None):
         if not value or len(value) > 16384 or any(x in value for x in ["\r", "\n", "\x00"]):
             raise RouterError("bad_credential", "Credential must be nonempty, bounded and contain no control-line characters.")
         nonce = os.urandom(12)
         cipher = AESGCM(self.unlock()).encrypt(nonce, value.encode(), name.encode())
         with self.state.db() as c:
             c.execute("INSERT OR REPLACE INTO secrets VALUES (?,?,?)", (name, nonce, cipher))
+            from .storage import canonical
+            c.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", ("credential_meta:" + name, canonical({"configured_at": time.time(), "expires_at": expires_at})))
         self._used_secrets.append(value)
 
     def get(self, name: str) -> str:

@@ -1,3 +1,14 @@
+# v0.2 → v0.3（本轮）
+
+原地使用同一个状态目录，无需迁移或重新加密。不要移动原生keyring关联的库目录。
+将ATM更新为v0.3.0后运行setup预览；旧Skill不同会提示冲突，审阅后--replace-skills替换并备份。
+connect重复调用现为no-op；轮换凭证必须显式--replace。原skill export相同内容重复执行成功。
+新metadata只有配置时间与可选有效期，旧Key保留unknown有效期；无需再次输入才能升级。
+默认doctor不解锁，不调用供应商；--check-unlock与verify --allow-network是分别授权的动作。
+详情见SETUP_ONCE.md。OAuth refresh仍未实现。
+
+---
+
 # ATR v0.1 → ATM v0.2
 
 包名改为 `agent-tool-maker-local`，Python 模块为 `agent_tool_maker`，主命令为 `atm`。保留 `atr` console-script 别名，但不保留 `import agent_tool_router`。
