@@ -78,6 +78,9 @@ def tool_health(router, tool: dict, *, vault=None, cache=None) -> dict:
     from .management import enabled
     if not enabled(router.state, tool["id"]):
         return {"id": tool["id"], "state": "disabled", "authentication": "not_verified"}
+    if tool["adapter"]=="web_recipe":
+        from .web_recipe import health
+        return {"id":tool["id"],**health(router,tool)}
     state, kind = router.state, tool["adapter"]
     result = {"id": tool["id"], "state": "configured_not_verified", "authentication": "not_verified"}
     if kind in {"browser", "desktop", "human", "catalog_only", "workflow"}:
@@ -88,7 +91,7 @@ def tool_health(router, tool: dict, *, vault=None, cache=None) -> dict:
     credentials = [tool["credential"]] if tool.get("credential") else []
     # Command credential_env is optional: existing official CLI login is a valid route.
     optional = list(tool.get("command", {}).get("credential_env", {}).values())
-    credentials += [name for name in optional if name in state.secret_names()]
+    credentials += [name for name in optional if tool.get("command",{}).get("credential_required") or name in state.secret_names()]
     if optional:
         result["cli_authentication"] = "vault_override" if credentials else "vendor_login_not_verified"
     path, expected = None, None
@@ -116,6 +119,8 @@ def tool_health(router, tool: dict, *, vault=None, cache=None) -> dict:
             return {**result, "state": cache[key]["state"], "next_action": "Review the installation change and explicitly rebind the executable; do not reset credentials."}
     names = set(state.secret_names())
     for name in dict.fromkeys(credentials):
+        if state.setting("sync_conflict:" + name, False):
+            return {**result, "state": "sync_conflict", "credential": name, "next_action": "An owner must resolve conflicting revisions; do not reconnect or pick by timestamp."}
         if name not in names:
             return {**result, "state": "missing_credential", "credential": name,
                     "next_action": f"Human: atm connect {name} in a private local terminal."}

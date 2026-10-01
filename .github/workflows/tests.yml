@@ -6,6 +6,7 @@ jobs:
   contracts:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python: ['3.11', '3.12', '3.13']
     steps:
@@ -14,7 +15,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - run: python -m pip install -e '.[secure,test]'
+      # Health-contract tests import Playwright metadata; browser binaries run only below.
+      - run: python -m pip install -e '.[secure,test,browser-test]'
       - run: python -m pytest -q -m 'not browser and not integration' --junitxml=reports/contracts.xml
       - run: python scripts/check_test_receipt.py reports/contracts.xml
   local-tools:
@@ -49,7 +51,7 @@ jobs:
       - run: python -m pytest -q -m browser --junitxml=reports/browser.xml
       - run: python scripts/check_test_receipt.py reports/browser.xml
       - name: Native loopback browser acceptance
-        run: python -m pytest -q acceptance/test_console_navigation.py --junitxml=reports/console-native.xml
+        run: python -m pytest -q acceptance/test_console_navigation.py acceptance/test_recipe_native_v06.py --junitxml=reports/console-native.xml
       - run: python scripts/check_test_receipt.py reports/console-native.xml
       - uses: actions/upload-artifact@v4
         if: always()
@@ -74,4 +76,37 @@ jobs:
           atm --home "$RUNNER_TEMP/atm-state" agents list
           atm --home "$RUNNER_TEMP/atm-state" tools list fal
           atm ui --help
+          atm sync --help
+          atm access --help
+          atm broker --help
           atm --home "$RUNNER_TEMP/atm-state" doctor --tool ffmpeg.probe
+
+  linux-broker-uid:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      # A second OS user must import installed package files, not the runner's private checkout.
+      - run: python -m pip install '.[test]'
+      - name: Explicit cross-UID acceptance in isolated runner
+        run: sudo "$(command -v python)" -m pytest -q acceptance/test_broker_uid.py --junitxml=reports/broker-uid.xml
+      - run: python scripts/check_test_receipt.py reports/broker-uid.xml
+
+  secrets-first-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e '.[test]'
+      - name: One password, independent clients, no manifest, fake credentials only
+        run: python scripts/demo_secrets_first.py --out reports/secrets-first.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secrets-first-receipt
+          path: reports/secrets-first.json

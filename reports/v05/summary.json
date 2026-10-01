@@ -1,0 +1,56 @@
+{
+  "version": "0.5.0",
+  "date": "2026-09-30",
+  "base_repository": "DionisAI/agent-tool-maker",
+  "base_commit": "b20775c9daf9285645d53254e4ccb27007c5076f",
+  "base_tree": "047eddb287628dee045131414bf1e3c0b061b9e6",
+  "local_suite": {
+    "passed": 484,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "xfail": 0,
+    "deselected": 0,
+    "elapsed_seconds": 333.68,
+    "covered_lines": 3030,
+    "total_lines": 3448,
+    "line_coverage_percent": 87.88
+  },
+  "separate_linux_cross_uid_acceptance": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "executed_on_final_sources": true
+  },
+  "supplier_requests": 0,
+  "supplier_spend_usd": 0,
+  "github_v05_pushed": false,
+  "github_v05_ci_run": false,
+  "installed_wheel": {
+    "outside_source": true,
+    "cli_smoke_steps": 9,
+    "two_device_demo": true,
+    "fresh_scoped_clients": true,
+    "real_foreground_broker_expiry": true,
+    "dependencies": "Reused explicitly installed host dependencies; not a fresh online resolution test."
+  },
+  "browser_evidence": "Actual Chromium component interaction against synthetic test state; no new native localhost navigation or real Agent host acceptance.",
+  "environment": {
+    "platform": "Linux",
+    "python": "3.13.5"
+  },
+  "receipt_sha256": {
+    "full-test.log": "e0d7c628c30328b95a1881ba72f42eaf67c06ffa305a2d6ddaad3698705328fe",
+    "junit.xml": "9bd08458d604574d7b184bc805e53aca3957eb4a088555fcd4a95f37e45b61ad",
+    "coverage.json": "e50af3425e26a8274623685efe629e95e5fc63a53404da7d5a196a4fc6f1528f",
+    "broker-uid-final.log": "edb45dd9f02006dc555f85a9a3b48a5961557c6160abc6a5375a12ffec36254a",
+    "broker-uid-final.xml": "18381df47d8f08adeeb24786c6dc5900e790cc39860a0e8adae2c97e9c5ef5a6",
+    "wheel-smoke.json": "4549f50631f8efe037812dd1f6d323d279e7a7bed1801577e36bed79c1790a4e",
+    "wheel-demo.json": "7efd5822e2c156e0a5cc9b4565fda7475bf6d9667e6192d56c5499140d84c8d5",
+    "foreground-process.json": "9193ee49ac5535a1bc875cd18ebbb21d14c5e9d29d823474dc9900c71dff56f1",
+    "runtime-manifest.json": "045f3027c55d22390ff237360b534553176dd5c20ec0ca50645d48b466551566",
+    "approval-pin-regression-before.log": "e96fbbe536f4ab1e00d601c0280d7c045c732635fb595e7fefe84386de8f0adb",
+    "approval-pin-regression-after.log": "2826472f90be4852b96e07c49cc4f53eda3fd4b65d3d120f19511e163db50e58",
+    "wheel-demo-final.json": "2bcf4a9ec078a934e9f88c48c5c5d903d4fcb6ac0cb45f935019e80a6d8bf2e8"
+  }
+}

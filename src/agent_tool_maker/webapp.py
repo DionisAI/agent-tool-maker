@@ -80,6 +80,8 @@ class Console(ThreadingHTTPServer):
         self.home = State(Path(home)).home
         self.executable, self.user_home = executable, user_home
         self.router_factory = router_factory
+        self.secret_session = None
+        self.secret_session_thread = None
         self.token = secrets.token_urlsafe(32)
         self.expires_at = time.monotonic() + 8 * 3600
         self.lock = threading.RLock()
@@ -102,6 +104,10 @@ class Console(ThreadingHTTPServer):
         return router
 
     def server_close(self):
+        if self.secret_session is not None:
+            self.secret_session.closing.set()
+            if self.secret_session_thread:
+                self.secret_session_thread.join(320)
         super().server_close()
         if hasattr(self, "token_path"):
             try:
@@ -180,12 +186,14 @@ class Handler(BaseHTTPRequestHandler):
                 if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json" or self.headers.get("Transfer-Encoding"):
                     raise RouterError("invalid_request", "Only bounded JSON requests are accepted.")
                 length = self.headers.get("Content-Length", "")
-                if not length.isdecimal() or not 1 <= int(length) <= MAX_BODY:
+                limit = 8 * 1024 * 1024 + MAX_BODY if self.path == "/api/sync/import" else MAX_BODY
+                if not length.isdecimal() or not 1 <= int(length) <= limit:
                     raise RouterError("invalid_request", "Request body exceeds limit or has no valid length.")
                 raw = self.rfile.read(int(length))
                 if len(raw) != int(length):
                     raise RouterError("invalid_request", "Incomplete request.")
-                body = json.loads(raw, parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+                from .sync import strict_json
+                body = strict_json(raw, limit=limit)
                 if not isinstance(body, dict):
                     raise RouterError("invalid_request", "Expected a JSON object.")
             with self.server.lock:
@@ -205,6 +213,15 @@ class Handler(BaseHTTPRequestHandler):
                 router.vault._used_secrets.clear()
 
     def read(self, router):
+        if self.path == "/api/session":
+            from .session import status
+            return status(router.state.home)
+        if self.path == "/api/extensions":
+            from .extensions_web import inventory
+            return inventory(router)
+        if self.path in {"/api/sync", "/api/access"}:
+            from .multidevice_web import read
+            return read(router,self.path)
         routes = {"/api/overview": lambda: mg.overview(router, user_home=self.server.user_home),
                   "/api/agents": lambda: mg.agents(router, user_home=self.server.user_home),
                   "/api/tools": lambda: mg.tools(router), "/api/connections": lambda: mg.connections(router),
@@ -220,6 +237,30 @@ class Handler(BaseHTTPRequestHandler):
 
     def mutate(self, router, body):
         path = self.path
+        if path == "/api/session/unlock":
+            fields(body, optional=("ttl", "passphrase"))
+            from .session import status, ttl_seconds, SecretSession, run_service
+            seconds = ttl_seconds(text(body, "ttl", default="30m"))
+            current = status(router.state.home)
+            if current["unlocked"]:
+                return {**current, "action": "unchanged"}
+            service = SecretSession(router.state.home, seconds=seconds, vault=router.vault)
+            self.server.secret_session = service
+            self.server.secret_session_thread = threading.Thread(target=run_service, args=(service,), daemon=True)
+            self.server.secret_session_thread.start()
+            return service.metadata_status()
+        if path == "/api/session/lock":
+            fields(body)
+            from .session import owner_call, status
+            if not status(router.state.home)["unlocked"]:
+                return status(router.state.home)
+            return owner_call(router.state.home, "session.lock")
+        if path.startswith(("/api/extensions/", "/api/credentials/")):
+            from .extensions_web import mutate
+            return mutate(router,path,body)
+        if path.startswith(("/api/sync/", "/api/access/")):
+            from .multidevice_web import mutate
+            return mutate(router,path,body,user_home=self.server.user_home)
         if path in {"/api/setup/preview", "/api/setup/apply"}:
             fields(body, optional=("agents", "clis", "replace_skills", "approved_sha256"))
             kwargs = dict(agent_names=selections(body, "agents", mg.DEFAULT_AGENTS), cli_names=selections(body, "clis") or [],
@@ -244,6 +285,9 @@ class Handler(BaseHTTPRequestHandler):
             return router.vault.init(backend)
         if path == "/api/connections/save":
             fields(body, ("provider", "value"), ("replace", "expires_at", "passphrase"))
+            from .session import exists, shared_put
+            if exists(router.state.home):
+                return shared_put(router.state.home, text(body, "provider"), text(body, "value"), replace=flag(body, "replace"), expires_at=text(body, "expires_at"))
             return mg.connect_value(router, text(body, "provider"), text(body, "value"),
                                     replace=flag(body, "replace"), expires_at=text(body, "expires_at"))
         if path == "/api/connections/remove":
@@ -251,6 +295,9 @@ class Handler(BaseHTTPRequestHandler):
             name = text(body, "provider")
             if name not in router.state.secret_names() or text(body, "confirm") != name:
                 raise RouterError("approval_required", "Confirm the exact configured connection to remove locally.")
+            from .session import exists, owner_call
+            if exists(router.state.home):
+                return owner_call(router.state.home, "session.remove", {"provider": name, "confirm": name})
             return router.vault.delete(name)
         if path == "/api/verify":
             fields(body, ("provider",), ("allow_network", "passphrase"))

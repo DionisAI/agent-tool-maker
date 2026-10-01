@@ -1,0 +1,6 @@
+This is a synthetic site fixture, not a real provider. Observed controls:
+<label>Message<input id="message"></label>
+<button>Create file</button>
+<p id="state">completed</p>
+<a>Download result</a>
+Fill Message from text, click Create file once, assert #state equals completed, download via Download result. No login in this fixture. Only https://fixture.example is approved. Do not add other origins or cost claims.

@@ -39,7 +39,24 @@ def safe_target(path: Path) -> None:
         raise RouterError("unsafe_path", "Expected a bounded regular Skill file.")
 
 
-def render_skill(executable: Path, state_home: Path) -> bytes:
+def render_skill(executable: Path, state_home: Path, *, client: str | None = None) -> bytes:
+    if client is not None:
+        if client not in CLIENTS:
+            raise RouterError("unsupported_agent", "Select an explicitly supported client.")
+        prefix = shlex.join([str(executable), "--client", client])
+        return ("---\nname: agent-tool-maker\ndescription: Find and inject approved API credentials into existing programs without .env files; optionally run ATM tools through the same scoped session.\n---\n"
+                "# Agent Tool Maker — scoped execution\n\n"
+                f"Use this exact prefix: `{prefix}`. It automatically reads your owner-only client profile; never open or print that file.\n"
+                f"When a program needs an API Key, first use `{prefix} keys find ENV_NAME`. Do not create a plaintext .env.\n"
+                f"Use `{prefix} exec --env ENV_NAME=atm://exact.slot --workspace /approved/project --request-key STABLE -- /absolute/program script.py` for an existing program. No tool manifest is needed.\n"
+                "Discovery is metadata only. Exact mappings, command and project must be pre-approved by the Owner. A missing grant is not a missing Key.\n"
+                f"Start with `{prefix} broker status`, then `search`, `describe`, `run`, or `jobs get` for optional catalog tools.\n"
+                "Run accepts --input, --workspace, --request-key and --dry-run. Every run needs a stable request key.\n"
+                "Permissions are in the owner grant. Never add --allow-* flags, change your profile, or bypass the broker.\n"
+                "If locked, expired, revoked, unconfigured or conflicting, report the exact blocker. Do NOT fall back to direct ATM, read the vault,\n"
+                "request saved supplier Keys, grant yourself access, change trust, resolve conflicts, or start an unlock service.\n"
+                "The owner starts the broker once for the lease. New sessions reuse it. Same-user processes are not adversarially isolated.\n"
+                "Workflows, MCP and handoffs are not supported through this v0.5 scoped broker. Do not pretend they ran.\n").encode()
     paths = [str(executable), str(state_home.expanduser().absolute())]
     if any(c in "".join(paths) for c in "\r\n\x00"):
         raise RouterError("unsafe_path", "Runtime paths contain control characters.")
@@ -97,24 +114,24 @@ def export_skill(destination: Path, *, replace: bool = False) -> dict:
 
 
 def setup(router, *, agents=(), cli_names=(), executable=None, apply=False,
-          replace_skills=False, user_home=None) -> dict:
+          replace_skills=False, user_home=None, broker=False) -> dict:
     """Preview by default. Explicit --apply changes selected non-secret configuration."""
     agents, cli_names = list(dict.fromkeys(agents)), list(dict.fromkeys(cli_names))
     if any(a not in CLIENTS for a in agents):
         raise RouterError("unsupported_agent", "Supported user-level clients: codex, claude.")
-    allowed = {t.get("executable") for t in router.catalog.tools.values()} - {None}
+    allowed = ({t.get("executable") for t in router.catalog.tools.values()} - {None}) | {"claude", "codex"}
     if any(name not in allowed for name in cli_names):
         raise RouterError("unsupported_cli", "Choose a CLI present in atm list; no automatic third-party plugin installation.")
     home = Path(user_home or Path.home()).expanduser().absolute()
     exe = executable_path(executable) if agents else None
-    content = render_skill(exe, router.state.home) if exe else b""
+    contents = {a: render_skill(exe, router.state.home, client=a if broker else None) for a in agents}
     skill_plans = []
     for agent in agents:
         root = home / CLIENTS[agent]
         if agent == "claude" and os.environ.get("CLAUDE_CONFIG_DIR"):
             root = Path(os.environ["CLAUDE_CONFIG_DIR"]).expanduser().absolute() / "skills"
         target = root / "agent-tool-maker" / "SKILL.md"
-        skill_plans.append({"agent": agent, **file_plan(target, content, replace_skills)})
+        skill_plans.append({"agent": agent, **file_plan(target, contents[agent], replace_skills)})
     cli_plans = []
     for name in cli_names:
         bound = router.state.setting("cli:" + name)
@@ -139,17 +156,17 @@ def setup(router, *, agents=(), cli_names=(), executable=None, apply=False,
                 if hashlib.sha256(Path(item["path"]).read_bytes()).hexdigest() != item["sha256"]:
                     raise RouterError("setup_changed", "Executable changed after planning; rerun setup.")
         for item in skill_plans:
-            if file_plan(Path(item["path"]), content, replace_skills) != {k: v for k, v in item.items() if k != "agent"}:
+            if file_plan(Path(item["path"]), contents[item["agent"]], replace_skills) != {k: v for k, v in item.items() if k != "agent"}:
                 raise RouterError("setup_changed", "Skill changed after planning; rerun setup.")
         for item in cli_plans:
             if item["action"] == "bind":
                 bind_cli(router.state, item["name"], item["path"])
         for i, item in enumerate(skill_plans):
-            written = write_planned({k: v for k, v in item.items() if k != "agent"}, content)
+            written = write_planned({k: v for k, v in item.items() if k != "agent"}, contents[item["agent"]])
             skill_plans[i] = {"agent": item["agent"], **written}
             router.state.set_setting("agent:" + item["agent"], {
                 "path": item["path"], "executable": str(exe), "home": str(router.state.home),
-                "sha256": item["sha256"], "version": __version__})
+                "sha256": item["sha256"], "version": __version__, "mode": "broker" if broker else "direct"})
     backend = router.state.setting("vault", {}).get("backend")
     next_steps = []
     if not backend:

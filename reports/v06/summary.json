@@ -1,0 +1,47 @@
+{
+  "version": "0.6.0",
+  "date": "2026-09-30",
+  "base_source_tree": "d38944f8d8ba71bdfae225619839f347dea1046e",
+  "remote_base_commit": "b20775c9daf9285645d53254e4ccb27007c5076f",
+  "tests": {
+    "passed": 588,
+    "failed": 0,
+    "skipped": 0,
+    "xfail": 0,
+    "deselected": 0,
+    "duration_seconds": 404.63,
+    "coverage_percent": 87.01,
+    "covered_lines": 3672,
+    "statements": 4220
+  },
+  "additional_linux_cross_uid_passed": 1,
+  "wheel_smoke_checks": 13,
+  "wheel_runtime_files_matched": 43,
+  "demo": {
+    "checks": 6,
+    "passed": true,
+    "real_cli": "ffprobe",
+    "api_and_web": "dry-run only"
+  },
+  "native_browser_acceptance": "provided as a separate CI test; not run in managed environment",
+  "browser_component_tests": "real Chromium DOM/download with explicit in-memory fixture; local console uses explicit HTTP test bridge",
+  "claude_codex_draft_tests": "real subprocess protocol fixtures; no real coding model calls",
+  "provider_calls": 0,
+  "model_calls": 0,
+  "spend": 0,
+  "native_os_keyring_tested": false,
+  "github_uploaded": false,
+  "github_ci": "not run",
+  "python": "3.13.5",
+  "platform": "Linux",
+  "dependencies": {
+    "httpx": "0.28.1",
+    "cryptography": "46.0.4",
+    "jsonschema": "4.26.0",
+    "Pillow": "12.3.0",
+    "pytest": "9.0.2",
+    "pytest-cov": "7.0.0",
+    "playwright": "1.57.0"
+  },
+  "package_dependency_resolution": "explicit reuse of installed host packages; no fresh network install"
+}

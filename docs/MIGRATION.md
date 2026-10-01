@@ -1,3 +1,14 @@
+# v0.7 — 保留数据，换默认入口
+
+从 v0.6 更新程序不重建或移动 vault、设备身份、同步版本和已存连接。停止旧的 foreground Broker / Web 服务后安装新版本；新版本使用 `atm unlock`，默认固定30分钟。
+
+旧 tool grant 不自动获得通用 exec 权限；Owner 使用 `access permit-exec` 增补明确命令规则。已存的有效 Claude/Codex profile 可以添加规则而不轮换 bearer；过期、撤销或来自另一状态库的 profile 明确拒绝。
+新注册选择 `atm setup --broker`，审查后 `--replace-skills --apply` 备份更新；不建议 Agent 把客户端 profile 读入对话。
+
+启用统一 session 后，Key 增删改在无活动会话时失败，不自动退回逐条密码输入。Owner 重新 `unlock` 即可，原 Key 并未丢失。
+`session-owner.json` 是当前机器的本地管理 capability，不是供应商Key，也不是要分发给Agent的文件。不得同步/提交它。
+本版没有强制禁用旧的直接执行路径，故不是抵抗同用户恶意程序的完整安全边界。既有 sync/watch/verify 仍各自管理解锁；详见凭证优先指南。
+
 # v0.2 → v0.3（本轮）
 
 原地使用同一个状态目录，无需迁移或重新加密。不要移动原生keyring关联的库目录。
@@ -33,3 +44,16 @@ atm --home ~/.local/share/agent-tool-router vault status
 项目新产物目录为 `.atm/`，不会自动移动原 `.atr/` 文件；旧 job 保存的绝对路径仍需要对应文件存在。用户自定义浏览器数据保留，新自定义工具保存在独立 `custom_tools` 设置。
 
 安装两个版本可能争用 `atr` 命令，建议在独立虚拟环境安装新版本，再导出新版 Skill。默认新库不会自动导入旧项目凭证。没有把网站会员额度转换成 API 余额。
+
+
+## v0.4 → v0.5
+
+Update the installed program without reinitializing its vault. Sync is opt-in. Each new machine initializes
+its own vault+identity and receives only explicitly paired credentials; do not copy an active SQLite vault
+to create a second online device. After enabling sync, do not write the state with older ATM versions.
+
+Direct Skills remain compatible. To use limited reusable sessions, create local access grants, preview
+`atm setup --broker` and explicitly approve backed-up replacement. This is not enabled silently.
+Existing grants pin executable/definition/origin, so review and re-grant when those change. Supplier-Key
+rotation alone does not require another agent grant. No source-code deploy, cloud sync or provider rotation
+is triggered by upgrading the Python package.

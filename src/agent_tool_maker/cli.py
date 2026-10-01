@@ -55,6 +55,7 @@ def parser():
     r.add_argument("--allow-browser",action="store_true"); r.add_argument("--prefer",choices=["auto","api","cli","browser","mcp","workflow","desktop","human"],default="auto")
     run=sub.add_parser("run"); run.add_argument("tool"); run.add_argument("--input",required=True,help="JSON file or - for stdin")
     run.add_argument("--workspace",type=Path,default=Path.cwd()); run.add_argument("--request-key")
+    run.add_argument("--expect-definition", help="Fail if installed manifest differs from this digest")
     run.add_argument("--allow-paid",action="store_true"); run.add_argument("--dry-run",action="store_true")
     for name in ['write','production','code']:
         run.add_argument('--allow-'+name,action='store_true')
@@ -92,6 +93,13 @@ def parser():
     connections=sub.add_parser('connections'); cs=connections.add_subparsers(dest='operation',required=True); cs.add_parser('list')
     ui=sub.add_parser('ui',help='Start the loopback-only local management console; Ctrl-C stops it')
     ui.add_argument('--port',type=int,default=0); ui.add_argument('--no-browser',action='store_true'); ui.add_argument('--atm-executable')
+    from .multidevice_cli import add_commands
+    add_commands(p, sub)
+    setup.add_argument("--broker", action="store_true", help="Register scoped broker runtime for Claude/Codex; profiles are granted separately")
+    from .extensions_cli import add_commands
+    add_commands(sub,mk)
+    from .secrets_cli import add_commands as secrets_commands
+    secrets_commands(sub)
     return p
 
 
@@ -109,6 +117,15 @@ def load_input(value):
 
 def dispatch(args,router):
     cmd=args.command
+    if cmd in {"keys", "exec", "lock", "session"} or cmd == "access" and args.operation == "permit-exec":
+        from .secrets_cli import dispatch as secrets_dispatch
+        return secrets_dispatch(args, router)
+    if cmd in {"credentials","web"} or cmd=="make" and args.operation in {"new","from-openapi","pack","check-bundle","update","draft"}:
+        from .extensions_cli import dispatch as extension_dispatch
+        return extension_dispatch(args,router)
+    if cmd in {"sync", "access", "broker"}:
+        from .multidevice_cli import dispatch as multidispatch
+        return multidispatch(args,router)
     if cmd=="init":
         return {"home":str(router.state.home),"tools":len(router.catalog.tools),"network_calls":0,"version":__version__}
     if cmd=="doctor":
@@ -122,21 +139,27 @@ def dispatch(args,router):
         from .management import DEFAULT_AGENTS
         selected=() if args.no_agents else DEFAULT_AGENTS if args.agent is None else args.agent
         return setup(router,agents=selected,cli_names=args.cli,executable=args.atm_executable,
-                     apply=args.apply,replace_skills=args.replace_skills)
+                     apply=args.apply,replace_skills=args.replace_skills,broker=args.broker)
     if cmd=="verify":
         from .verification import verify
         return verify(router,args.provider,allow_network=args.allow_network)
     if cmd=="vault":
         if args.operation=="init": return router.vault.init(args.backend)
         if args.operation=="status": return {"backend":router.state.setting("vault",{}).get("backend"),"credential_names":router.state.secret_names(),"secrets_returned":False}
+        from .session import exists, owner_call
+        if exists(router.state.home):
+            return owner_call(router.state.home, "session.remove", {"provider": args.provider, "confirm": args.provider})
         return router.vault.delete(args.provider)
     if cmd=="connect":
         from .management import known_credentials, connect_value
         providers = known_credentials(router)
         if args.provider not in providers:
-            raise RouterError("unknown_provider","No native API credential adapter for this provider; browser logins and CLI logins are separate.")
+            raise RouterError("unknown_provider","Unknown credential slot. Declare it with atm credentials declare NAME --apply, then connect; browser sessions are separate.")
         if args.provider in router.state.secret_names() and not args.replace:
             return {"provider": args.provider, "status": "already_configured", "secrets_read": False, "next_action": "Existing credential preserved. Use --replace only to rotate this connection."}
+        from .session import exists as session_exists, status as session_status
+        if session_exists(router.state.home) and not session_status(router.state.home)["unlocked"]:
+            raise RouterError("session_locked", "Unlock the existing session before entering a new value. Stored Keys do not need to be re-entered.")
         from .health import parse_expiry
         expiry = parse_expiry(args.expires_at)
         if args.env:
@@ -145,7 +168,11 @@ def dispatch(args,router):
         elif args.provider=="higgsfield":
             value=prompt_secret("Higgsfield API key ID: ")+":"+prompt_secret("Higgsfield API key secret: ")
         else: value=prompt_secret(f"{args.provider} API key: ")
-        saved = connect_value(router,args.provider,value,replace=args.replace,expires_at=args.expires_at)
+        from .session import exists, shared_put
+        if exists(router.state.home):
+            saved = shared_put(router.state.home, args.provider, value, replace=args.replace, expires_at=args.expires_at)
+        else:
+            saved = connect_value(router,args.provider,value,replace=args.replace,expires_at=args.expires_at)
         return {**saved,"one_time_env_import":bool(args.env)}
     if cmd=="cli":
         if args.operation=="list":
@@ -200,13 +227,16 @@ def dispatch(args,router):
         return remove(router.state,args.id)
     if cmd=="run":
         inputs=load_input(args.input)
+        if args.expect_definition is not None:
+            from .maker import digest
+            if digest(router.catalog.get(args.tool))!=args.expect_definition:raise RouterError("definition_changed","Generated CLI expects another definition.")
         if args.dry_run:
             tool=router.catalog.validate(args.tool,inputs)
             from .actions import preflight
             plan=preflight(router,tool,inputs,args.workspace)
             return {"plan":plan,"permissions_required":tool.get('permissions',[]),"dry_run":True,"tool":tool["id"],"schema_valid":True,"readiness":router.readiness(tool),
                     "paid":tool["paid"],"cost_usd":None,"credentials_read":False,"network_calls":0}
-        return router.public_job(router.run(args.tool,inputs,args.workspace,request_key=args.request_key,allow_paid=args.allow_paid,grants=[p for p,flag in [('external_write',args.allow_write),('production',args.allow_production),('execute_code',args.allow_code)] if flag]))
+        return router.public_job(router.run(args.tool,inputs,args.workspace,request_key=args.request_key,allow_paid=args.allow_paid,expect_definition=args.expect_definition,grants=[p for p,flag in [('external_write',args.allow_write),('production',args.allow_production),('execute_code',args.allow_code)] if flag]))
     if cmd=="jobs":
         if args.operation=="list": return {"jobs":[router.public_job(j) for j in router.state.jobs()]}
         if args.operation=="get": return router.public_job(router.refresh(args.id) if args.refresh else router.state.job(args.id))
@@ -223,10 +253,19 @@ def main(argv=None):
     args=parser().parse_args(argv)
     router=None
     try:
-        if args.command=="ui":
+        if args.client or args.client_profile:
+            from .multidevice_cli import client_dispatch
+            value=client_dispatch(args)
+        elif args.command=="unlock":
+            from .session import serve
+            return serve(args.home, ttl=args.ttl)
+        elif args.command=="broker" and args.operation=="serve":
+            from .broker import serve
+            return serve(args.home,socket_file=args.socket,ttl_hours=args.ttl_hours,socket_group=args.socket_group)
+        elif args.command=="ui":
             from .webapp import serve
             return serve(args.home,port=args.port,open_browser=not args.no_browser,executable=args.atm_executable)
-        if args.command=="demo":
+        elif args.command=="demo":
             from .demo import run_demo
             value=run_demo(args.out)
         else:
@@ -237,7 +276,7 @@ def main(argv=None):
             return 2
         if args.command=="setup" and args.apply and value.get("status") in {"needs_review", "needs_dependencies"}:
             return 2
-        return 2 if isinstance(value,dict) and value.get("status") in ["failed","submission_unknown","download_failed","delivery_failed","blocked"] else 0
+        return 2 if isinstance(value,dict) and value.get("status") in ["failed","submission_unknown","download_failed","delivery_failed","blocked","partial_rejection","login_required"] else 0
     except RouterError as e:
         print(json.dumps({"error":e.as_dict()},ensure_ascii=False,indent=2))
         return 2

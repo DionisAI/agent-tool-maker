@@ -1,0 +1,79 @@
+{
+  "id": "studio.account_export",
+  "provider": "studio",
+  "title": "Synthetic website export recipe; not a production vendor",
+  "capabilities": [
+    "custom"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "maxLength": 200
+      }
+    },
+    "required": [
+      "text"
+    ],
+    "additionalProperties": false
+  },
+  "paid": false,
+  "permissions": [
+    "external_write"
+  ],
+  "notes": "Draft template. Replace placeholders using observed documentation; not live verified.",
+  "adapter": "web_recipe",
+  "recipe": {
+    "version": 1,
+    "start_url": "https://fixture.example/",
+    "allowed_origins": [
+      "https://fixture.example"
+    ],
+    "steps": [
+      {
+        "op": "fill",
+        "target": {
+          "label": "Message"
+        },
+        "value": {
+          "input": "text"
+        }
+      },
+      {
+        "op": "click",
+        "target": {
+          "role": "button",
+          "name": "Create file"
+        }
+      },
+      {
+        "op": "expect_text",
+        "target": {
+          "css": "#state"
+        },
+        "value": "completed"
+      },
+      {
+        "op": "download",
+        "target": {
+          "role": "link",
+          "name": "Download result"
+        },
+        "filename": "export.txt"
+      }
+    ],
+    "timeout_ms": 15000,
+    "session": "studio",
+    "login_check": {
+      "role": "heading",
+      "name": "Sign in"
+    }
+  },
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified",
+  "example": {
+    "text": "Hello from ATM-generated CLI"
+  }
+}

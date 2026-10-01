@@ -32,3 +32,55 @@ reports/v04/*.xml
 reports/v04/*.log
 reports/v04/coverage.json
 reports/v04/package-smoke.json
+
+# Sync packets and private capability profiles must never enter source control.
+*.atmsync
+*.client.json
+*.private.json
+*.sock
+reports/v05/*.xml
+reports/v05/*.log
+reports/v05/coverage*.json
+reports/v05/*pid*
+reports/v05/exit-code.txt
+# Download-only prior release evidence.
+docs/RELEASE_ACCEPTANCE.md
+docs/screenshots/
+reports/v04/*retest*.json
+reports/v04/ci-status.json
+reports/v04/before-*.json
+
+# v0.6 private browser state and local-only evidence
+playwright/.auth/
+*.storage-state.json
+extension-demo/
+reports/v06/*.log
+reports/v06/*.xml
+reports/v06/coverage*.json
+reports/v06/run-exit.json
+reports/v06/package-smoke.json
+# Historical and current download-only acceptance artifacts.
+RELEASE_FILES.sha256.json
+docs/images/
+reports/v05/wheel-smoke.json
+reports/v05/provenance.json
+reports/v05/wheel-demo-final.json
+reports/v05/foreground-process.json
+reports/v06/pre-final-*
+reports/v06/tested-source-sha256.json
+reports/v06/provenance.json
+reports/v06/smoke-driver.py
+
+# v0.7 delivery artifacts (not source)
+patches/
+reports/v07/*.log
+reports/v07/*.xml
+reports/v07/coverage*.json
+reports/v07/*-receipt.json
+reports/v07/*manifest*.json
+reports/v07/provenance.json
+session-owner.json
+
+# v0.7 source keeps only a compact receipt summary; raw run evidence ships in release ZIP.
+reports/v07/*
+!reports/v07/summary.json

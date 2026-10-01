@@ -55,8 +55,13 @@ class Router:
         self.net.close()
 
     def readiness(self,tool):
+        names=([tool["credential"]] if tool.get("credential") else [])+list(tool.get("command",{}).get("credential_env",{}).values())
+        if any(self.state.setting("sync_conflict:"+n,False) for n in names): return "sync_conflict"
         from .management import enabled
         if not enabled(self.state,tool["id"]): return "disabled"
+        if tool["adapter"]=="web_recipe":
+            from .web_recipe import health
+            return health(self,tool)["state"]
         if tool["adapter"] in {"desktop","human"}: return "host_"+tool["adapter"]+"_required"
         if tool["adapter"]=="workflow": return "workflow_dependencies_not_verified"
         if tool["adapter"]=="mcp": return "configured_not_verified" if self.state.setting("mcp:"+tool["server"]) else "mcp_not_configured"
@@ -78,9 +83,9 @@ class Router:
         candidates=[]
         for t in self.search(task,capability):
             if t["readiness"] == "disabled": continue
-            mode=t["adapter"] if t["adapter"] in {"browser","desktop","human","mcp","workflow"} else "cli" if t.get("executable") else "api"
+            mode="browser" if t["adapter"]=="web_recipe" else t["adapter"] if t["adapter"] in {"browser","desktop","human","mcp","workflow"} else "cli" if t.get("executable") else "api"
             if t["adapter"]=="catalog_only" or (mode in {"browser","desktop","human"} and not allow_browser): continue
-            ready=t["readiness"]=="configured_not_verified" or mode in {"browser","desktop","human"} and allow_browser
+            ready=t["readiness"]=="configured_not_verified" or t["adapter"] in {"browser","desktop","human"} and allow_browser
             rank=t["relevance"]+(70 if ready else 0)+(30 if prefer==mode else 0)
             candidates.append({"tool":t["id"],"mode":mode,"readiness":t["readiness"],"eligible":ready,
                                "rank":rank,"reason":"configured route" if ready and mode!="browser" else "host browser and login required" if mode=="browser" else "connect credentials or CLI first",
@@ -103,8 +108,13 @@ class Router:
         response=self.net.request(method,target,host=HOSTS[provider],headers=self._credential(provider),body=body)
         return self.net.json(response,submission=method=="POST")
 
-    def run(self,tool_id,inputs,workspace,*,request_key=None,allow_paid=False,grants=()):
+    def run(self,tool_id,inputs,workspace,*,request_key=None,allow_paid=False,grants=(),expect_definition=None):
         tool=self.catalog.validate(tool_id,inputs)
+        from .maker import digest
+        if expect_definition is not None and digest(tool)!=expect_definition:
+            raise RouterError("definition_changed","Generated CLI expects a different installed definition; review/rebuild, do not execute silently.")
+        if self.readiness(tool)=="sync_conflict":
+            raise RouterError("sync_conflict","Resolve the credential conflict first; no alternative login or account was selected.")
         from .management import enabled
         if not enabled(self.state,tool_id):
             raise RouterError("tool_disabled","This action is disabled for all local agents. Enable it explicitly before new execution.")
@@ -123,7 +133,7 @@ class Router:
         if tool["adapter"] in ["ffprobe","ffmpeg"]: confined_file(workspace,inputs["path"])
         if tool["adapter"]=="firecrawl": checked_url(inputs["url"])
         preflight(self,tool,inputs,workspace)
-        newer=tool["adapter"] in {"rest","command","workflow","mcp","desktop","human"}
+        newer=tool["adapter"] in {"rest","command","workflow","mcp","desktop","human","web_recipe"}
         job,created=self.state.create_job(tool_id,inputs,workspace,request_key,context=digest(tool) if newer else None)
         if not created:
             return job  # Includes failed/ambiguous calls: never recreate a generation automatically.
@@ -140,6 +150,9 @@ class Router:
 
     def _submit(self,tool,job):
         adapter,inputs,job_id=tool["adapter"],job["data"]["inputs"],job["id"]
+        if adapter=="web_recipe":
+            from .web_recipe import execute_web
+            return execute_web(self,tool,job)
         if adapter=="rest":
             from .actions import execute_rest
             return execute_rest(self,tool,job)
@@ -302,6 +315,9 @@ class Router:
         if tool["adapter"] not in {"browser","desktop","human"}: raise RouterError("wrong_job_type","Manual completion is only for external handoffs.")
         if job["status"]=="completed": return job
         check_receipt_source(tool,source_url)
+        if tool["adapter"]=="web_recipe":
+            from .web_recipe import health
+            return health(self,tool)["state"]
         if tool["adapter"] in {"desktop","human"}:
             from .actions import output_record
             if not paths or len(paths)>16: raise RouterError("missing_artifacts","Supply 1–16 actual files.")
