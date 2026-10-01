@@ -45,7 +45,7 @@ def vault_health(vault, *, check_unlock=False) -> dict:
         except RouterError as error:
             result.update(state=error.code, unlock_checked=True)
     elif backend == "passphrase":
-        available = bool(vault.password or os.environ.get("ATM_VAULT_PASSWORD") or os.environ.get("ATR_VAULT_PASSWORD"))
+        available = bool(vault.password or os.environ.get("ATM_VAULT_PASSWORD"))
         result["state"] = "unlock_not_checked" if available else "needs_unlock"
     else:
         try:

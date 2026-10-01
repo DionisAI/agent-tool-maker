@@ -51,7 +51,7 @@ class Vault:
 
     def _password(self):
         # Explicit opt-in for headless use. Never passed to child CLI processes.
-        value = self.password or os.environ.get("ATM_VAULT_PASSWORD") or os.environ.get("ATR_VAULT_PASSWORD")
+        value = self.password or os.environ.get("ATM_VAULT_PASSWORD")
         return value if value else prompt_secret("Vault passphrase: ")
 
     def init(self, backend="keyring"):
@@ -78,7 +78,7 @@ class Vault:
             nonce = os.urandom(12)
             config = {"service": SERVICE, "backend": backend, "salt": base64.b64encode(salt).decode(),
                       "check_nonce": base64.b64encode(nonce).decode(),
-                      "check": base64.b64encode(AESGCM(key).encrypt(nonce, b"ATR-v1", b"vault-check")).decode()}
+                      "check": base64.b64encode(AESGCM(key).encrypt(nonce, b"ATM-v1", b"vault-check")).decode()}
             from .storage import canonical
             c.execute("INSERT INTO settings VALUES ('vault',?)", (canonical(config),))
             self._key = key
@@ -103,7 +103,9 @@ class Vault:
             else:
                 key = self._derive(self._password(), base64.b64decode(cfg["salt"]))
             check = AESGCM(key).decrypt(base64.b64decode(cfg["check_nonce"]), base64.b64decode(cfg["check"]), b"vault-check")
-            if check != b"ATR-v1":
+            # Retain only the encrypted legacy-format marker, not a CLI/env alias.
+            # Removing this reader would lock existing users out of their Keys.
+            if check not in (b"ATM-v1", b"ATR-v1"):
                 raise ValueError()
         except RouterError:
             raise

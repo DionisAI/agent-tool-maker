@@ -15,10 +15,12 @@ from .vault import prompt_secret
 
 
 def parser():
-    p=argparse.ArgumentParser(prog="atm",description="Agent Tool Maker: discover, run, create and compose local tools. JSON output by default.")
+    p=argparse.ArgumentParser(prog="atm",description="ATM: unlock once locally; let your Agent use saved API Keys. JSON output by default.")
     p.add_argument("--version",action="version",version=__version__)
-    p.add_argument("--home",type=Path,default=Path(os.environ.get("ATM_HOME",os.environ.get("ATR_HOME","~/.local/share/agent-tool-maker"))).expanduser())
+    p.add_argument("--home",type=Path,default=Path(os.environ.get("ATM_HOME","~/.local/share/agent-tool-maker")).expanduser())
     sub=p.add_subparsers(dest="command",required=True)
+    from .quickstart import add_commands as quick_commands
+    quick_commands(sub)
     sub.add_parser("init",help="Create local state without network calls")
     doc=sub.add_parser("doctor",help="Local preflight; no vendor calls or implicit secret prompts")
     doc.add_argument("--tool", action="append", default=[])
@@ -253,7 +255,12 @@ def main(argv=None):
     args=parser().parse_args(argv)
     router=None
     try:
-        if args.client or args.client_profile:
+        if args.command in {"start", "use", "_desktop"}:
+            if args.client or args.client_profile:
+                raise RouterError("operation_denied", "Use the project-session entry without a strict client profile; no profile was changed.")
+            from .quickstart import dispatch as quick_dispatch
+            value = quick_dispatch(args)
+        elif args.client or args.client_profile:
             from .multidevice_cli import client_dispatch
             value=client_dispatch(args)
         elif args.command=="unlock":
@@ -272,6 +279,11 @@ def main(argv=None):
             router=Router(args.home)
             value=dispatch(args,router)
         print(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False))
+        if args.command in {"start", "use"} and isinstance(value, dict):
+            if value.get("status") in {"denied", "window_unavailable"}:
+                return 2
+            if value.get("status") in {"starting", "needs_unlock", "needs_approval", "missing_credential"}:
+                return 3  # Human action pending, not a successfully executed program.
         if args.command=="verify" and args.allow_network and value.get("status")!="probe_passed":
             return 2
         if args.command=="setup" and args.apply and value.get("status") in {"needs_review", "needs_dependencies"}:

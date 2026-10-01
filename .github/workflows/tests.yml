@@ -51,7 +51,7 @@ jobs:
       - run: python -m pytest -q -m browser --junitxml=reports/browser.xml
       - run: python scripts/check_test_receipt.py reports/browser.xml
       - name: Native loopback browser acceptance
-        run: python -m pytest -q acceptance/test_console_navigation.py acceptance/test_recipe_native_v06.py --junitxml=reports/console-native.xml
+        run: python -m pytest -q acceptance/test_console_navigation.py acceptance/test_recipe_native_v06.py acceptance/test_quickstart_native_v08.py --junitxml=reports/console-native.xml
       - run: python scripts/check_test_receipt.py reports/console-native.xml
       - uses: actions/upload-artifact@v4
         if: always()

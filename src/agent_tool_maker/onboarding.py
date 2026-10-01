@@ -69,9 +69,9 @@ def render_skill(executable: Path, state_home: Path, *, client: str | None = Non
         language = "sh"
     content = files("agent_tool_maker.data").joinpath("SKILL.md").read_text(encoding="utf-8")
     return (content + f"\n## Registered local runtime — ATM {__version__}\n\n"
-            "Use this exact command prefix from every project; append a subcommand. "
+            f"Command prefix: `{prefix}`. Use it from every project before start/use. "
             "Do not create another vault or depend on the project's virtualenv.\n\n"
-            f"```{language}\n{prefix} doctor\n```\n\n"
+            f"```{language}\n{prefix} start --workspace /absolute/project --key exact.slot\n```\n\n"
             "The paths are local to this OS user. They do not connect a cloud session to this machine.\n").encode("utf-8")
 
 
@@ -169,14 +169,17 @@ def setup(router, *, agents=(), cli_names=(), executable=None, apply=False,
                 "sha256": item["sha256"], "version": __version__, "mode": "broker" if broker else "direct"})
     backend = router.state.setting("vault", {}).get("backend")
     next_steps = []
-    if not backend:
+    if not backend and broker:
         next_steps.append("Human: initialize a native keyring once with atm vault init --backend keyring; no vault is reset by setup.")
     for p in cli_plans:
         if p["action"] == "missing_program":
             next_steps.append(f"Install and review {p['name']} from its maintained distribution, then rerun the same setup command.")
         elif p["action"] == "review_required":
             next_steps.append(f"Review the changed {p['name']} installation; explicitly rebind it instead of resetting credentials.")
-    next_steps.append("Human: connect only missing credentials privately and complete vendor login/consent when required. Existing logins are reused, not verified by setup.")
+    if broker:
+        next_steps.append("Human: connect only missing credentials privately and complete vendor login/consent when required. Existing logins are reused, not verified by setup.")
+    else:
+        next_steps.append("Agent: run atm start --workspace /absolute/project --key exact.slot. The local window handles first-vault setup, missing Keys and unlock; do not hand the human a terminal checklist.")
     return {"version": __version__, "home": str(router.state.home), "applied": apply,
             "status": "needs_review" if conflicts else "needs_dependencies" if any(p["action"] == "missing_program" for p in cli_plans) else "applied" if apply else "planned",
             "skills": skill_plans, "clis": cli_plans, "vault_backend": backend,

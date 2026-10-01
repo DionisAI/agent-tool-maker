@@ -98,7 +98,7 @@ def find_keys(state, query='', *, scope=None):
         rows = exact
     return {'status': 'ambiguous' if query and len(rows) > 1 else 'found' if rows else 'not_found',
             'query': query, 'matches': rows, 'secrets_returned': False,
-            'note': 'Discovery is metadata only; exec requires an exact atm:// reference and a separate owner-approved command permit.'}
+            'note': 'Discovery is metadata only. Use exact atm:// references with atm use after local project consent; strict exec keeps its separate command permits.'}
 
 
 def alias(state, name, credentials, *, apply=False, expected=None):
@@ -300,6 +300,8 @@ def permit_exec(router, agent, *, mappings, argv, workspace, output=None, ttl_ho
 
 def permitted_names(router, policy):
     names = {name for r in policy.get('exec_rules', []) for name in r['environment'].values()}
+    if policy.get('kind') == 'project_session':
+        names.update(policy.get('credentials', []))
     for tool_id in policy.get('tools', []):
         from .broker import _tool_pin
         try:
@@ -419,11 +421,19 @@ def execute(broker, router, policy, args, request, peer_uid):
     if not isinstance(argv, list) or not argv or not Path(argv[0]).is_absolute():
         raise RouterError('invalid_command', 'Client must resolve the executable to an absolute path.')
     workspace = str(safe_path(Path(args.get('workspace', ''))).resolve())
-    matches = [r for r in policy.get('exec_rules', []) if r['argv'] == argv and
-               r['workspace'] == workspace and r['environment'] == mapping]
-    if len(matches) != 1:
-        raise RouterError('exec_denied', 'Command, project or credential mapping is outside this client grant.')
-    rule = matches[0]
+    project_mode = policy.get('kind') == 'project_session'
+    if project_mode:
+        if workspace != policy['workspace'] or set(mapping.values()) - set(policy.get('credentials', [])):
+            raise RouterError('exec_denied', 'Project or selected Keys are outside this temporary consent.')
+        # Project consent deliberately allows edited/new local programs without
+        # persistent per-command permits. Snapshot for this invocation only.
+        rule = command_plan(router, argv, mapping, Path(workspace))
+    else:
+        matches = [r for r in policy.get('exec_rules', []) if r['argv'] == argv and
+                   r['workspace'] == workspace and r['environment'] == mapping]
+        if len(matches) != 1:
+            raise RouterError('exec_denied', 'Command, project or credential mapping is outside this client grant.')
+        rule = matches[0]
     for index, pin in enumerate(rule['files']):
         if file_pin(pin['path'], executable=index == 0) != pin:
             raise RouterError('grant_stale', 'Approved program or pinned input changed. Review a new permit, not a new Key.')
@@ -442,7 +452,13 @@ def execute(broker, router, policy, args, request, peer_uid):
 
     def admit():
         current = broker._authorize(request, peer_uid)
-        if rule not in current.get('exec_rules', []):
+        if project_mode:
+            if (current.get('kind') != 'project_session' or current.get('session_binding') != policy.get('session_binding')
+                    or current.get('workspace') != workspace or set(mapping.values()) - set(current.get('credentials', []))):
+                raise RouterError('grant_stale', 'Project consent changed before admission.')
+            if command_plan(router, argv, mapping, Path(workspace)) != rule:
+                raise RouterError('command_changed', 'Program changed during this invocation; no process was started.')
+        elif rule not in current.get('exec_rules', []):
             raise RouterError('grant_stale', 'The execution permit changed before admission; no program was started.')
         if _connection_snapshot(router.state, mapping.values()) != connection_revision:
             raise RouterError('connection_changed', 'A selected connection changed during admission; inspect its current state before retrying.')
