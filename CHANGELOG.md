@@ -1,3 +1,12 @@
+# Changes in 0.8.0
+
+- Agent-first local unlock window, temporary trusted-project consent and `atm use`.
+- One password for a fixed session; no per-command manifests/permits in convenience mode.
+- First-run password setup and missing-Key entry in the same local window.
+- Short README, root SKILL.md and default user-level Agent instructions.
+- Only `atm` is installed; obsolete command and env fallbacks removed. Existing vaults still decrypt.
+- Strict command-pinned execution remains available and unchanged in scope.
+
 # v0.7.0 — credential-first sessions
 
 - `atm unlock --ttl 30m`, `lock`, `session status`; fixed, non-sliding Owner lease shared by terminal and local Web credential management.
@@ -56,7 +65,7 @@
 
 ## 0.2.0 · Agent Tool Maker · 2026-09-29
 
-- ATR → ATM：Python 包/主命令/Skill/文档重命名，保留 `atr` CLI 别名与旧 vault metadata 读取。
+- 统一为 Agent Tool Maker：Python 包/主命令/Skill/文档重命名，当时保留了旧 CLI 别名与 vault 格式兼容；旧 CLI 别名已在 v0.8 移除。
 - 157 个有限动作入口：120 native、14 MCP discovery/batch、23 外部交接；原 66 项调研全部对应状态与待办。
 - 新增工具 Maker：声明式 API/CLI/交接与串行组合；规范化 SHA-256 显式批准安装；禁止静默覆盖内置动作。
 - 有界 API/CLI adapter：输入 schema、路径限制、显式权限、credential reference、固定 argv、入口 hash、结果记录。

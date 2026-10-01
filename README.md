@@ -1,401 +1,86 @@
-# Agent Tool Maker · ATM
+# ATM — Agent Tool Maker
 
-**Agents don't just use tools. They make them.**
+**把 API Key 配一次，以后交给 Agent。**
 
-本地优先、MIT 开源的加密凭证入口，供 Claude Code、Codex 和普通程序复用。先用 ATM 管理 Key、同步和限时授权；工具目录、MCP、网页配方与 Maker 是可选上层，不是程序使用 Key 的前置条件。
+ATM 在本机加密保存 Key，供 **Claude Code / Codex** 使用。
+Agent 需要 Key 时打开一个本地窗口；你输入一次主密码，接下来 **30 分钟**内，
+它能在你允许的项目和 Key 范围内继续工作，不需要逐条批准命令，也不往项目写 `.env`。
 
-版本 **0.7.0** · Python **3.11+** · 主命令 **`atm`** · 兼容命令 **`atr`**。
+## 我怎么开始？
 
-这不是另一个通用聊天 Agent，不附送供应商账号、不自动充值、不替用户购买许可证，不在后台自行发帖或部署。
+在有本机执行权限的 Claude Code 或 Codex 中，把这个仓库交给它，然后说：
 
-## v0.7：普通程序无需 manifest，一次解锁、后续会话复用
+> 安装这个仓库的 ATM，读取根目录 SKILL.md，并为我注册用户级 Skill。
+> 保留已有凭证库。以后当前项目需要 API Key 时先查 ATM，自动打开本地授权窗口；
+> 不要让我手工敲配置命令，不要在聊天里问密码或 Key。
 
-**目标不是禁止环境变量，而是不再把真实 Key 散落在项目 `.env` 文件里。** 原有程序继续读取 `os.environ["FAL_KEY"]`；ATM 为获准子进程临时注入。
+Agent 负责安装和非秘密配置。**你只处理本地窗口：**
 
-```sh
-# Owner 终端：一次输入密码，固定30分钟；显式前台服务
-atm unlock --ttl 30m
+1. **第一次使用：**设置主密码，并填入还没有保存的 Key。
+2. **以后使用：**确认窗口中的项目和 Key，输入一次密码，点击“解锁并继续”。
+3. **接着做事：**同一授权范围内的新进程、新会话直接复用。30 分钟固定到期，也可以提前锁定。
 
-# 其他终端：先查元数据，再以已批准的权限运行普通程序
-atm --client claude keys find FAL_KEY
-atm --client claude session status
-atm --client claude exec --env FAL_KEY=atm://fal \
-  --workspace /absolute/project --request-key task-001 -- python app.py
-```
+已经解锁但要增加另一个项目或 Key 时，只确认新增范围，不再输入密码。
+第一次没有 Key、Key 过期或同步冲突需要分别处理；解锁不会替你注册供应商账号。
 
-**上面运行前需要一次 Owner 使用授权**，不是“解锁就自动把所有 Key 给任意程序”：
+## 实际体验
 
-```sh
-atm access permit-exec --agent claude --env FAL_KEY=atm://fal \
-  --workspace "$PWD" -- python app.py
-# 审阅返回的完整计划后，重跑相同命令，在 -- 前加入 --apply --approve REVIEWED_SHA256。
-# Codex 单独使用 --agent codex 预览/批准；不要复用另一个客户端的计划摘要。
-atm setup --broker
-# 已审阅 Skill 更新后：atm setup --broker --replace-skills --apply
-```
+**你：**“给这个项目加一段 ElevenLabs 旁白。”  
+**Agent：**检查 ATM → 自动打开本地窗口。  
+**你：**输入 ATM 主密码，点“解锁并继续”。  
+**Agent：**使用保存的 Key，继续完成任务。Key 不显示在聊天中。
 
-没有工具登记或 manifest。授权固定所选 Key、命令、项目、程序及普通文件参数哈希；改程序须重新审查，不需要重新填 Key。
-`atm exec` 无 `--client` 时使用单独批准的 `local` profile，不是无限 Owner 权限。
-查找发现多个开发/生产凭证会报告 `ambiguous`，实际注入只接受明确 `atm://` 名称。
+**你：**“改一下脚本，再生成一版。”  
+**Agent：**在同一授权范围和期限内继续，不再让你配置或批准每条命令。
 
-`atm ui` 的总览也可解锁/锁定同一会话；网页 Key 增删改和 CLI 共用。固定期限不随访问续期，停止后不自动退回读取密码或写 .env。
-管理界面没有任意程序执行接口。通用 exec 是非交互、有界任务；不是 daemon、REPL、终端流或安全沙箱。
+ATM 把选定 Key 临时提供给实际运行的程序。Python 等程序仍可以使用
+`os.environ["ELEVENLABS_API_KEY"]`，无需改成 ATM 插件。
 
-```sh
-atm session status
-atm lock
-# 临时假凭证 + 真实进程/本地HTTP的可重复验收，不用供应商账号：
-python scripts/demo_secrets_first.py --out ./secrets-first-receipt.json
-```
+## 查看、添加或修改 Key
 
-[完整凭证优先教程](docs/SECRETS_FIRST.md) · [本轮安全审查](docs/SECURITY_REVIEW_V07.md) · [本轮测试报告](docs/TEST_REPORT_V07.md)
+告诉 Agent：**“打开 ATM 管理界面。”**
 
-**安全边界：**程序必须在运行时持有获准 Key，仍能主动落盘/外发；输出遮蔽是尽力防误泄露，不是防恶意代码保证。通用 exec 暂限同 UID，不以 Owner 身份执行跨用户任意程序。没有 Passkey、OAuth 自动刷新或独立安全审计。下面保留历史工具层用法，不能把其测试级别当成本轮全链路已验证。
+它执行 `atm ui`。你在本地网页中管理 Key、工具和多设备同步。
+已有 Key 不重复索取；添加新 Key 与更换旧 Key 分开，不静默覆盖。
 
-## v0.6：目录不是边界 — 自定义 Key、API/CLI、网页生成 CLI
+## 安全范围
 
-未知Key不必等我们接入供应商：
+默认便捷模式面向**自己的机器、同一个系统用户和可信项目**。
+授权只覆盖窗口列出的 Key、确切项目和当前解锁期；新增 Key 不会自动获得权限。
+项目代码能接触这些 Key，也可能联网、消费或主动泄露它们，**这不是恶意代码沙箱**。
 
-```sh
-atm credentials declare acme.production --apply
-atm connect acme.production                # 私有终端输入，不进入模型对话
-atm make new acme.translate --kind api --out acme.json
-atm make new mycli.inspect --kind cli --executable mycli --out mycli.json
-atm make new studio.export --kind web --url https://your-service.example/ --out studio.json
-```
+密码不进入 Agent 对话；存储加密；30 分钟到期不自动延长。
+锁定阻止新调用，但不能收回已经交给程序的 Key。
+需要逐命令固定程序摘要的场景，保留[严格模式](docs/SECRETS_FIRST.md)。
 
-三种定义均为**草稿**；按实际文档/观察补齐。OpenAPI3 JSON子集可导入；可选择让已登录的Claude/Codex起草非秘密manifest。`atm make pack`会生成真正的Python CLI，依赖ATM并固定已审阅定义，不把Key或Cookie装进包。
+## 常见问题
 
-新`web_recipe`执行器可以填写、点击、校验文字和下载文件；设备网页登录态单独加密。原`browser`入口仍是computer-use交接，不将两者混淆。网页管理台增加“扩展工坊”，与CLI共用注册/验证/更新流程。
+**每个新 session 都要重配吗？** 不用。安装与 Key 持久保存；当前项目授权仍有效就直接复用。
+授权到期才需要重新解锁。切换新的项目或增加 Key 需要确认范围。
 
-安装和执行分开批准。更新只允许自定义动作，并检查旧摘要；旧Broker授权不会默许新定义。目录内置157个动作保持不变，自定义动作安装后才加入本机目录。
+**多台电脑或服务器呢？** Key 支持[加密同步](docs/MULTI_DEVICE.md)，每台机器独立解锁。
+本地一键窗口需要桌面浏览器；纯 SSH/无显示服务器使用指南中的终端会话方式。
 
-[完整扩展教程](docs/EXTENSIBILITY.md) · [v0.6测试报告](docs/TEST_REPORT_V06.md) · [边界与后续](docs/ROADMAP_V06.md)
+**有 Skill 就一定能访问本机吗？** 需要本地 Claude Code/Codex 有执行权限。
+网页聊天或云端沙箱不会因为加载 Skill 就连接到你的电脑。
+
+<details><summary>手动安装（可选；正常由 Agent 做）</summary>
+
+Python 3.11+、macOS/Linux。先取得并审阅本仓库，在源码目录执行：
 
 ```sh
-# 零供应商调用、临时状态、真实本地FFprobe演示：
-python scripts/demo_extensions.py --out ./extension-demo
-```
-
-## v0.4.0：默认双客户端 + 本地网页管理
-
-**Claude Code、Codex 默认接入同一工具箱；CLI 与网页管理同一配置。**
-
-```bash
-atm setup          # 默认预览两个客户端，不写 Key、不安装软件
-atm setup --apply   # 应用经审阅的本地注册
-atm ui             # 打开本机管理台；Ctrl-C 关闭
-```
-
-网页包含总览、Agent 客户端、工具目录、连接与凭证、任务记录。支持全局动作开关、
-查看输入 schema、配置计划、加密写入凭证与明确授权的账户检查。界面本身不执行工具、
-不发帖、不部署、不提供远端控制，也不等于真实 Claude/Codex 已加载验收。
-
-```bash
-atm agents list
-atm tools list fal
-atm tools disable fal.generate --apply
-atm tools enable fal.generate --apply
-atm connections list
-atm cli list
-```
-
-默认仅本机 127.0.0.1，随机端口、每进程会话码、同源防护。无 CDN/额外前端构建；
-凭证不可回读。`atm setup --no-agents` 保留仅配置 CLI 的方式。
-[网页与 CLI 指南](docs/WEB_CONSOLE.md) · [v0.4 历史测试](docs/TEST_REPORT_V04.md) ·
-[管理层路线图](docs/ROADMAP_V04.md)
-
-## v0.3：配置一次，后续会话复用
-
-新增内置 `atm setup`、增强 `doctor`、显式账户 `verify`、用户级Agent注册与凭证有效期元数据。
-本版优先修复配置体验，不增加动作目录数量。已有v0.2密文和状态目录原地复用。
-
-```sh
-# 在经审阅的源码目录内，用户级长期安装；开发venv见下方
 pipx install '.[secure]'
-pipx ensurepath
-# 新终端，先预览再应用；只选实际使用的客户端/已安装工具
-atm setup --agent codex --agent claude --cli ffprobe --cli magick
-atm setup --agent codex --agent claude --cli ffprobe --cli magick --apply
-atm doctor --tool ffmpeg.probe
+atm setup --apply
 ```
 
-Agent可准备并应用已批准的非秘密配置；人只输入缺少的Key、完成官方登录和关键授权。
-setup不安装第三方软件、不初始化/重置vault、不联网。相同配置重复执行不覆盖；冲突要审阅。
-connect已有Key时默认保留，轮换才加--replace。原生keyring按操作系统权限解锁；
-口令模式不是永久免解锁。OAuth自动刷新与远程Agent连接仍未实现。
+升级使用 `pipx install --force '.[secure]'`，再让 Agent 审阅并更新 Skill。
+不要重建 vault。已有不同 Skill 会先报冲突；审阅后用 `--replace-skills` 备份替换。
+包未发布到 PyPI，不要安装来源不明的同名 `atm` 包。
+</details>
 
-[完整一次配置指南](docs/SETUP_ONCE.md) · [Agent仓库指引](AGENTS.md)
+## 开发与高级功能
 
-## v0.5：多端同步与有限期免重复认证
+[Agent 操作说明](SKILL.md) · [架构与安全](SECURITY.md) · [工具扩展](docs/EXTENSIBILITY.md)
+· [开发说明](CONTRIBUTING.md) · [v0.8 验收](docs/TEST_REPORT_V08.md)
 
-两台机器各自保有独立的 vault 与设备私钥，只同步获准服务的加密凭证记录。因果版本合并、删除 tombstone 与并发冲突检查不依赖系统时钟排序；同一 Key 的不同并发版本会暂停调用，明确选择后才恢复。
-
-新会话可经 **本地 Broker** 使用已有范围内的授权，不必每次输入供应商 Key 或解锁口令。Owner 启动一次有限期 Broker；Agent 使用只含能力令牌的私有 profile，不能通过该接口获取明文 Key 或改变权限。
-
-```bash
-atm sync init --name laptop
-atm sync identity --out ./laptop.public.json
-# 用另一条可信通道核对对端指纹，再按服务配对与传递加密包。
-atm sync status
-atm sync conflicts
-
-# 先创建有范围的 access grant，随后注册 Broker 版 Skill。
-atm setup --broker
-atm setup --broker --replace-skills --apply
-atm broker serve --ttl-hours 8
-# Agent 在新终端使用：atm --client claude broker status
-```
-
-网页新增“设备与同步”和“Agent 授权”。`atm ui` 仍为本地 Owner 管理端，不是远程开放的执行端。
-
-**边界：**密文文件要通过你已有的共享目录/传输送达，ATM 未提供原生云同步后端。`sync watch` 是显式启动的前台轮询进程。v0.5 Broker 限 macOS/Linux 的直接 API/CLI 动作；v0.6 还支持按定义摘要授权的 web_recipe，Linux 可选跨 UID socket 身份验证；它不是任意代码沙箱，也不保证绝不泄露。设备撤销不能收回已交付 Key，丢机要在供应商轮换。
-
-- [完整双机配置与权限指南](docs/MULTI_DEVICE.md)
-- [协议与威胁边界](docs/SYNC_PROTOCOL_V1.md)
-- [v0.5 计划图](docs/ROADMAP_V05.md)
-- [v0.5 测试记录](docs/TEST_REPORT_V05.md)
-
-此前 v0.4 功能说明如下；157 个供应商动作不变，新增的是同步与权限管理能力，不是又接了157个生产服务。
-
-## 这版交付了什么
-
-| 范围 | 实际状态 |
-|---|---|
-| 工具目录 | 157 个具体动作入口，不是 157 家供应商 |
-| 原生执行 | 120 个有限动作：旧版媒体适配器 + 44 个声明式 API 动作 + 66 个 CLI 动作 |
-| MCP | 7 组服务的 discovery / batch 共 14 个协议桥接入口；真实服务器、认证和工具白名单需配置 |
-| 网页 / 桌面 / 人工 | 23 个交接入口，不冒充自动执行 |
-| 原调研范围 | 66 项全部有对应状态：56 项有有限原生动作，1 项仅 MCP 桥接，9 项仅外部交接 |
-| Maker | 本地 JSON 工具定义的起草、验证、摘要批准、安装与移除 |
-| 组合工具 | 1–20 步串行工作流，类型保留引用、持久化子任务、等待/恢复和请求去重 |
-| 凭证 | AES-256-GCM；操作系统凭证库或明确选择的口令模式；旧 vault 兼容读取 |
-
-**实现状态不是测试等级。** 商业 API 使用协议模拟；大多数第三方 CLI 使用真实子进程中的协议测试程序；部分本地程序确实运行。没有使用私人供应商账号进行发布、付费生成、真实部署或商业交易。具体证据见 [测试报告](docs/TEST_REPORT_V04.md)。
-
-- [可搜索的计划图](docs/ROADMAP.html)
-- [逐项路线图](docs/ROADMAP.md) / [机器可读路线图](docs/ROADMAP.json)
-- [完整动作目录](docs/TOOL_CATALOG.md)
-- [威胁模型](SECURITY.md) / [架构](docs/ARCHITECTURE.md) / [升级说明](docs/MIGRATION.md)
-
-## 开发安装（与日常用户级安装分开）
-
-修改和测试源码时：
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[secure]'
-atm --version
-atm init
-atm stats
-```
-
-或者从版本交付包的 wheel 安装（Git clone 不含 dist/）（不是假定 PyPI 已有同名包）：
-
-```bash
-python -m pip install ./dist/agent_tool_maker_local-0.7.0-py3-none-any.whl
-# 需要操作系统凭证库时，再安装可选依赖 keyring。
-```
-
-Windows 的虚拟环境激活使用 `.venv\Scripts\Activate.ps1`。本次实际测试平台为 Linux，Windows/macOS 不因此视为已验收。外部 CLI、浏览器、桌面软件和许可证不会随本包自动安装。
-
-## 1. 一次配置，多个 Agent 共用
-
-凭证初始化与输入在**用户自己的终端或已认证的本地管理台**完成，不把密钥发送进 Agent 对话。以下是终端方式：
-
-```bash
-atm vault init --backend keyring
-atm connect elevenlabs
-atm connect fal
-atm connect tripo
-```
-
-没有受支持的原生凭证库时，显式选择口令模式：
-
-```bash
-atm vault init --backend passphrase
-```
-
-两种模式任选其一，已经初始化的库不会被上述命令重置。重复 `atm connect` 默认保留已有Key；轮换时明确使用 `--replace`。口令模式每次需要解锁；无人值守调用可由用户自行提供 `ATM_VAULT_PASSWORD`，它不会被传给工具子进程。这仍是操作系统环境变量，不等于强进程隔离。
-
-已有 Key 可一次性显式导入，例如 `atm connect fal --env FAL_KEY`，随后移除不再需要的旧环境变量。Higgsfield 填 `KEY_ID:KEY_SECRET`；DataForSEO 填 `login:password`；Ghost 填 `id:hexsecret`；Google API 当前接收用户自己的 OAuth access token，**没有自动刷新实现**。
-
-CLI 沿用自己已有的登录；只绑定明确安装的可执行文件：
-
-```bash
-atm cli bind opencli "$(command -v opencli)"
-atm cli bind wrangler "$(command -v wrangler)"
-atm cli bind gh "$(command -v gh)"
-atm cli bind magick "$(command -v magick)"
-atm doctor
-```
-
-绑定时保存入口文件 SHA-256，升级后需要复核并重新绑定。不会自动 `npx -y` 下载未知程序。Node CLI 必须安装到稳定路径；哈希只覆盖入口文件，不覆盖其整个依赖树。`doctor` 现在检查入口哈希、权限和凭证库状态；“已配置”仍不等于账号已认证。
-
-部分 API 需要明确站点 origin，**不能把 token 放在 URL**：
-
-```bash
-atm origin set shopify_admin https://YOUR-STORE.myshopify.com --approve-origin
-atm origin set posthog https://us.posthog.com --approve-origin
-atm origin set comfyui http://127.0.0.1:8188 --approve-origin
-```
-
-`posthog`/`ghost`/`postiz`/`n8n` 需使用自己实际的服务域名。ComfyUI 仅允许显式 loopback HTTP；公共远程服务必须 HTTPS。origin 设置是本地配置批准，不产生调用。
-
-## 2. 交给 Agent 使用
-
-```bash
-atm skill export --destination ./skills
-```
-
-这是文件导出；日常跨项目使用优先 `atm setup --agent codex --agent claude --apply`。也可把 `skills/agent-tool-maker/` 通过宿主 Agent 支持的机制加载。启动宿主的环境必须能找到 `atm`。本机 Skill 不会自动让远端纯网页 Agent 访问你的电脑。
-
-典型工作流：
-
-```bash
-atm search '小红书 用户需求'
-atm describe opencli.xiaohongshu_search
-atm run opencli.xiaohongshu_search \
-  --input examples/actions/opencli.xiaohongshu_search.json \
-  --workspace ./research --request-key research-001
-
-atm route '把网页项目发布到 Cloudflare' --capability deploy
-atm describe wrangler.preview
-```
-
-`examples/actions/` 为新动作提供无凭证样例。先改成本次任务参数，再运行。原生动作只覆盖 `describe` 列出的操作；CLI 的版本和站点变化应先通过其官方帮助/registry 核对。
-
-### 不执行，只看具体计划
-
-```bash
-atm run wrangler.deploy \
-  --input examples/actions/wrangler.deploy.json \
-  --workspace ./my-project --dry-run
-```
-
-`--dry-run` 编译并校验计划，**不读取凭证、不启动 CLI、不发起网络调用**。路径类输入仍需真实存在；它不是业务正确性证明。
-
-### 写操作、生产与执行代码分开确认
-
-| 参数 | 表示的授权声明 |
-|---|---|
-| `--allow-write` | 对外写入：发消息、排期、创建草稿等 |
-| `--allow-production` | 生产环境或数据库等高影响变化 |
-| `--allow-code` | 执行项目代码、受信命令或构建流程 |
-| `--allow-paid` | 可能消耗额度/资源的操作，**不是美元硬预算** |
-
-例如，已经批准的生产发布：
-
-```bash
-atm run wrangler.deploy \
-  --input examples/actions/wrangler.deploy.json \
-  --workspace ./my-project --request-key release-v1 \
-  --allow-write --allow-production --allow-code --allow-paid
-```
-
-这些标记是调用者提交的权限声明，**不是能区分“人类批准”和“同权限 Agent 自己加旗标”的可信安全界面**。宿主负责获得用户的真实授权，更多隔离在计划图中。
-
-## 3. 真正制作工具
-
-### 从已审查的声明式动作起草
-
-```bash
-atm make scaffold my.resize --from imagemagick.resize --out ./my-resize.json
-# 在编辑器或由 Agent 起草修改，但此时还没有安装。
-atm make validate ./my-resize.json
-```
-
-验证结果包含规范化定义的 `sha256`、实际隐含权限与计费标记。用户审阅后，把该摘要明确传给安装命令：
-
-```bash
-atm make install ./my-resize.json --approve <经审阅的sha256>
-atm describe my.resize
-atm run my.resize --input examples/actions/imagemagick.resize.json \
-  --workspace ./assets --allow-code
-```
-
-`<...>` 是要替换的占位符，不要原样复制进 Shell。自定义 CLI 始终要求 `execute_code`；自定义非 GET API 始终要求外部写权限。不能靠在 JSON 里写“只读”来抹掉这些默认要求。
-
-安装以 JSON 数据为单位，不加载任意 Python 插件，不 `eval`，不使用 Shell 命令字符串。既有专用媒体适配器、MCP 桥或打包脚本不能不加审查地克隆成任意代码入口；`scaffold` 会对不支持的种类明确拒绝。
-
-```bash
-atm make remove my.resize --yes
-```
-
-### 把多个工具合成为新工具
-
-仓库提供 `examples/workflow-web-assets.json`，完成：
-
-```text
-输入图片 → imagemagick.resize → imagemagick.webp → 产物与任务记录
-```
-
-```bash
-atm make validate examples/workflow-web-assets.json
-atm make install examples/workflow-web-assets.json --approve <经审阅的sha256>
-atm run workflow.web_assets --input examples/workflow-input.json \
-  --workspace ./assets --request-key site-assets-v1
-```
-
-输入使用 `$input.path`，前序结果使用 `$steps.resize.data.artifacts.0.path`，保留 JSON 类型，不解释成脚本。禁止前向引用和嵌套工作流。
-
-重复使用同一 `--request-key` 不会重复提交原任务；改输入/定义却复用旧键会冲突。工作流包含异步或外部交接时会等待，用户调用 `jobs get --refresh` 继续检查，不启动隐形定时器。多个子任务没有事务回滚保证。
-
-## 4. MCP：发现实际工具，不编造函数名
-
-本版为 Figma、Notion、Linear、Playwright、Chrome DevTools、PostHog、Sentry 各提供 `mcp_tools` 与 `mcp_batch`。它们复用一个通用协议客户端，**不意味着七家服务器的所有功能已做过实测**。
-
-`examples/mcp-http.json` / `examples/mcp-stdio.json` 是需要修改的模板。先只允许 discovery，获得真实工具列表，审查后再把确切名称写入 `allow_tools` 并重新批准配置：
-
-```bash
-atm mcp bind chrome_devtools --config ./my-mcp.json --approve-config
-atm run chrome_devtools.mcp_tools --input examples/empty.json --workspace ./my-project
-# 从结果中选择确切工具名与 schema；不要直接使用模板中的占位名称。
-atm run chrome_devtools.mcp_batch --input ./reviewed-calls.json \
-  --workspace ./my-project --allow-write --allow-code --allow-paid
-```
-
-batch 中 1–12 个调用共享一次会话，整个批次的名称/参数先验收，之后才执行首个工具。协议子集支持 stdio 与 Streamable HTTP JSON/SSE，协商版本为 `2025-06-18 / 2025-03-26 / 2024-11-05`。不实现 OAuth 登录/刷新、legacy SSE、sampling、elicitation、回调审批或流重连。需要这些能力的服务器应交给支持它的宿主，或留到后续阶段。
-
-## 5. 网页、桌面与人工任务
-
-```bash
-atm run marvelous_designer.handoff \
-  --input examples/actions/marvelous_designer.handoff.json \
-  --workspace ./garment --request-key sample-001
-```
-
-返回 `requires_desktop`；**没有打开或操作 Marvelous Designer**。宿主 computer use / 用户完成后，提交真实文件：
-
-```bash
-atm jobs complete <job-id> --file <项目内文件绝对路径> \
-  --source-url https://developer.marvelousdesigner.com/
-```
-
-网页返回 `requires_browser`，人工服务返回 `requires_human`。交接只确认文件存在、哈希和宿主来源声明，不确认衣服合身、工厂可制造、订单已付或网页动作符合用户预期。不能访问的账号、平台审核和许可不会被绕过。
-
-## 6. 结果与费用
-
-- 每次调用保存本地 job、参数、版本化定义摘要、执行状态、结果文件和验证等级。
-- `completed` 是**该动作的完成级别**：HTTP 返回并不等于商业任务完成；排期创建不等于帖子已经公开；构建提交不等于 App 上架。
-- `submission_unknown` / 超时不自动重新发帖、下单或部署。先查原任务/上游状态。
-- 不知道费用时 `cost_usd=null`，不是零。没有统一钱包、Crypto 支付或严格总预算功能。
-- 普通工程文件做存在性和哈希检查；媒体适配器保留原有有限格式检查。不宣称审美/物理/制造质量保证。
-- 日志事件不存提示词；任务参数和结果仍以明文保存在本地 SQLite/项目中，仅凭证列加密。源文件和 API 结果不要包含不必要的秘密。
-
-## 测试与开发
-
-```bash
-python -m pip install -e '.[secure,test,browser-test]'
-# 按需要安装 ffmpeg/ffprobe、ImageMagick 7 (magick)、Pandoc、Chromium。
-pytest -q
-```
-
-没有依赖的真实本地集成测试会明确 skip；本次交付环境、实际运行结果、覆盖率、已修复问题和未验证项以 [本轮测试报告](docs/TEST_REPORT_V06.md) 为准。供应商测试默认不访问生产环境、不消费、不发真实邮件。v0.2已在GitHub运行过CI；v0.3拆分契约、本地工具、浏览器验收，具体远端结果以对应提交的Actions为准。
-
-源码结构：`catalog` 发现；`engine` 状态机；`actions` 声明式 API/CLI；`mcp_bridge` 协议；`maker` 定义/组合；`vault` 秘密；`storage` 状态。`scripts/build_v02_catalog.py` 与 `build_release_docs.py` 可重建目录和路线图。
-
-外部工具依赖各自许可证和账户条款；ATM 的 MIT 不替代它们。没有打包第三方完整产品代码或字体文件。已在私有GitHub仓库开发；未发布PyPI，也未宣称 ATM 名称已获得商标或包名专有权。
-
-历史v0.2交付清单位于 `reports/v02-source-manifest.json`；新版源码以Git tree、CI与交付ZIP校验文件为准。
+MIT · `atm` 是唯一命令名称。运行测试不等于真实供应商、原生 keyring 或全部客户端已经验收。

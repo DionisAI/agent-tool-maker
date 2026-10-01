@@ -1,3 +1,11 @@
+# ATM v0.8 default workflow
+
+The new local window combines a fixed unlock lease with selected-Key, exact-project,
+same-UID **trusted code** consent. It intentionally allows edits/new commands inside
+that project; it is not the older exact-command permit and is not a malicious-code sandbox.
+See [one-window threat model](docs/QUICK_START_SECURITY.md). Strict grants remain strict.
+No raw-secret read endpoint, password-in-chat flow, or public Web listener is added.
+
 # v0.7 security review scope
 
 Read [the current self-review](docs/SECURITY_REVIEW_V07.md) before using the new `exec` interface.

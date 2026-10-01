@@ -129,6 +129,12 @@ class SecretSession(Broker):
         return router
 
 
+    def _authorize(self, request, peer_uid, *, require_unlocked=True):
+        policy = super()._authorize(request, peer_uid, require_unlocked=require_unlocked)
+        if policy.get('kind') == 'project_session' and policy.get('session_binding') != self.owner_id:
+            raise RouterError('unauthorized', 'Project approval belongs to an earlier unlock session.')
+        return policy
+
     def metadata_status(self):
         seconds = max(0, self.deadline - time.monotonic())
         unlocked = seconds > 0 and self._key is not None and not self.closing.is_set()
@@ -147,7 +153,8 @@ class SecretSession(Broker):
             policy = self._authorize(request, uid)
             if request['args']:
                 raise RouterError('invalid_request', 'Status does not accept parameters.')
-            return {'agent': policy['agent'], 'grant_id': policy['id'], 'tools': policy['tools'],
+            return {'agent': policy['agent'], 'kind': policy.get('kind', 'tools'),
+                    'credentials': policy.get('credentials', []), 'grant_id': policy['id'], 'tools': policy['tools'],
                     'workspace': policy['workspace'], 'expires_at': policy['expires_at'],
                     'broker_seconds_remaining': self.metadata_status()['seconds_remaining'],
                     'exec_permits': [{k: r[k] for k in ('id', 'argv', 'environment', 'workspace', 'timeout')} for r in policy.get('exec_rules', [])],
@@ -162,7 +169,7 @@ class SecretSession(Broker):
                 if not job['request_key'].startswith('exec:' + policy['id'] + ':'):
                     raise RouterError('job_denied', 'This grant cannot inspect another credential-execution receipt.')
                 return job  # Only rule ID, status and exit metadata were persisted, never output.
-        new_ops = {'keys.find', 'keys.list', 'exec', 'session.status', 'session.lock', 'session.put', 'session.remove'}
+        new_ops = {'keys.find', 'keys.list', 'exec', 'session.status', 'session.lock', 'session.put', 'session.remove', 'session.project'}
         if op not in new_ops:
             return super().handle(request, peer_uid=uid)
         metadata = op in {'keys.find', 'keys.list', 'session.status', 'session.lock'}
@@ -172,7 +179,8 @@ class SecretSession(Broker):
             self._require_owner(policy)
             allowed = {'session.status': set(), 'session.lock': set(),
                        'session.put': {'provider', 'value', 'replace', 'expires_at'},
-                       'session.remove': {'provider', 'confirm'}}
+                       'session.remove': {'provider', 'confirm'},
+                       'session.project': {'workspace', 'credentials', 'approved_sha256'}}
             if set(args) - allowed[op]:
                 raise RouterError('invalid_request', 'Unexpected session management fields.')
             if op == 'session.status':
@@ -201,6 +209,9 @@ class SecretSession(Broker):
                 from .secrets_provider import execute
                 return execute(self, router, policy, args, request, uid)
             self._authorize(request, uid)  # Revalidate after acquiring the request slot.
+            if op == 'session.project':
+                from .quickstart import grant_project
+                return grant_project(router, self, args)
             if op == 'session.put':
                 from .management import connect_value
                 if type(args.get('replace', False)) is not bool:

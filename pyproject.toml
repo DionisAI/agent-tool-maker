@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-tool-maker-local"
-version = "0.7.0"
+version = "0.8.0"
 description = "Encrypted credentials first: scoped session-based program injection, sync and optional Agent tools"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -19,7 +19,6 @@ web = ["playwright>=1.51"]
 
 [project.scripts]
 atm = "agent_tool_maker.cli:main"
-atr = "agent_tool_maker.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

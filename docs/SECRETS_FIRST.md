@@ -1,4 +1,7 @@
-# ATM v0.7 — 凭证优先：替代明文 .env，而不改原有程序
+# ATM 严格模式：固定程序与凭证授权
+
+> 正常使用请先读 [README](../README.md) 和 [SKILL](../SKILL.md)：由 Agent 自动打开本地窗口，用 `atm start` / `atm use`。
+> 本页是可选的高级严格模式，保留逐命令固定与显式终端服务；不要求普通用户完成这些步骤。
 
 适用范围：本机 Linux / macOS 的本地 CLI。真实验收平台见测试报告；Windows、实际客户端加载、真实系统凭证库以及两台公网机器不因此视为通过。
 
@@ -15,9 +18,9 @@ atm --version
 atm vault status
 ```
 
-应为 `0.7.0`。这是安装本地源码，不是假定 PyPI 上已发布同名包。
+v0.8 安装应显示 `0.8.0`。这是安装本地源码，不是假定 PyPI 上已发布同名包。
 已有 vault / CLI 绑定 / 同步身份均保留；不要为升级或解锁失败重新初始化。
-程序安装与持久凭证目录分离。已有 `--home` / `ATM_HOME` / `ATR_HOME` 继续使用同一目录。
+程序安装与持久凭证目录分离。已有 `--home` / `ATM_HOME` 继续使用同一目录。
 
 尚无库才初始化（两种方式选一种）：
 
@@ -52,7 +55,7 @@ atm lock
 到期或 lock 拒绝新凭证调用，不自动撤销已经交付给子进程的 Key；已获准的有界任务可以继续完成。
 
 一旦本状态库启用了统一 session，`connect` / `vault remove` / 网页 Key 增删改会复用它。会话停止后不退回直接密码输入；只请求重新解锁，不重新索要已有 Key。
-首次启用前的老式直接模式仍可使用。旧 `atm run`、OAuth/probe/sync 的其他管理流程没有全部改成统一会话；**新程序请使用 `atm exec`，Agent 入口用 `setup --broker`。**
+首次启用前的老式直接模式仍可使用。旧 `atm run`、OAuth/probe/sync 的其他管理流程没有全部改成统一会话；**本页严格模式使用 `atm exec` 和 `setup --broker`；默认便捷模式使用 `atm start` / `atm use` 和普通 `setup`。**
 
 ## 3. Key 独立于工具目录
 
