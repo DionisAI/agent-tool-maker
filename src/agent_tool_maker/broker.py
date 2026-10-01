@@ -91,7 +91,8 @@ def _ttl(hours, maximum=720):
 
 def grant(router, agent: str, *, tools, workspace: Path, output: Path | None = None,
           socket_file: Path | None = None, ttl_hours=168, grants=(), allow_paid=False,
-          apply=False, user_home=None, client_uid=None, socket_group=None) -> dict:
+          apply=False, user_home=None, client_uid=None, socket_group=None,
+          expected_plan_sha256: str | None = None) -> dict:
     if os.name != "posix":
         raise RouterError("broker_platform", "Broker grants require macOS/Linux; Windows support is deferred.")
     uid = os.getuid() if client_uid is None else client_uid
@@ -123,8 +124,17 @@ def grant(router, agent: str, *, tools, workspace: Path, output: Path | None = N
         raise RouterError("profile_exists", "Existing bearer profile preserved. Revoke the old grant and choose a new profile path for rotation.")
     base = {"agent": agent, "tools": sorted(tools), "workspace": str(workspace), "profile": str(path),
             "socket": str(sock), "ttl_hours": ttl_hours, "client_uid": uid, "socket_owner_uid": os.getuid(), "socket_gid": gid, "permissions": sorted(set(grants)), "allow_paid": allow_paid, "pins": pins}
+    plan = {**base, "applied": False, "status": "planned", "secrets_returned": False}
     if not apply:
-        return {**base, "applied": False, "status": "planned", "secrets_returned": False}
+        return plan
+    if expected_plan_sha256 is not None:
+        actual_digest = hashlib.sha256(canonical(plan).encode()).hexdigest()
+        if (not isinstance(expected_plan_sha256, str) or not expected_plan_sha256.isascii()
+                or not hmac.compare_digest(expected_plan_sha256, actual_digest)):
+            raise RouterError("plan_changed", "Review the exact current grant before applying.")
+    # Validate and persist the SAME snapshot: never re-read configuration after
+    # checking the approved digest. Later drift makes these pins stale at broker
+    # admission rather than granting authority absent from the approved plan.
     identifier, token = uuid.uuid4().hex, secrets.token_urlsafe(32)
     policy = {**base, "id": identifier, "pins": pins, "token_hash": hashlib.sha256(token.encode()).hexdigest(),
               "created_at": time.time(), "expires_at": time.time() + seconds, "revoked": False}

@@ -49,9 +49,10 @@ def mutate(router, path, body, *, user_home=None):
         kwargs=dict(tools=selections(body,'tools') or [],workspace=Path(text(body,'workspace')),
                     grants=selections(body,'permissions',{'external_write','production','execute_code'}) or [],
                     ttl_hours=body.get('ttl_hours',168),allow_paid=flag(body,'allow_paid'),user_home=user_home)
+        if flag(body,'apply'):
+            return grant(router,agent,**kwargs,apply=True,
+                         expected_plan_sha256=text(body,'approved_sha256'))
         plan=grant(router,agent,**kwargs)
         digest=hashlib.sha256(canonical(plan).encode()).hexdigest()
-        if not flag(body,'apply'):return {**plan,'approval_sha256':digest}
-        if text(body,'approved_sha256')!=digest:raise RouterError('plan_changed','Review the exact current grant before applying.')
-        return grant(router,agent,**kwargs,apply=True)
+        return {**plan,'approval_sha256':digest}
     raise RouterError('not_found','Unknown multi-device operation.')
