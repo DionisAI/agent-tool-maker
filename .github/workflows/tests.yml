@@ -16,7 +16,8 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       # Health-contract tests import Playwright metadata; browser binaries run only below.
-      - run: python -m pip install -e '.[secure,test,browser-test]'
+      # Passkey contract tests run the maintained WebAuthn verifier, not only the mock.
+      - run: python -m pip install -e '.[secure,test,browser-test,passkey]'
       - run: python -m pytest -q -m 'not browser and not integration' --junitxml=reports/contracts.xml
       - run: python scripts/check_test_receipt.py reports/contracts.xml
   local-tools:
@@ -37,7 +38,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: python -m pip install -e '.[test,browser-test]'
+      - run: python -m pip install -e '.[test,browser-test,passkey]'
       - run: python -m playwright install --with-deps chromium
       - name: Select actual Playwright browser
         run: |

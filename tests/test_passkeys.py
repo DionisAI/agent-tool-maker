@@ -235,9 +235,11 @@ def test_dependency_missing_and_ip_origin(tmp_path,monkeypatch):
     assert e.value.code=='passkey_origin'
 
 
+# Signature checks require the maintained verifier, so no mock variant is collected.
+@pytest.mark.parametrize('verifier',['real'],indirect=True)
 @pytest.mark.parametrize('failure',['signature','rp','uv','presence','counter'])
 def test_real_verifier_cryptographic_failures(local,verifier,failure):
-    if verifier=='mock':pytest.skip('Signature checks require maintained verifier, not a mock')
+    assert verifier=='real'
     manager,vault,auth=local;identifier=enroll(manager,vault,auth);step=manager.auth_begin(identifier,'test')
     kw={'rp':'evil.example'} if failure=='rp' else {'flags':1} if failure=='uv' else {'flags':4} if failure=='presence' else {'counter':0} if failure=='counter' else {}
     body=auth.proof(step,manager.origin,**kw)

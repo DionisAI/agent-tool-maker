@@ -164,6 +164,8 @@ def test_native_missing_prf_does_not_persist_binding(tmp_path):
 @pytest.mark.browser
 def test_native_keyring_modal_omits_absent_password_node(tmp_path):
     """Rendering acceptance with an in-memory fake keyring, not native Keychain."""
+    # The bind entry is disabled without the verifier, so the modal is unreachable.
+    pytest.importorskip('webauthn',reason='Reviewed passkey dependency required')
     from playwright.sync_api import sync_playwright,expect
     from agent_tool_maker.engine import Router
     chrome=os.environ.get('ATM_CHROMIUM') or shutil.which('chromium')
