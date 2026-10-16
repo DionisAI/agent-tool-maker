@@ -44,7 +44,7 @@ def test_packaged_adapters_are_exact_source_snapshot():
     spec.loader.exec_module(builder)
     assert runtime.index() == builder.definitions()
     sources = list((ROOT / "examples/opencli/tripo-studio").iterdir())
-    assert len(sources) == 18
+    assert len(sources) == 20
     for source in sources:
         assert (runtime.DATA / source.name).read_bytes() == source.read_bytes()
     runner = (runtime.DATA / "runner.mjs").read_text()
