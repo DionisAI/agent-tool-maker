@@ -48,11 +48,12 @@ def test_generated_cli_source_atm_fixed_bridge_native_download_and_full_decode(n
     from agent_tool_maker.extensions import pack
     from agent_tool_maker.maker import install,digest
     root=tmp_path/'downloads';root.mkdir();prepare(native_page);q=quote(native_page,root)
+    # The bridge reuses native_page's isolated Chromium (ATM_CHROMIUM), never an installed browser app.
     bridge=tmp_path/'fixture-bridge';bridge.write_text(f'''#!{sys.executable}
 import sys
 sys.path.insert(0,{str(ROOT/'tests/fixtures')!r})
 from xyq_download_fixture import bridge_main
-raise SystemExit(bridge_main({str(root)!r}))
+raise SystemExit(bridge_main({str(root)!r},{os.environ['ATM_CHROMIUM']!r}))
 ''');bridge.chmod(0o700)
     source=tmp_path/'source-atm';source.write_text(f'''#!{sys.executable}
 import sys

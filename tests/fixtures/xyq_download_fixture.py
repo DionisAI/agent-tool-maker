@@ -40,12 +40,12 @@ def rpc(page,config,download_root,scenario='normal'):
     finally:
         if proc.poll() is None:proc.terminate();proc.wait(timeout=5)
 
-def bridge_main(download_root,scenario='normal'):
+def bridge_main(download_root,chromium,scenario='normal'):
     from playwright.sync_api import sync_playwright
     argv=sys.argv[1:];assert argv[:3]==['__opencli_shim','xyq-web','result-download-bound'];settings=json.loads(argv[argv.index('--settings')+1]);workspace=argv[argv.index('--workspace')+1]
     assert settings['thread_id']==THREAD and settings['result_id']==RESOURCE
     with sync_playwright() as pw:
-        browser=pw.chromium.launch(executable_path='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless=True)
+        browser=pw.chromium.launch(executable_path=chromium,headless=True)
         try:
             page=browser.new_page(viewport={'width':1280,'height':900});prepare(page,scenario)
             result,clicks=rpc(page,{'operation':'download','settings':settings,'workspace':workspace,'adapter_pin':argv[argv.index('--pin')+1]},Path(download_root),scenario)
