@@ -10,9 +10,18 @@ from PIL import Image
 import argparse
 import hashlib
 import json
+import socketserver
 import threading
 import time
 import uuid
+
+
+class LoopbackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer.server_bind reverse-resolves the host with getfqdn, a blocking
+        # DNS PTR query that can stall startup on CI resolvers. Loopback needs no name.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 def serve(directory):
@@ -77,7 +86,7 @@ if(n===1)location.href='/FILENAME';});</script></main></body></html>""").replace
 
     # Chrome opens idle preconnections. A single-threaded HTTPServer would let
     # one idle socket block both the actual file and the read-only status probe.
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = LoopbackServer(("127.0.0.1", 0), Handler)
     server.timeout = 0.5
     initial = {**state, "origin": "http://127.0.0.1:" + str(server.server_port)}
     with (root / "fixture.json").open("x") as file:
