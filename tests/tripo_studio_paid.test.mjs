@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, readdirSync, existsSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, existsSync, symlinkSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { generate, quote, prepareText, quoteFingerprint, readWorkspaceDOM, readSubmittedDOM, readLocationDOM, validatePaidArgs, paidDigest, checkPaidPin, GENERATE_BUTTON } from '../examples/opencli/tripo-studio/paid.mjs';
+// Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
+const TMP = realpathSync(tmpdir());
 
 const FORM = { kind: 'ready', credits: 20155, price: 40, model: 'H3.1 – Best Quality', privacy: 'Private', switches: ['false', 'false'], text_mode: true, prompt_value: '', button_label: 'Generate 40', button_enabled: true };
 const ASSET = '11111111-2222-3333-4444-555555555555';
-function args(extra = {}) { return { prompt: 'One blue cube', budget: 40, quote: quoteFingerprint(FORM), key: 'fake-paid-once', confirm: true, ledger: mkdtempSync('/private/tmp/atm-tripo-paid-'), ...extra }; }
+function args(extra = {}) { return { prompt: 'One blue cube', budget: 40, quote: quoteFingerprint(FORM), key: 'fake-paid-once', confirm: true, ledger: mkdtempSync(join(TMP, 'atm-tripo-paid-')), ...extra }; }
 function fakePage(a, { form = {}, failClick = false } = {}) {
   const calls = []; const data = { ...FORM, ...form };
   return { calls,
@@ -51,4 +54,4 @@ test('visible Workspace SPA link avoids cold route reload from assets', async ()
 test('existing private draft preserved', async () => { const a = args(); const p = fakePage(a, { form: { prompt_value: 'Keep this draft' } }); await assert.rejects(generate(p, a), e => e.code === 'draft_present'); assert.deepEqual(p.calls, []); });
 test('claim precedes only click; success says submitted, not model completed; reuse performs no browser action', async () => { const a = args(); const p = fakePage(a); const result = (await generate(p, a))[0]; assert.equal(result.status, 'submitted'); assert.equal(result.asset_id, ASSET); assert.match(result.acceptance, /not_model_completion/); assert.deepEqual(p.calls, ['fill', 'paid_click']); p.calls.length = 0; assert.equal((await generate(p, a))[0].reused, true); assert.deepEqual(p.calls, []); await assert.rejects(generate(p, { ...a, prompt: 'Changed' }), e => e.code === 'request_conflict'); });
 test('click failure retains receipt and active lock; same or new keys do not resubmit', async () => { const a = args(); const p = fakePage(a, { failClick: true }); await assert.rejects(generate(p, a), e => e.code === 'submission_unknown'); assert.ok(existsSync(join(a.ledger, '.atm/tripo-studio-paid/active.lock'))); p.calls.length = 0; await assert.rejects(generate(p, a), e => e.code === 'submission_unknown'); await assert.rejects(generate(p, { ...a, key: 'do-not-bypass' }), e => e.code === 'workspace_busy'); assert.deepEqual(p.calls, []); });
-test('symlink ledger never reaches browser', async () => { const root = mkdtempSync('/private/tmp/atm-tripo-symlink-'); const target = mkdtempSync('/private/tmp/atm-tripo-target-'); const link = join(root, 'link'); symlinkSync(target, link); const a = args({ ledger: link }); const p = fakePage(a); await assert.rejects(generate(p, a), e => e.code === 'unsafe_path'); assert.deepEqual(p.calls, []); });
+test('symlink ledger never reaches browser', async () => { const root = mkdtempSync(join(TMP, 'atm-tripo-symlink-')); const target = mkdtempSync(join(TMP, 'atm-tripo-target-')); const link = join(root, 'link'); symlinkSync(target, link); const a = args({ ledger: link }); const p = fakePage(a); await assert.rejects(generate(p, a), e => e.code === 'unsafe_path'); assert.deepEqual(p.calls, []); });

@@ -1,15 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,existsSync,statSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,existsSync,statSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {XyqError} from '../examples/opencli/xyq-web/core.mjs';
 import {audioFormHash,AUDIO_PANEL} from '../examples/opencli/xyq-web/audio.mjs';
 import {AUDIO_BOUND_FILES} from '../examples/opencli/xyq-web/audio-bound.mjs';
 import {AUDIO_UPLOAD_BOUND_FILES,audioUploadBoundDigest,checkAudioUploadBoundPin,audioUploadPage,audioUploadRejection,runBoundAudioUpload} from '../examples/opencli/xyq-web/audio-upload-bound.mjs';
+// Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
+const TMP=realpathSync(tmpdir());
 const scope={project_id:'1',canvas_id:'2',node_id:'3'};
 function fixture(){
-  const root=mkdtempSync('/private/tmp/atm-xyq-upload-bound-unit-'),file=join(root,'FAKE_PRIVATE.wav'),wav=Buffer.alloc(60);
+  const root=mkdtempSync(join(TMP,'atm-xyq-upload-bound-unit-')),file=join(root,'FAKE_PRIVATE.wav'),wav=Buffer.alloc(60);
   wav.write('RIFF');wav.writeUInt32LE(52,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);wav.writeUInt32LE(16000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(16,40);writeFileSync(file,wav,{mode:0o600});
   const form={kind:'ready',...scope,model:'Seed Audio 1.0',sample_rate:'44.1kHz',prompt:'',prompt_tree:null,prompt_references:0,references:[],files:[{kind:'audio',multiple:true,accept:null,files:[]},{kind:'image',multiple:true,accept:'.png',files:[]}],layers:0,submit_busy:false,submit_enabled:false,association:'unique_audio_node_only'};
   const calls=[],s={queries:0,fail:false,replace:false,mutate:false,wrapped:false};

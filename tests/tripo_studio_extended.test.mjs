@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, symlinkSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 
 test('completed Quad and triangle models expose single and current/total counts respectively',()=>{
@@ -20,6 +21,8 @@ import { assetId, parseSettings, quoteHash, extendedDigest, checkExtendedPin, re
   exportModel, exportQuote, assetsAll, claimedOperation, validateExecution,
 } from '../examples/opencli/tripo-studio/extended.mjs';
 import { readAccountDOM } from '../examples/opencli/tripo-studio/core.mjs';
+// Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
+const TMP = realpathSync(tmpdir());
 
 const ID = '11111111-2222-3333-4444-555555555555';
 const OTHER = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -28,7 +31,7 @@ const FORM = { kind:'ready', operation:'retopo', asset_id:ID, price:40, credits:
 const IMAGE = { ...FORM, operation:'image',asset_id:null,settings:{privacy:'Private',model:'H3.1',switches:['false','false']},image:{files:[],previews:[]} };
 const EXPORT = { ...FORM,operation:'export',price:0,settings:{format:'GLB',texture_resolution:'4k Current'},filename:'fixture',image:null };
 const hash = value => createHash('sha256').update(value).digest('hex');
-const temp = () => mkdtempSync('/private/tmp/atm-tripo-ext-');
+const temp = () => mkdtempSync(join(TMP, 'atm-tripo-ext-'));
 function args(extra = {}) { return { operation:'retopo',asset:ID,quote:quoteHash(FORM),budget:40,key:'fixture-once',confirm:true,ledger:temp(), ...extra }; }
 function fixturePage(a, { form=FORM, clickFailure=false, onClick=null } = {}) {
   const calls = []; const data = structuredClone(form);

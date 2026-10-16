@@ -1,14 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,readFileSync,readdirSync,statSync,existsSync,writeFileSync,linkSync} from 'node:fs';
+import {mkdtempSync,readFileSync,readdirSync,statSync,existsSync,writeFileSync,linkSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {inspectConversationResults,RESULT_FILES} from '../examples/opencli/xyq-web/results.mjs';
 import {DOWNLOAD_FILES,downloadDigest,checkDownloadPin,downloadSettings,verifiedDownloadEvent,downloadExistingResult,downloadBoundResult} from '../examples/opencli/xyq-web/download.mjs';
+// Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
+const TMP=realpathSync(tmpdir());
 const scope={thread_id:'00000000-0000-0000-0000-000000000001',result_id:'b'.repeat(32)};
 const src='https://p3-pippit-business-jianying-sign.byteimg.com/tos-cn-i-wipe09lpyt/'+scope.result_id+'~tplv-wipe09lpyt-resize-v1:1080:1080.image?FAKE_PRIVATE_SIGNATURE=secret';
 const preview={result_id:scope.result_id,kind:'image',load_state:'loaded',width:81,height:108,resize_width:1080,resize_height:1080,surface:'artifact_preview',filename:'fixture.png',download_enabled:true,download_hit_verified:true};
 async function fixture(){
-  const workspace=mkdtempSync('/private/tmp/atm-xyq-download-'),state={kind:'ready',images:[],preview:structuredClone(preview)},calls=[];
+  const workspace=mkdtempSync(join(TMP,'atm-xyq-download-')),state={kind:'ready',images:[],preview:structuredClone(preview)},calls=[];
   const page={evaluate:async(fn,arg)=>{calls.push(fn.name);if(fn.name==='readConversationResultsDOM')return structuredClone(state);if(fn.name==='readDownloadInputDOM')return {kind:'ready',x:7,y:8};assert.fail(fn.name);},
     nativeClick:async(x,y)=>{calls.push('nativeClick');assert.deepEqual([x,y],[7,8]);const d=join(workspace,'.atm','xyq-result-downloads');assert(existsSync(join(d,'active.lock')));const file=readdirSync(d).find(n=>n.endsWith('.json'));assert.equal(JSON.parse(readFileSync(join(d,file))).status,'download_dispatch_claimed');assert.equal(statSync(join(d,file)).mode&0o777,0o600);},
     waitForDownload:async(pattern,timeout)=>{calls.push('waitForDownload');assert.equal(pattern,'fixture.png');assert.equal(timeout,20000);return {downloaded:true,state:'complete',filename:'/private/tmp/fixture.png',url:src};},

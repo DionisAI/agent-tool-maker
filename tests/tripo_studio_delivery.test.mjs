@@ -1,13 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,symlinkSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
 import {readAssetDOM,readLocation} from '../examples/opencli/tripo-studio/extended.mjs';
 import {deliveryDigest,checkDeliveryPin,readOperationReceipt,operationStatus} from '../examples/opencli/tripo-studio/delivery.mjs';
+// Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
+const TMP=realpathSync(tmpdir());
 const SOURCE='11111111-2222-3333-4444-555555555555',OUTPUT='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const hash=s=>createHash('sha256').update(s).digest('hex');
-function fixture(extra={},text=false){const ledger=mkdtempSync('/private/tmp/atm-tripo-delivery-'),dir=join(ledger,'.atm','tripo-studio-paid');mkdirSync(dir,{recursive:true});
+function fixture(extra={},text=false){const ledger=mkdtempSync(join(TMP,'atm-tripo-delivery-')),dir=join(ledger,'.atm','tripo-studio-paid');mkdirSync(dir,{recursive:true});
   const file=join(dir,(text?'':'extended-')+hash('once')+'.json');writeFileSync(file,JSON.stringify({request_key:'once',fingerprint:'a'.repeat(64),operation:text?undefined:'workspace_texture',status:'submitted',asset_id:OUTPUT,source_asset_id:text?undefined:SOURCE,...extra}),{mode:0o600});
   return{ledger,key:'once',wait:0,file};}
 test('delivery pin includes all reviewed dependencies',()=>{checkDeliveryPin(deliveryDigest());assert.throws(()=>checkDeliveryPin('0'.repeat(64)),e=>e.code==='definition_changed');});

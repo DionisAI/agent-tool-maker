@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,readFileSync,existsSync,statSync,readdirSync,writeFileSync,symlinkSync,linkSync} from 'node:fs';
+import {mkdtempSync,readFileSync,existsSync,statSync,readdirSync,writeFileSync,symlinkSync,linkSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {draftHash} from '../examples/opencli/xyq-web/form.mjs';
 import {inspectHomeQuote} from '../examples/opencli/xyq-web/home-quote.mjs';
 import {generationDigest,checkGenerationPin,parseGenerationSettings,generateHome,generateBoundHome,generationStatus} from '../examples/opencli/xyq-web/generation.mjs';
+// Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
+const TMP=realpathSync(tmpdir());
 async function fixture(){
-  const workspace=mkdtempSync('/private/tmp/atm-xyq-generation-'),home={kind:'ready',agent:'创作',form:{mode:'图片生成',preferences:'TEST_MODEL',preferences_open:false,canvas:{checked:true,disabled:false}}};
+  const workspace=mkdtempSync(join(TMP,'atm-xyq-generation-')),home={kind:'ready',agent:'创作',form:{mode:'图片生成',preferences:'TEST_MODEL',preferences_open:false,canvas:{checked:true,disabled:false}}};
   const draft={kind:'ready',prompt:'TEST_PRIVATE_PROMPT',prompt_tree:null,media:[],files:[],attachments:null,layers:0};
   const price={kind:'ready',price:{label:'积分消耗 6',amount:'6',original_amount:null,busy:false},submit_enabled:true,submit_busy:false},calls=[];
   const page={evaluate:async fn=>{calls.push(fn.name);if(fn.name==='readHomeDOM')return structuredClone(home);if(fn.name==='readDraftDOM')return structuredClone(draft);if(fn.name==='readHomeQuoteDOM')return structuredClone(price);

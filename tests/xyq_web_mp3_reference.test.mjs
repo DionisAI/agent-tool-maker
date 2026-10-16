@@ -2,10 +2,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {mkdtempSync,writeFileSync,readFileSync,existsSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,existsSync,symlinkSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {inspectAudioFile,audioFormHash,uploadAudioReference,AUDIO_PANEL} from '../examples/opencli/xyq-web/audio.mjs';
 import {runBoundAudioUpload} from '../examples/opencli/xyq-web/audio-upload-bound.mjs';
+// Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
+const TMP=realpathSync(tmpdir());
 
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const scope={project_id:'1',canvas_id:'2',node_id:'3'};
@@ -22,7 +25,7 @@ function tag(major=4,body=Buffer.from('FAKE_PRIVATE_TAG')){
   return Buffer.concat([h,body]);
 }
 function fixture(bytes=Buffer.concat([frame(),frame({padding:1})])){
-  const root=mkdtempSync('/private/tmp/atm-xyq-mp3-unit-'),file=join(root,'FAKE_PRIVATE.mp3');writeFileSync(file,bytes,{mode:0o600});
+  const root=mkdtempSync(join(TMP,'atm-xyq-mp3-unit-')),file=join(root,'FAKE_PRIVATE.mp3');writeFileSync(file,bytes,{mode:0o600});
   const form={kind:'ready',...scope,model:'Seed Audio 1.0',sample_rate:'44.1kHz',prompt:'',prompt_tree:null,prompt_references:0,references:[],files:[{kind:'audio',multiple:true,accept:null,files:[]},{kind:'image',multiple:true,accept:'.png',files:[]}],layers:0,submit_busy:false,submit_enabled:false,association:'unique_audio_node_only'};
   const calls=[],s={mutate:null,fail:false};
   const attach=files=>{
@@ -60,7 +63,7 @@ test('a valid MP3 SHA mismatch is rejected before constructing a browser',async(
   const x=fixture();await assert.rejects(runBoundAudioUpload({},scope,{...x.args(),file_sha256:'0'.repeat(64)},x.root,()=>assert.fail('browser')),e=>e.code==='input_changed');assert.equal(x.calls.length,0);
 });
 test('project ownership, symlinks and extension spoofing remain intake errors',()=>{
-  const x=fixture(),other=mkdtempSync('/private/tmp/atm-xyq-mp3-outside-');
+  const x=fixture(),other=mkdtempSync(join(TMP,'atm-xyq-mp3-outside-'));
   assert.throws(()=>inspectAudioFile(x.file,other),e=>e.code==='invalid_audio_file');
   const link=join(x.root,'linked.mp3');symlinkSync(x.file,link);assert.throws(()=>inspectAudioFile(link,x.root),e=>e.code==='unsafe_path');
   const wav=join(x.root,'not-a-wav.wav');writeFileSync(wav,readFileSync(x.file));assert.throws(()=>inspectAudioFile(wav,x.root),e=>e.code==='invalid_audio_file');

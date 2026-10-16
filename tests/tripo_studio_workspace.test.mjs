@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { MODULES, SUBMIT_MODULES, workspaceDigest, checkWorkspacePin, moduleName, readWorkspaceDOM, readWorkspaceLinkDOM,
   workspaceQuoteHash, parseWorkspaceSettings, inspectWorkspace, prepareWorkspace, submitWorkspace, readWorkspaceSubmissionDOM, readChoiceDOM } from '../examples/opencli/tripo-studio/workspace.mjs';
 import { readLocation } from '../examples/opencli/tripo-studio/extended.mjs';
 import { readAccountDOM } from '../examples/opencli/tripo-studio/core.mjs';
+// Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
+const TMP = realpathSync(tmpdir());
 const ID='11111111-2222-3333-4444-555555555555',OTHER='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 test('same-UUID Texture submission recognizes the exact observed HUD phrase, not another sidebar task',()=>{
@@ -17,7 +20,7 @@ test('same-UUID Texture submission recognizes the exact observed HUD phrase, not
   progress.closest=()=>({});assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
   progress.closest=()=>null;progress.innerText='Generating an unrelated task';assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
 });
-const temp=()=>mkdtempSync('/private/tmp/atm-tripo-workspace-');
+const temp=()=>mkdtempSync(join(TMP, 'atm-tripo-workspace-'));
 const FORM={kind:'ready',module:'segment',asset_id:ID,heading:'Segmentation',quoted_credits:40,credits:100,button_enabled:true,action_label:'Start Segmenting 40',warnings:[],settings:{detail_level:'Balanced'}};
 function fixturePage(form=FORM,{available=true,clickError=false}={}) {
   const data=structuredClone(form),calls=[];let route=MODULES[data.module][1];

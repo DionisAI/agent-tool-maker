@@ -1,14 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {mkdtempSync,writeFileSync,readFileSync,existsSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,existsSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {XyqError} from '../examples/opencli/xyq-web/core.mjs';
 import {MEDIA_RUNTIME_FILES,MEDIA_RUNTIME_OPERATIONS,mediaRuntimeDigest,checkMediaRuntimePin,runMediaOperation} from '../examples/opencli/xyq-web/media-runtime.mjs';
+// Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
+const TMP=realpathSync(tmpdir());
 
 const hash='a'.repeat(64),scope={project:'1',canvas:'2',node:'3'};
 function uploadFixture(){
-  const workspace=mkdtempSync('/private/tmp/atm-media-runtime-'),file=join(workspace,'fixture.wav'),wav=Buffer.alloc(60);
+  const workspace=mkdtempSync(join(TMP,'atm-media-runtime-')),file=join(workspace,'fixture.wav'),wav=Buffer.alloc(60);
   wav.write('RIFF');wav.writeUInt32LE(52,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);
   wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);wav.writeUInt32LE(16000,28);
   wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(16,40);writeFileSync(file,wav,{mode:0o600});
@@ -17,7 +20,7 @@ function uploadFixture(){
 }
 function argumentsFor(operation){
   if(operation==='audio_reference_upload')return{...scope,...uploadFixture()};
-  if(operation==='generate')return{workspace:mkdtempSync('/private/tmp/atm-media-runtime-'),settings:{expected_draft_sha256:hash,quote_sha256:hash,
+  if(operation==='generate')return{workspace:mkdtempSync(join(TMP,'atm-media-runtime-')),settings:{expected_draft_sha256:hash,quote_sha256:hash,
     max_credits:6,human_confirmed:true,estimated_cost_confirmed:true,request_key:'fixture-once'}};
   if(operation==='form_prepare')return{settings:{expected_draft_sha256:hash}};
   if(operation==='mode_prepare')return{settings:{expected_draft_sha256:hash,mode:'图片生成'}};
@@ -43,7 +46,7 @@ test('all nineteen browser operations dispatch through exactly one original type
   }
 });
 test('local original generation status works without Page construction or profile routing',async()=>{
-  const workspace=mkdtempSync('/private/tmp/atm-media-runtime-local-'),context=new Proxy({},{get(){assert.fail('profile routing');}}),factories=new Proxy({},{get(){assert.fail('Page construction');}});
+  const workspace=mkdtempSync(join(TMP,'atm-media-runtime-local-')),context=new Proxy({},{get(){assert.fail('profile routing');}}),factories=new Proxy({},{get(){assert.fail('Page construction');}});
   await assert.rejects(runMediaOperation(context,'generation_status',{workspace,key:'missing'},factories),e=>e.code==='request_missing');
   assert(!existsSync(join(workspace,'.atm')));
 });
@@ -95,7 +98,7 @@ test('registered LOCAL status accepts the SDK arguments-first call without a Pag
   try{
     await import(asModule(source));const commands=globalThis[registryKey];assert.equal(commands.length,20);
     const command=commands.find(x=>x.name==='generation-status');assert.equal(command.browser,false);
-    const workspace=mkdtempSync('/private/tmp/atm-media-runtime-registration-');
+    const workspace=mkdtempSync(join(TMP,'atm-media-runtime-registration-'));
     await assert.rejects(command.func({pin:mediaRuntimeDigest(),workspace,key:'missing'},false),e=>JSON.parse(e.message).code==='request_missing');
     assert(!existsSync(join(workspace,'.atm')));
     await assert.rejects(command.func({pin:'0'.repeat(64),workspace,key:'missing'},false),e=>JSON.parse(e.message).code==='definition_changed');
