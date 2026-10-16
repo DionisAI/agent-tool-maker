@@ -1,5 +1,14 @@
 # ATM repository instructions
 
+ATM also makes reviewed website CLIs, not only credential injection. Keep observed
+DOM adapters, compiler output and live-provider acceptance distinct; never treat
+a website subscription as developer-API credits. Contracts live in feature docs.
+Independent server browsers own their login/profile and execution; no local-computer
+relay or auth-state sync. Keep server-runtime and real-provider acceptance distinct.
+XYQ's active scope is website-parity image, video and audio generation, including
+voice selection and user-approved reference/voice uploads. Complex canvas,
+storyboard, 3D director and timeline editing are deferred; see docs/XYQ_MEDIA_CONTRACT.md.
+
 Read README.md and SKILL.md first. The default experience is **Agent prepares;
 human unlocks in one local window; Agent continues**. Do not hand the user a long
 list of installation, grant, profile and execution commands.
@@ -10,12 +19,18 @@ list of installation, grant, profile and execution commands.
 - `atm start` creates a bounded local consent window; `atm use` injects selected
   credentials into ordinary programs. Neither requires a tool manifest.
 - Keep secrets in the existing vault. Never reset or move it for an upgrade.
+- Local Passkeys require WebAuthn + PRF wrapping of the existing master key, with
+  password/keyring recovery intact. Enrollment and provider prompts stay human;
+  bindings do not sync or extend leases. See docs/PASSKEY.md for acceptance.
 - Human password/Key input is only in the local window or explicit private terminal,
   never chat. The Agent must not read session/profile files or approve its own popup.
 - Default convenience mode trusts same-user code in an explicitly approved project;
   it does not claim hostile-code isolation. Old strict scopes remain strict.
 - JSON output reports ready, pending, denied, missing, expired and conflicts distinctly.
   Reuse requests. Never silently extend a lease, expand scope, or resubmit side effects.
+- Owner-managed Higgsfield OAuth is separate from Key slots and CLI login. Encrypt
+  tokens in the existing vault; opt-in native-keyring refresh never extends project
+  leases. Keep consent human, resource/issuer pinned and uncertain rotations unretried.
 
 ## Changes and tests
 

@@ -5,8 +5,6 @@ import copy
 import hashlib
 import json
 import re
-import shutil
-import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -237,16 +235,12 @@ def pack(tool: dict, directory: Path, catalog=None) -> dict:
     hashes = {k: hashlib.sha256(v.encode()).hexdigest() for k, v in data.items()}
     data["bundle-lock.json"] = canonical({"format": FORMAT, "tool": tool["id"], "definition_sha256": sha, "files": hashes})
     dest.parent.mkdir(parents=True, exist_ok=True)
-    temp = Path(tempfile.mkdtemp(prefix=".atm-build-", dir=dest.parent))
-    try:
-        for name, text in data.items():
-            atomic_write(temp / name, text.encode())
-        # mkdir reserves the target without replacing another writer's directory.
-        dest.mkdir()
-        for file in temp.iterdir():
-            file.rename(dest / file.name)
-    finally:
-        shutil.rmtree(temp)
+    # Exclusive mkdir reserves the destination. Write the integrity lock last.
+    # A failed build remains inspectable; no directory cleanup or deletion occurs.
+    # This also works on systems without macOS Trash. Partial bundles fail check-bundle.
+    dest.mkdir()
+    for name, text in data.items():
+        atomic_write(dest / name, text.encode())
     return {"directory": str(dest), "tool": tool["id"], "sha256": sha,
             "files": sorted(data), "installed": False, "generated_python_cli": True}
 

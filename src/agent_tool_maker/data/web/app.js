@@ -31,6 +31,34 @@ const labels = {
 const display = value => labels[value] || value || '未知';
 const badge = (value, kind='') => el('span',{class:'badge '+kind},display(value));
 const code = value => el('pre',{class:'codebox'},typeof value === 'string' ? value : JSON.stringify(value,null,2));
+function brandMark(brand,compact=false) {
+  const mark=el('span',{class:'provider-mark'+(compact?' compact':''),ariaHidden:'true','data-brand':brand.key});
+  const fallback=()=>{mark.classList.add('initials');mark.replaceChildren(document.createTextNode(brand.initials));};
+  if (brand.src) mark.append(el('img',{src:brand.src,alt:'',width:28,height:28,decoding:'async',onerror:()=>{
+    fallback();console.warn('ATM brand image failed to render:',brand.key);
+  }}));
+  else fallback();
+  return mark;
+}
+function brandIdentity(provider,content,toolId='',compact=false) {
+  return el('div',{class:'provider-identity'},brandMark(window.ATM_BRANDS.get(provider,toolId),compact),el('div',{class:'provider-copy'},...content));
+}
+function toolCollection() {
+  const groups=new Map();
+  for (const tool of data.tools) {
+    const brand=window.ATM_BRANDS.get(tool.provider,tool.id);
+    if(!groups.has(brand.key))groups.set(brand.key,{brand,provider:tool.provider,count:0});
+    groups.get(brand.key).count++;
+  }
+  const priority=['tripo','higgsfield','fal','xyq','comfyui','meshy','runway','elevenlabs','suno','ffmpeg','blender','github'];
+  const rank=key=>priority.includes(key)?priority.indexOf(key):priority.length;
+  const selected=[...groups.values()].sort((a,b)=>rank(a.brand.key)-rank(b.brand.key)||a.brand.name.localeCompare(b.brand.name)).slice(0,12);
+  const browse=query=>{toolFilters.q=query;toolFilters.mode='';toolFilters.status='';active='tools';render();};
+  return el('section',{class:'tool-collection'},
+    el('div',{class:'section-head'},el('div',{},el('h2',{},'你的工具箱'),el('small',{},groups.size+' 个提供方 · 图标用于识别，登录与可用性请查看状态')),btn('查看全部工具 →',()=>browse(''),'plain')),
+    el('div',{class:'brand-grid'},...selected.map(({brand,provider,count})=>el('button',{class:'brand-tile',onclick:()=>browse(brand.key==='tripo'?'tripo.':provider)},
+      brandMark(brand),el('span',{class:'brand-name'},brand.name),el('small',{},count+' 个动作'),el('span',{class:'brand-arrow',ariaHidden:'true'},'↗')))));
+}
 const toast = (message, error=false) => {
   const n=$('#toast'); n.textContent=message; n.className=error?'error':''; n.hidden=false;
   clearTimeout(noticeTimer); noticeTimer=setTimeout(()=>n.hidden=true,7500);
@@ -51,8 +79,8 @@ async function api(path, body) {
   return value;
 }
 async function refresh() {
-  const [overview,tools,connections,jobs,clis,sync,access,extensions,session]=await Promise.all(['/api/overview','/api/tools','/api/connections','/api/jobs','/api/clis','/api/sync','/api/access','/api/extensions','/api/session'].map(p=>api(p)));
-  data={overview,tools:tools.tools,connections,jobs:jobs.jobs,clis:clis.clis,sync,access,extensions,session,sessionFetchedAt:Date.now()};
+  const [overview,tools,connections,jobs,clis,sync,access,extensions,session,passkeys]=await Promise.all(['/api/overview','/api/tools','/api/connections','/api/jobs','/api/clis','/api/sync','/api/access','/api/extensions','/api/session','/api/passkeys'].map(p=>api(p)));
+  data={overview,tools:tools.tools,connections,jobs:jobs.jobs,clis:clis.clis,sync,access,extensions,session,passkeys,sessionFetchedAt:Date.now()};
   $('#version').textContent='ATM v'+overview.version;
   $('#origin').textContent=location.host;
   $('#gate').hidden=true;
@@ -63,12 +91,12 @@ function heading(title,subtitle,button) {
   return el('section',{class:'page-title'},el('div',{},el('p',{class:'eyebrow'},'AGENT TOOL MAKER / YOUR LOCAL WORKSHOP'),el('h1',{},title),el('p',{},subtitle)),button);
 }
 function section(title,meta='') {return el('div',{class:'section-head'},el('h2',{},title),el('small',{},meta));}
-function openModal(title,...content) {$('#modal-title').textContent=title;$('#modal-body').replaceChildren(...content);if(!$('#modal').open)$('#modal').showModal();}
+function openModal(title,...content) {$('#modal-title').textContent=title;$('#modal-body').replaceChildren(...content.flat().filter(c=>c!==null&&c!==undefined));if(!$('#modal').open)$('#modal').showModal();}
 function closeModal() {$('#modal').close();$('#modal-body').replaceChildren();}
 function agentCard(a) {
   const registered=a.state==='registered_not_host_verified';
   return el('article',{class:'card'},
-    el('div',{class:'card-head'},el('div',{class:'agent-title'},el('span',{class:'agent-icon '+a.agent},a.agent==='claude'?'✳':'›_'),el('div',{},el('h3',{},a.label),el('small',{},'默认支持 · 用户级 Skill'))),badge(registered?'已注册':'待配置',registered?'good':'warn')),
+    el('div',{class:'card-head'},brandIdentity(a.agent,[el('h3',{},a.label),el('small',{},'默认支持 · 用户级 Skill')]),badge(registered?'已注册':'待配置',registered?'good':'warn')),
     el('p',{},a.detected_executable?'检测到本地客户端入口。客户端加载及登录尚未验证。':'未在 PATH 检测到客户端 CLI。可预先注册 Skill；不会自动安装客户端。'),
     el('code',{class:'path'},a.skill_path || a.default_skill_path),
     el('div',{class:'card-actions'},btn(registered?'检查 / 更新注册':'配置此客户端',()=>setupDialog([a.agent])),registered?btn('移除入口',async()=>{
@@ -87,6 +115,7 @@ function render() {
     main.append(el('div',{class:'stats'},...[[c.tools,'工具动作','API · CLI · MCP · 外部交接'],[c.enabled,'启用的动作','同一开关作用于所有本地 Agent'],[c.connections,'已保存连接','已配置不等于上游已验证'],[c.recent_jobs,'最近任务','最多统计最近 50 条']].map(([n,t,h])=>el('div',{class:'stat'},el('small',{},t),el('strong',{},n),el('span',{},h)))));
     main.append(section('默认客户端','共用 ATM · 不复制密钥'),el('div',{class:'grid2'},...data.overview.agents.map(agentCard)));
     main.append(el('div',{class:'notice'},'本页只检查本地配置，不执行生成、发帖或部署。网页修改与 CLI 即时共用；新会话复用同一持久状态目录。'));
+    main.append(toolCollection());
     main.append(section('从配置到交付','YOUR CONTROL LOOP'),el('div',{class:'panel workflow'},
       ...[['01 / CONNECT','准备工具入口','注册客户端、绑定已安装的 CLI。只为缺少的连接提供凭证。'],['02 / INSPECT','按任务检查状态','查看参数、权限与连接状态。把“已保存”与“可用”分开判断。'],['03 / EXECUTE','由 Agent 完成任务','主 Agent 通过 ATM CLI 执行；在这里查看脱敏的任务摘要。']].map(([i,t,p])=>el('div',{class:'step'},el('b',{},i),el('h3',{},t),el('p',{},p)))));
     main.append(el('p',{class:'quiet'},'持久状态目录：'+data.overview.home));
@@ -102,7 +131,7 @@ function render() {
   else if(active==='access') renderAccess(main);
 }
 function cliTable() {
-  return table(['程序','本地状态','检测到的入口','配置'],data.clis.map(c=>el('tr',{},el('td',{},el('strong',{},c.name)),el('td',{},badge(c.state)),el('td',{},el('small',{},c.path || c.detected_path || '未安装 / 不在 PATH')),el('td',{},btn('查看配置计划',()=>setupDialog([], [c.name]))))));
+  return table(['程序','本地状态','检测到的入口','配置'],data.clis.map(c=>el('tr',{},el('td',{},brandIdentity(c.name,[el('strong',{},c.name)],'',true)),el('td',{},badge(c.state)),el('td',{},el('small',{},c.path || c.detected_path || '未安装 / 不在 PATH')),el('td',{},btn('查看配置计划',()=>setupDialog([], [c.name]))))));
 }
 function table(headers,rows) {
   return el('div',{class:'table-wrap'},el('table',{},el('thead',{},el('tr',{},...headers.map(h=>el('th',{},h)))),el('tbody',{},...(rows.length?rows:[el('tr',{},el('td',{colSpan:headers.length,class:'empty'},'没有匹配的记录。'))]))));
@@ -118,10 +147,10 @@ function renderTools(main) {
     Object.assign(toolFilters,{q:q.value,mode:mode.value,status:status.value});
     const rows=data.tools.filter(t=>{
       const m=t.adapter==='web_recipe'?'browser':['browser','desktop','human','mcp','workflow'].includes(t.adapter)?t.adapter:['command','ffmpeg','ffprobe','xyq'].includes(t.adapter)?'cli':'api';
-      return JSON.stringify([t.id,t.title,t.provider,t.capabilities]).toLowerCase().includes(q.value.toLowerCase())&&(!mode.value||mode.value===m)&&(!status.value||(status.value==='enabled')===t.enabled);
+      return JSON.stringify([t.id,t.title,t.provider,window.ATM_BRANDS.get(t.provider,t.id).name,t.capabilities]).toLowerCase().includes(q.value.toLowerCase())&&(!mode.value||mode.value===m)&&(!status.value||(status.value==='enabled')===t.enabled);
     });count.textContent=rows.length+' 个动作';
     host.replaceChildren(table(['工具 / 能力','入口','配置状态','可用开关','详情'],rows.map(t=>el('tr',{class:t.enabled?'':'muted-row'},
-      el('td',{},el('strong',{},t.id),el('small',{},t.title)),el('td',{},badge(t.adapter)),el('td',{},badge(t.health.state)),
+      el('td',{},brandIdentity(t.provider,[el('strong',{},t.id),el('small',{},t.title)],t.id,true)),el('td',{},badge(t.adapter)),el('td',{},badge(t.health.state)),
       el('td',{},btn(t.enabled?'已启用 · 停用':'已停用 · 启用',async()=>{
         if(!confirm((t.enabled?'停用 ':'启用 ')+t.id+'？此变更同时影响 Claude Code 与 Codex。'))return;
         await api('/api/tools/toggle',{tool:t.id,enabled:!t.enabled,expected_enabled:t.enabled});await refresh();toast('工具状态已更新。');
@@ -135,12 +164,43 @@ function renderConnections(main) {
   main.append(heading('连接与凭证','密钥写入现有加密库；网页不回读明文，不在浏览器持久存储。',btn('添加 / 更新连接',()=>connectionDialog(),'primary')));
   const vault=data.connections.vault;
   main.append(el('div',{class:'panel'},el('div',{class:'card-head'},el('div',{},el('h3',{},'本地凭证库'),el('p',{class:'quiet'},'后端：'+(vault.backend || '未初始化')+' · '+display(vault.state))),!vault.backend?btn('初始化凭证库',vaultDialog):badge('保留现有凭证库','good')),el('p',{class:'quiet'},'口令模式仅在本次保存/检查请求中解锁，不提供后台永久解锁。系统 keyring 可能要求系统确认。')));
+  const add=btn('绑定 1Password / Passkey',passkeyDialog);
+  add.disabled=!vault.backend || !data.passkeys.available || !window.ATM_PASSKEY?.supported();
+  main.append(el('div',{class:'panel',id:'passkeys-panel'},el('div',{class:'card-head'},brandIdentity('1password',[el('h3',{},'Passkey 解锁'),el('small',{},'本机绑定 · 主密码保留')]),badge('1Password / Passkey')),
+    el('p',{},'使用支持 PRF 的 Passkey 保护现有主密钥；在 1Password 提示中由你保存并确认。解锁仍固定 30 分钟，不自动增加项目或 Key。'),
+    !data.passkeys.dependency_present?el('p',{class:'quiet'},'Passkey 验证依赖尚待安装。'):null,
+    data.passkeys.state_error?el('p',{class:'notice'},data.passkeys.state_error.code+': 本机绑定记录校验失败；密码恢复入口保留，请核对本地记录。'):null,
+    !data.passkeys.origin_supported?el('p',{class:'quiet'},'请从新版 atm ui 打开的 localhost 窗口使用。'):null,
+    el('div',{class:'card-actions'},add),
+    ...data.passkeys.credentials.map(c=>el('div',{},el('strong',{},c.label+' · '+(c.disabled?'已停用':'已绑定')),
+      !c.disabled?btn('停用 '+c.label,()=>disablePasskeyDialog(c),'plain danger'):null))));
+  for (const c of data.connections.oauth || []) {
+    const states={missing:'尚未登录',pending:'等待本机浏览器确认',ready:'已登录',expired:'令牌到期',refreshing:'续期中',refresh_unknown:'续期结果待确认，请重新登录',needs_login:'需要重新登录',denied:'登录未批准'};
+    main.append(el('article',{class:'panel'},el('div',{class:'card-head'},brandIdentity('higgsfield',[el('h3',{},'Higgsfield 订阅 · ATM OAuth')]),badge(states[c.status] || c.status)),
+      el('p',{},'独立加密保存订阅登录令牌，不读取官方 CLI 登录文件。项目 Key 的 30 分钟解锁期保持不变。'),
+      el('p',{class:'quiet'},'自动续期：'+(c.keep_login?(c.status==='ready'&&c.refreshable&&c.service?.status==='loaded'?'已启用':'已请求，待连接 / 服务就绪'):'未启用')+' · 后台服务：'+(c.service?.status || 'not_installed')+(c.last_error?' · '+c.last_error:'')),
+      el('p',{class:'quiet'},c.expires_at?'当前令牌有效至 '+new Date(c.expires_at*1000).toLocaleString():'登录后显示令牌有效期。'),
+      el('div',{class:'card-actions'},btn(c.status==='missing'?'浏览器登录':'重新登录',()=>oauthDialog(c)),btn('刷新状态',()=>refresh()),
+        c.keep_login?btn('停止自动续期',async()=>{await api('/api/oauth/keep-login',{provider:c.provider,enabled:false});await refresh();}):null)));
+  }
   const q=el('input',{placeholder:'搜索连接提供方…',ariaLabel:'搜索连接'}), host=el('div',{class:'connection-grid'});
-  const draw=()=>host.replaceChildren(...data.connections.connections.filter(c=>c.provider.includes(q.value.toLowerCase())).map(c=>el('article',{class:'card'},
-    el('div',{class:'card-head'},el('h3',{},c.provider),badge(c.expired?'凭证已过期':c.configured?'已保存':'未连接',c.expired?'bad':c.configured?'good':'')),
+  const draw=()=>host.replaceChildren(...data.connections.connections.filter(c=>[c.provider,c.label,window.ATM_BRANDS.get(c.provider).name].join(' ').toLowerCase().includes(q.value.toLowerCase())).map(c=>el('article',{class:'card'},
+    el('div',{class:'card-head'},brandIdentity(c.provider,[el('h3',{},window.ATM_BRANDS.get(c.provider).name),el('small',{},c.provider)]),badge(c.expired?'凭证已过期':c.configured?'已保存':'未连接',c.expired?'bad':c.configured?'good':'')),
     el('p',{},c.configured?'凭证已持久保存，未保证当前权限与余额。':'仅在需要这项工具时配置；不必连接所有服务。'),
     el('div',{class:'card-actions'},c.connect_supported?btn(c.configured?'更新连接':'连接',()=>connectionDialog(c.provider)):null,c.configured?btn('检查',()=>verifyDialog(c.provider),'plain'):null,c.configured?btn('移除',()=>removeConnection(c.provider),'plain danger'):null))));
   q.oninput=draw; main.append(section('供应商连接','浏览器与 CLI 的官方登录态仍由原工具管理'),el('div',{class:'filterbar'},q),host);draw();
+}
+function oauthDialog(connection) {
+  const pass=passphraseField(),keep=el('input',{type:'checkbox'}),replace=el('input',{type:'checkbox'});
+  keep.disabled=data.connections.vault.backend!=='keyring';
+  openModal('Higgsfield 订阅登录',el('p',{},'打开官方 OAuth 页面，由你完成登录和授权；不生成内容、不消费订阅额度。'),
+    el('label',{},keep,'保持登录：系统 keyring 加密保存，安装本用户后台续期服务；供应商撤销或要求验证时提示重新登录'),
+    el('label',{},replace,'明确替换已有 ATM OAuth 连接（官方 CLI 登录保持原样）'),
+    data.connections.vault.backend==='passphrase'?pass.node:null,
+    el('div',{class:'dialog-actions'},btn('打开官方登录窗口',async()=>{
+      try{const r=await api('/api/oauth/login',{provider:connection.provider,keep_login:keep.checked,replace:replace.checked,...(pass.input.value?{passphrase:pass.input.value}:{})});await refresh();closeModal();toast(r.browser_opened?'请在官方页面完成登录和授权，然后刷新状态。':'登录窗口尚未打开或已有请求，请查看连接状态。');}
+      finally{pass.input.value='';}
+    },'primary')));
 }
 function renderJobs(main) {
   main.append(heading('任务记录','读取 ATM 的实际任务摘要；不显示提示词、原始响应和带签名的素材链接。'));
@@ -165,6 +225,36 @@ function setupDialog(agentNames=['claude','codex'],cliNames=[]) {
     el('div',{class:'dialog-actions'},btn('预览变更',async()=>{plan=await api('/api/setup/preview',body());output.replaceChildren(code(plan));applyButton.disabled=plan.status==='needs_review';}),applyButton));
 }
 function passwordField(label) {const input=el('input',{type:'password',autocomplete:'off'});return {input,node:el('label',{},label,input)};}
+function passkeyDialog(){
+  const pass=passwordField('现有 ATM 主密码（首次绑定验证）');pass.input.autocomplete='current-password';
+  const label=el('input',{value:'1Password',maxLength:80});
+  openModal('绑定 Passkey',el('p',{},'将出现保存凭证及 PRF 验证提示。请选择 1Password 并亲自确认；没有 PRF 时保留主密码入口。密码、Key、Passkey 私钥及解锁状态均不进入 ATM 同步。'),
+    el('label',{},'非秘密名称',label),data.connections.vault.backend==='passphrase'?pass.node:null,
+    btn('开始绑定',async()=>{
+      let password=pass.input.value;pass.input.value='';
+      try{await window.ATM_PASSKEY.register(api,password,label.value);closeModal();await refresh();toast('Passkey 已绑定，原有凭证密文保持原样。');}
+      finally{password=null;pass.input.value='';}
+    },'primary'));
+}
+function disablePasskeyDialog(credential){
+  const pass=passwordField('现有 ATM 主密码（验证停用）');pass.input.autocomplete='current-password';
+  openModal('停用 '+credential.label,el('p',{},'停用本机绑定；1Password 中的凭证及已有会话保持原样。需要立即终止新调用时另点“立即锁定”。'),
+    data.connections.vault.backend==='passphrase'?pass.node:null,
+    btn('确认停用',async()=>{let password=pass.input.value;pass.input.value='';
+      try{await api('/api/passkeys/disable',{credential_id:credential.id,confirm:credential.id,...(password?{passphrase:password}:{})});closeModal();await refresh();}
+      finally{password=null;}
+    },'secondary danger'));
+}
+function passkeyUnlockControl(){
+  const credentials=data.passkeys?.credentials.filter(c=>!c.disabled) || [];
+  if(!credentials.length || !data.passkeys.available || !window.ATM_PASSKEY?.supported())return null;
+  const select=el('select',{ariaLabel:'解锁 Passkey'},...credentials.map(c=>el('option',{value:c.id},c.label)));
+  return el('div',{},select,btn('用 Passkey 解锁 30 分钟',async()=>{
+    let proof=await window.ATM_PASSKEY.authenticate(api,'/api/passkeys/auth/begin',{credential_id:select.value},'/api/passkeys/cancel');
+    try{await api('/api/session/unlock',{passkey:proof});closeModal();await refresh();toast('Passkey 已解锁。');}
+    finally{proof=null;}
+  },'primary'));
+}
 function passphraseField() {return passwordField('现有凭证库口令（仅口令模式需要；仅用于本次请求）');}
 function connectionDialog(provider) {
   if(data.session?.session_mode_enabled&&!data.session.unlocked){unlockDialog();return;}
@@ -288,6 +378,7 @@ function sessionPanel(){
 function unlockDialog(){
   const pass=passwordField('现有库口令（仅本机解锁，不写入文件）');
   openModal('解锁凭证会话',el('p',{},'解锁后 30 分钟内，获准的 Claude / Codex 新进程复用会话。此窗口启动的会话随管理台进程关闭而结束。'),
+    passkeyUnlockControl(),
     data.connections.vault.backend==='passphrase'?pass.node:null,
     btn('确认解锁 30 分钟',async()=>{const body={ttl:'30m'};if(pass.input.value)body.passphrase=pass.input.value;
       try{await api('/api/session/unlock',body);closeModal();await refresh();toast('会话已解锁。');}

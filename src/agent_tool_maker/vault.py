@@ -88,6 +88,25 @@ class Vault:
     def _derive(password, salt):
         return Scrypt(salt=salt, length=32, n=2**15, r=8, p=1).derive(password.encode())
 
+    def unlock_with_key(self, key: bytes):
+        """Accept a locally unwrapped key only after authenticating the existing vault.
+
+        Used by the human-window Passkey route; no raw-key HTTP/CLI/RPC endpoint.
+        The original password/keyring backend and every ciphertext stay unchanged.
+        """
+        cfg = self.state.setting('vault')
+        try:
+            if not cfg or not isinstance(key, bytes) or len(key) != 32:
+                raise ValueError()
+            check = AESGCM(key).decrypt(base64.b64decode(cfg['check_nonce']),
+                base64.b64decode(cfg['check']), b'vault-check')
+            if check not in (b'ATM-v1', b'ATR-v1'):
+                raise ValueError()
+        except (InvalidTag, ValueError, KeyError, TypeError):
+            raise RouterError('passkey_vault_mismatch', 'Passkey did not unlock this existing vault; use the recovery password.') from None
+        self._key = key
+        return key
+
     def unlock(self):
         if self._key:
             return self._key
@@ -167,7 +186,7 @@ class Vault:
                     obj = obj.replace(secret, "[REDACTED]")
             return obj
         if isinstance(obj, dict):
-            return {k: ("[REDACTED]" if k.lower() in {"authorization", "api_key", "access_token", "secret", "password"} else self.redact(v)) for k, v in obj.items()}
+            return {k: ("[REDACTED]" if k.lower() in {"authorization", "api_key", "access_token", "refresh_token", "client_secret", "id_token", "code_verifier", "secret", "password"} else self.redact(v)) for k, v in obj.items()}
         if isinstance(obj, list):
             return [self.redact(x) for x in obj]
         return obj

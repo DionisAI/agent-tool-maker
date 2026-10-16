@@ -27,6 +27,9 @@ from .vault import Vault
 MAX_BODY = 65536
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/assets/app.js": ("app.js", "text/javascript; charset=utf-8"),
+          "/assets/brand-data.js": ("brand-data.js", "text/javascript; charset=utf-8"),
+          "/assets/brands.js": ("brands.js", "text/javascript; charset=utf-8"),
+          "/assets/passkeys.js": ("passkeys.js", "text/javascript; charset=utf-8"),
           "/assets/app.css": ("app.css", "text/css; charset=utf-8")}
 CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'"
 
@@ -73,8 +76,11 @@ def selections(body, key, allowed=None):
 class Console(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = False
+    # The shell bootstraps ten metadata requests concurrently. Python 3.13's
+    # default backlog of five resets a queued browser burst before accept runs.
+    request_queue_size = 32
 
-    def __init__(self, home, *, port=0, executable=None, user_home=None, router_factory=None):
+    def __init__(self, home, *, port=0, executable=None, user_home=None, router_factory=None, localhost=False):
         if type(port) is not int or not 0 <= port <= 65535:
             raise RouterError("invalid_port", "Port must be between 0 and 65535.")
         self.home = State(Path(home)).home
@@ -86,8 +92,10 @@ class Console(ThreadingHTTPServer):
         self.expires_at = time.monotonic() + 8 * 3600
         self.lock = threading.RLock()
         super().__init__(("127.0.0.1", port), Handler)
-        self.authority = f"127.0.0.1:{self.server_port}"
+        self.authority = f"{'localhost' if localhost else '127.0.0.1'}:{self.server_port}"
         self.origin = "http://" + self.authority
+        from .passkeys import Passkeys
+        self.passkeys = Passkeys(State(self.home), self.origin)
         self.token_path = self.home / (f"ui-session-{self.server_port}.token")
         atomic_write(self.token_path, self.token.encode())
 
@@ -104,6 +112,8 @@ class Console(ThreadingHTTPServer):
         return router
 
     def server_close(self):
+        if hasattr(self, "passkeys"):
+            self.passkeys.clear()
         if self.secret_session is not None:
             self.secret_session.closing.set()
             if self.secret_session_thread:
@@ -213,6 +223,8 @@ class Handler(BaseHTTPRequestHandler):
                 router.vault._used_secrets.clear()
 
     def read(self, router):
+        if self.path == "/api/passkeys":
+            return self.server.passkeys.status()
         if self.path == "/api/session":
             from .session import status
             return status(router.state.home)
@@ -237,13 +249,59 @@ class Handler(BaseHTTPRequestHandler):
 
     def mutate(self, router, body):
         path = self.path
+        if path.startswith("/api/passkeys/"):
+            passkeys = self.server.passkeys
+            if path == "/api/passkeys/register/begin":
+                fields(body, ("label",), ("passphrase",))
+                return passkeys.register_begin(router.vault, text(body, "label", limit=80))
+            if path in {"/api/passkeys/register/verify", "/api/passkeys/register/finish"}:
+                fields(body, ("ceremony_id", "credential"), ("prf_first",) if path.endswith("finish") else ())
+                return passkeys.register_finish(body) if path.endswith("finish") else passkeys.register_verify(body)
+            if path == "/api/passkeys/auth/begin":
+                fields(body, ("credential_id",))
+                from .session import status
+                if status(router.state.home)["unlocked"]:
+                    raise RouterError("session_already_unlocked", "Existing lease was preserved; no authentication is needed.")
+                return passkeys.auth_begin(text(body, "credential_id"), "console.unlock")
+            if path == "/api/passkeys/cancel":
+                fields(body)
+                passkeys.clear()
+                return {"status": "cancelled"}
+            if path == "/api/passkeys/disable":
+                fields(body, ("credential_id", "confirm"), ("passphrase",))
+                identifier = text(body, "credential_id")
+                if text(body, "confirm") != identifier:
+                    raise RouterError("approval_required", "Confirm the selected local Passkey.")
+                result = passkeys.disable(router.vault, identifier)
+                passkeys.clear()
+                return result
+            raise RouterError("not_found", "Unknown Passkey operation.")
+        if path == "/api/oauth/login":
+            fields(body, ("provider",), ("keep_login", "replace", "passphrase"))
+            from .oauth_web import login
+            return login(router, provider=text(body, "provider"), keep_login=flag(body, "keep_login"),
+                         replace=flag(body, "replace"), executable=self.server.executable)
+        if path == "/api/oauth/keep-login":
+            fields(body, ("provider", "enabled"))
+            from .oauth import OAuth
+            result = OAuth(router.state, router.vault, router.net).keep_login(text(body, "provider"), enabled=flag(body, "enabled"))
+            if flag(body, "enabled"):
+                from .oauth_service import install_service
+                result["service"] = install_service(router.state, executable=self.server.executable, apply=True)
+            return result
         if path == "/api/session/unlock":
-            fields(body, optional=("ttl", "passphrase"))
+            fields(body, optional=("ttl", "passphrase", "passkey"))
             from .session import status, ttl_seconds, SecretSession, run_service
             seconds = ttl_seconds(text(body, "ttl", default="30m"))
+            if "passkey" in body and ("passphrase" in body or seconds != 1800):
+                self.server.passkeys.clear()
+                raise RouterError("invalid_request", "Passkey unlock uses the fixed 30-minute lease and no password field.")
             current = status(router.state.home)
             if current["unlocked"]:
+                self.server.passkeys.clear()
                 return {**current, "action": "unchanged"}
+            if "passkey" in body:
+                self.server.passkeys.auth_finish(router.vault, body["passkey"], "console.unlock")
             service = SecretSession(router.state.home, seconds=seconds, vault=router.vault)
             self.server.secret_session = service
             self.server.secret_session_thread = threading.Thread(target=run_service, args=(service,), daemon=True)
@@ -251,10 +309,16 @@ class Handler(BaseHTTPRequestHandler):
             return service.metadata_status()
         if path == "/api/session/lock":
             fields(body)
+            self.server.passkeys.clear()
             from .session import owner_call, status
             if not status(router.state.home)["unlocked"]:
                 return status(router.state.home)
-            return owner_call(router.state.home, "session.lock")
+            result = owner_call(router.state.home, "session.lock")
+            # Our listener must finish closing before another local unlock can bind it.
+            # This waits for closure, not for already-admitted subprocesses to finish.
+            if self.server.secret_session_thread:
+                self.server.secret_session_thread.join(2)
+            return result
         if path.startswith(("/api/extensions/", "/api/credentials/")):
             from .extensions_web import mutate
             return mutate(router,path,body)
@@ -308,7 +372,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def serve(home, *, port=0, open_browser=True, executable=None):
     from .onboarding import executable_path
-    server = Console(home, port=port, executable=str(executable_path(executable)))
+    server = Console(home, port=port, executable=str(executable_path(executable)), localhost=True)
     try:
         print(json.dumps({"url": server.origin, "session_token_file": str(server.token_path),
                           "scope": "loopback_only", "expires_after_hours": 8,

@@ -6,6 +6,19 @@ that project; it is not the older exact-command permit and is not a malicious-co
 See [one-window threat model](docs/QUICK_START_SECURITY.md). Strict grants remain strict.
 No raw-secret read endpoint, password-in-chat flow, or public Web listener is added.
 
+Local Passkey unlock uses verified WebAuthn signatures with required user presence/
+verification and PRF-derived HKDF/AES-GCM wrapping of the existing vault master key.
+The original password/keyring recovery route and ciphertexts stay intact. See
+[Passkey contract](docs/PASSKEY.md). The RP is localhost, which is shared with other
+local applications, not a unique public ATM domain. Exact per-window Origin/Host,
+private bearer, single-use challenge and scope-bound intent remain mandatory.
+This is loopback HTTP, not network TLS or hostile-same-user isolation. PRF material
+is transient in the browser/server request and never persisted or returned by ATM;
+dropping references is not memory zeroization. Enrollment requires recovery auth,
+not an ambient lease. Provider-private keys stay with the authenticator; local
+bindings and wrapped master keys stay out of ATM sync. No remote RP, unconditional
+browser-policy exception or unattended Passkey refresh is introduced.
+
 # v0.7 security review scope
 
 Read [the current self-review](docs/SECURITY_REVIEW_V07.md) before using the new `exec` interface.
@@ -47,13 +60,17 @@ Pandoc Markdown 动作使用其 `--sandbox`。部分 Pandoc 发行版的 DOCX �
 
 动态和用户自建 HTTPS origin 做公共地址检查，但尚未把 DNS 解析结果固定到 TLS socket，DNS rebinding 仍是边界。MCP HTTP 同样不声称彻底消除 rebinding。CLI 临时输出文件在程序退出前无磁盘配额，只有返回大小/任务超时限制。Windows 完整 ACL 和进程组行为未实测。
 
-只有凭证表加密，job 参数、响应正文、网页来源链接和工作文件可能包含隐私。脱敏是尽力防意外回显，并不能识别服务端生成的所有敏感数据。尤其 OpenCLI 登录态、signed URL、客户和项目资料不应写到公开日志或共享仓库。
+凭证表与独立 OAuth 连接表加密，job 参数、响应正文、网页来源链接和工作文件可能包含隐私。脱敏是尽力防意外回显，并不能识别服务端生成的所有敏感数据。尤其 OpenCLI 登录态、signed URL、客户和项目资料不应写到公开日志或共享仓库。
 
-MCP 支持子集不包含 OAuth 登录/刷新、sampling、elicitation、legacy SSE、恢复流。服务器内容与返回文本是不可信输入，不构成新权限或操作指令。异步网络失败后“未知”不能当成“失败没花钱”。
+MCP 支持可选的固定 Higgsfield OAuth PKCE 登录/刷新，详见 docs/OAUTH_REFRESH.md；不含 sampling、elicitation、legacy SSE、恢复流。OAuth endpoint/issuer/resource 固定，回调检查 state/issuer/Host，刷新轮换先持久化 claim，未知结果不自动重试。后台续期须明确启用且使用原生 keyring，不延长项目 Key 授权，不读取或改写官方 CLI 登录文件。服务器内容与返回文本是不可信输入，不构成新权限或操作指令。异步网络失败后“未知”不能当成“失败没花钱”。
 
 交接 provenance 是宿主声明 + origin 检查 + 文件哈希，不是供应商签名。3D 可加载、服装能导出、API 返回成功，不代表内容被用户接受、样衣合身或合同/付款正确。
 
 ## 发布前仍需完成
+
+独立 Tripo 浏览器见 [服务器契约](docs/TRIPO_SERVER.md)：仅同 UID Unix 工具桥接，
+原权限/预算/防重发保留；profile 不同步。临时 VNC 只经 SSH 转发的 loopback 使用，
+信任服务器本地用户；不是多租户隔离。停机保留 profile，登录过期需人工重新认证。
 
 见 `docs/ROADMAP.md` 的真实供应商/OS 矩阵、OAuth、受限执行、可信批准、webhook 验签和硬预算门槛。发现问题请在用户选择的私有渠道报告；此包尚未提供真实托管披露邮箱或已发布 GitHub security advisory 地址，不要给虚构地址发送秘密。
 

@@ -39,7 +39,28 @@
     }
     if (view.session.unlocked) { $('title').textContent='允许这个项目继续？'; $('subtitle').textContent='ATM 已经解锁；本次只确认新增的项目或 Key 范围，不再询问密码。'; $('approve').textContent='允许并继续'; }
     if (!view.session.unlocked && view.backend !== 'passphrase') $('subtitle').textContent='使用系统凭证库解锁；操作系统可能请求一次确认。';
+    if(view.passkeys?.state_error)showError(view.passkeys.state_error.code+': 本机 Passkey 记录校验失败，现有主密码入口保留。');
     for (const c of view.connections) if (c.state==='missing_credential') field($('missing'), 'key-'+c.name, c.name + ' 的 API Key（仅此连接尚未配置）', 'off');
+    const credentials=view.passkeys?.credentials.filter(c=>!c.disabled) || [];
+    if (!view.session.unlocked && view.passkeys?.available && credentials.length && window.ATM_PASSKEY?.supported()) {
+      const select=document.createElement('select');select.id='passkey-select';select.setAttribute('aria-label','解锁 Passkey');
+      for(const c of credentials){const option=document.createElement('option');option.value=c.id;option.textContent=c.label;select.append(option);}
+      const button=document.createElement('button');button.id='passkey-approve';button.type='button';button.textContent='用 Passkey 解锁并继续';
+      $('passwords').append(select,button);
+      button.addEventListener('click',async()=>{
+        if (!Array.from($('missing').querySelectorAll('input')).every(input=>input.reportValidity()))return;
+        button.disabled=true;$('approve').disabled=true;$('error').hidden=true;
+        let body={approved_sha256:view.approved_sha256,consent:true,credentials:{}};
+        for(const c of view.connections)if($('key-'+c.name))body.credentials[c.name]=$('key-'+c.name).value;
+        document.querySelectorAll('input[type=password]').forEach(input=>{input.value='';});
+        try{
+          body.passkey=await window.ATM_PASSKEY.authenticate(api,'/api/desktop/passkey/begin',{
+            approved_sha256:view.approved_sha256,consent:true,credential_id:select.value},'/api/desktop/passkey/cancel');
+          const result=await api('/api/desktop/approve',body);body=null;$('passwords').replaceChildren();$('missing').replaceChildren();done(result);
+        }catch(error){body=null;showError(error.message);}
+        finally{button.disabled=false;$('approve').disabled=false;}
+      });
+    }
   }
   $('approval').addEventListener('submit', async event => {
     event.preventDefault(); $('error').hidden=true; $('approve').disabled=true;

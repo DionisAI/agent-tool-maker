@@ -1,0 +1,68 @@
+{
+  "id": "tripo.studio.assets_all",
+  "provider": "tripo",
+  "title": "Tripo Studio assets_all",
+  "capabilities": [
+    "3d",
+    "assets_all"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "max_pages": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50
+      }
+    },
+    "required": [
+      "limit",
+      "max_pages"
+    ],
+    "additionalProperties": false
+  },
+  "example": {
+    "limit": 1000,
+    "max_pages": 50
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "assets-all",
+      "--pin",
+      "ffa0fcf739d91cd4aa7c69ce45e9d69c350f4e0b403e58238203809886bce1c3",
+      "-f",
+      "json",
+      "--limit",
+      {
+        "input": "limit"
+      },
+      "--pages",
+      {
+        "input": "max_pages"
+      }
+    ],
+    "output": "json",
+    "timeout": 900
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+  "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}
