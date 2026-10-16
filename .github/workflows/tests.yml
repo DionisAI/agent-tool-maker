@@ -65,6 +65,19 @@ jobs:
               with open(os.environ['GITHUB_ENV'], 'a') as out:
                   out.write('ATM_CHROMIUM=' + p.chromium.executable_path + '\n')
           PY
+      # Ubuntu 23.10+ AppArmor denies unprivileged user namespaces, so Chromium's
+      # sandbox cannot start ("No usable sandbox"). Grant userns to this exact
+      # binary only, as Ubuntu's own Chrome profile does; the sandbox stays enabled.
+      - name: Permit the sandbox for the selected Chromium only
+        run: |
+          sudo tee /etc/apparmor.d/atm-playwright-chromium >/dev/null <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile atm-playwright-chromium "$ATM_CHROMIUM" flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo apparmor_parser -r /etc/apparmor.d/atm-playwright-chromium
       - run: python -m pytest -q -m browser --junitxml=reports/browser.xml
       - run: python scripts/check_test_receipt.py reports/browser.xml
       - name: Native loopback browser acceptance
