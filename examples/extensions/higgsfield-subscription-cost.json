@@ -1,0 +1,29 @@
+{
+  "id": "higgsfield.subscription.cost",
+  "provider": "higgsfield",
+  "title": "Higgsfield subscription — text-only default-parameter credit estimate",
+  "capabilities": ["subscription", "cost_estimate"],
+  "adapter": "command",
+  "executable": "higgsfield",
+  "paid": false,
+  "permissions": ["execute_code"],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "model": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,79}$"},
+      "prompt": {"type": "string", "minLength": 1, "maxLength": 10000, "pattern": "^[^-\\r\\n\\u0000][^\\r\\n\\u0000]*$"}
+    },
+    "required": ["model", "prompt"],
+    "additionalProperties": false
+  },
+  "example": {"model": "nano_banana_2", "prompt": "a blue circle on a white background"},
+  "command": {
+    "argv": ["generate", "cost", {"input": "model"}, "--prompt", {"input": "prompt"}, "--json"],
+    "output": "json",
+    "timeout": 60
+  },
+  "sources": ["https://github.com/higgsfield-ai/cli"],
+  "checked_on": "2026-10-02",
+  "notes": "Estimates only, using current model defaults. No media/file flags: official cost commands can auto-upload local media when such flags are supplied. Prompt is sent to Higgsfield for estimation. Changed parameters require a new estimate and explicit spending confirmation.",
+  "completion": "Credit estimate returned; no generation submitted or spending authorized."
+}

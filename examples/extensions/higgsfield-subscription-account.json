@@ -1,0 +1,17 @@
+{
+  "id": "higgsfield.subscription.account",
+  "provider": "higgsfield",
+  "title": "Higgsfield subscription — account and credits (read-only)",
+  "capabilities": ["subscription", "account"],
+  "adapter": "command",
+  "executable": "higgsfield",
+  "paid": false,
+  "permissions": ["execute_code"],
+  "schema": {"type": "object", "properties": {}, "additionalProperties": false},
+  "example": {},
+  "command": {"argv": ["account", "status", "--json"], "output": "json", "timeout": 60},
+  "sources": ["https://github.com/higgsfield-ai/cli"],
+  "checked_on": "2026-10-02",
+  "notes": "Official CLI OAuth and selected billing workspace; no ATM API Key. Login files belong to the CLI. Read-only account metadata may include email; keep identity details local.",
+  "completion": "Account metadata returned; no generation submitted."
+}
