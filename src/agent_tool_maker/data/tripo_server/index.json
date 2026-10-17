@@ -1,0 +1,2429 @@
+{
+  "account": {
+    "adapter": "command",
+    "capabilities": [
+      "account"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "account",
+        "--pin",
+        "d34bd8e9a69c55c28c176fb978577bc0390dbdf41d1b96495cc3774ae319fd46",
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "timeout": 60
+    },
+    "completion": "A successful live DOM read is not generation, complete pagination or independent task acceptance.",
+    "example": {},
+    "executable": "opencliapp",
+    "id": "tripo.studio.account",
+    "implementation": "native",
+    "notes": "Visible DOM only; reuse browser-owned login, no credential injection. Pin covers adapter source files; not hostile-code isolation. Asset coverage is loaded cards only, task_status remains unknown.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/",
+      "https://www.tripo3d.ai/help/api-plugins/tripo-studiotripo-api"
+    ],
+    "title": "Tripo Studio readonly account",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "animation_inspect": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "animation_inspect"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "animation-inspect",
+        "--pin",
+        "47aca5a146ab8b2531893e2408a1b2914f2d0efc4ea506e896d2c6655dcebfb9",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Animation form readiness is not a completed motion. Export options are read back before closing the owned dialog; UI may remember settings, so inspect again before any action. No save or export button click, no paid quote or downloaded/validated file. Multi-format output acceptance remains separate.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.animation_inspect",
+    "implementation": "native",
+    "notes": "Visible semantic UI controls only. Exact source UUID, typed settings and actual enabled options. Animation preserves an existing prompt unless replacement binds its digest. Export preserves existing dialogs, opens and closes only its own transient dialog. No generation, preset application, download, upload, publication or raw authentication.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio animation_inspect",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "animation_prepare": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "animation_prepare"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "animation-prepare",
+        "--pin",
+        "47aca5a146ab8b2531893e2408a1b2914f2d0efc4ea506e896d2c6655dcebfb9",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--settings",
+        {
+          "json": "settings"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Animation form readiness is not a completed motion. Export options are read back before closing the owned dialog; UI may remember settings, so inspect again before any action. No save or export button click, no paid quote or downloaded/validated file. Multi-format output acceptance remains separate.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.animation_prepare",
+    "implementation": "native",
+    "notes": "Visible semantic UI controls only. Exact source UUID, typed settings and actual enabled options. Animation preserves an existing prompt unless replacement binds its digest. Export preserves existing dialogs, opens and closes only its own transient dialog. No generation, preset application, download, upload, publication or raw authentication.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": false,
+          "properties": {
+            "duration": {
+              "maximum": 10,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "expected_prompt_sha256": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "prompt": {
+              "maxLength": 1000,
+              "minLength": 0,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "asset_id",
+        "settings"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio animation_prepare",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "asset": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "asset"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "asset",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--wait",
+        {
+          "input": "wait_seconds"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.asset",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "wait_seconds": {
+          "maximum": 120,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "asset_id",
+        "wait_seconds"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio asset",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "asset_resolve": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "asset_resolve"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "asset-resolve",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--preview",
+        {
+          "input": "preview_task_id"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.asset_resolve",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "preview_task_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preview_task_id"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio asset_resolve",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "assets": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "assets"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "assets",
+        "--pin",
+        "d34bd8e9a69c55c28c176fb978577bc0390dbdf41d1b96495cc3774ae319fd46",
+        "-f",
+        "json",
+        "--limit",
+        {
+          "input": "limit"
+        }
+      ],
+      "output": "json",
+      "timeout": 60
+    },
+    "completion": "A successful live DOM read is not generation, complete pagination or independent task acceptance.",
+    "example": {
+      "limit": 20
+    },
+    "executable": "opencliapp",
+    "id": "tripo.studio.assets",
+    "implementation": "native",
+    "notes": "Visible DOM only; reuse browser-owned login, no credential injection. Pin covers adapter source files; not hostile-code isolation. Asset coverage is loaded cards only, task_status remains unknown.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "limit"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/",
+      "https://www.tripo3d.ai/help/api-plugins/tripo-studiotripo-api"
+    ],
+    "title": "Tripo Studio readonly assets",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "assets_all": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "assets_all"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "assets-all",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--limit",
+        {
+          "input": "limit"
+        },
+        "--pages",
+        {
+          "input": "max_pages"
+        }
+      ],
+      "output": "json",
+      "timeout": 900
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "example": {
+      "limit": 1000,
+      "max_pages": 50
+    },
+    "executable": "opencliapp",
+    "id": "tripo.studio.assets_all",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_pages": {
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "limit",
+        "max_pages"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio assets_all",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "assets_query": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "assets_query"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "assets-query",
+        "--pin",
+        "13c05dc89662502d4209d7b613418b3b54ffa00a973352984206e38801b43b59",
+        "-f",
+        "json",
+        "--category",
+        {
+          "input": "category"
+        },
+        "--ownership",
+        {
+          "input": "ownership"
+        },
+        "--filter",
+        {
+          "input": "filter"
+        },
+        "--limit",
+        {
+          "input": "limit"
+        },
+        "--pages",
+        {
+          "input": "max_pages"
+        }
+      ],
+      "output": "json",
+      "timeout": 900
+    },
+    "completion": "Query is always partial without an observed authoritative end contract. Image preview verifies exact task/index and closes only the preview it opened. Preview metadata and listed actions are not completed generation.",
+    "example": {
+      "category": "Image",
+      "filter": "All",
+      "limit": 100,
+      "max_pages": 5,
+      "ownership": "Image Assets"
+    },
+    "executable": "opencliapp",
+    "id": "tripo.studio.assets_query",
+    "implementation": "native",
+    "notes": "Observed DOM only. Model scope and Image scope are checked on each read. Collected has no filter. Image task plus index preserves distinct images; four multiview images are one card. Signed query strings are discarded. Existing dialogs are preserved. No upload, generation, publication or private API.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "Model",
+            "Image"
+          ]
+        },
+        "filter": {
+          "enum": [
+            "All",
+            "Smart Mesh",
+            "Untextured",
+            "Textured",
+            "Rigged",
+            "multi-views"
+          ]
+        },
+        "limit": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_pages": {
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ownership": {
+          "enum": [
+            "My Assets",
+            "Collected",
+            "Image Assets"
+          ]
+        }
+      },
+      "required": [
+        "category",
+        "ownership",
+        "filter",
+        "limit",
+        "max_pages"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio assets_query",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "export": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "export"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "export",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--key",
+        {
+          "input": "request_key"
+        },
+        "--ledger",
+        {
+          "workspace": ""
+        },
+        "--confirm",
+        "--quote",
+        {
+          "input": "quote_sha256"
+        },
+        "--output",
+        {
+          "output": "model.glb"
+        }
+      ],
+      "output": "json",
+      "outputs": [
+        "model.glb"
+      ],
+      "timeout": 180
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.export",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "human_confirmed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "quote_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "request_key": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,160}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "request_key",
+        "human_confirmed",
+        "quote_sha256"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio export",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "export_options": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "export_options"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "export-options",
+        "--pin",
+        "47aca5a146ab8b2531893e2408a1b2914f2d0efc4ea506e896d2c6655dcebfb9",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Animation form readiness is not a completed motion. Export options are read back before closing the owned dialog; UI may remember settings, so inspect again before any action. No save or export button click, no paid quote or downloaded/validated file. Multi-format output acceptance remains separate.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.export_options",
+    "implementation": "native",
+    "notes": "Visible semantic UI controls only. Exact source UUID, typed settings and actual enabled options. Animation preserves an existing prompt unless replacement binds its digest. Export preserves existing dialogs, opens and closes only its own transient dialog. No generation, preset application, download, upload, publication or raw authentication.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio export_options",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "export_prepare": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "export_prepare"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "export-prepare",
+        "--pin",
+        "47aca5a146ab8b2531893e2408a1b2914f2d0efc4ea506e896d2c6655dcebfb9",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--settings",
+        {
+          "json": "settings"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Animation form readiness is not a completed motion. Export options are read back before closing the owned dialog; UI may remember settings, so inspect again before any action. No save or export button click, no paid quote or downloaded/validated file. Multi-format output acceptance remains separate.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.export_prepare",
+    "implementation": "native",
+    "notes": "Visible semantic UI controls only. Exact source UUID, typed settings and actual enabled options. Animation preserves an existing prompt unless replacement binds its digest. Export preserves existing dialogs, opens and closes only its own transient dialog. No generation, preset application, download, upload, publication or raw authentication.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": false,
+          "properties": {
+            "export_skeleton": {
+              "type": "boolean"
+            },
+            "fbx_variant": {
+              "enum": [
+                "Blender",
+                "Mixamo",
+                "3dsmax"
+              ]
+            },
+            "format": {
+              "enum": [
+                "USD",
+                "FBX",
+                "OBJ",
+                "STL",
+                "GLB",
+                "3MF"
+              ]
+            },
+            "texture_resolution": {
+              "enum": [
+                "512",
+                "1k",
+                "2k",
+                "4k",
+                "8k"
+              ]
+            },
+            "vertex_colors": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "asset_id",
+        "settings"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio export_prepare",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "export_quote": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "export_quote"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "export-quote",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.export_quote",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio export_quote",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "generate": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "generate"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "generate",
+        "--pin",
+        "6af9b056c3f0f75ba9a4b1a8ee6b4fae41870c259f4baab6b325ed7d14863190",
+        "-f",
+        "json",
+        "--prompt",
+        {
+          "input": "prompt"
+        },
+        "--budget",
+        {
+          "input": "max_credits"
+        },
+        "--quote",
+        {
+          "input": "quote_sha256"
+        },
+        "--key",
+        {
+          "input": "request_key"
+        },
+        "--ledger",
+        {
+          "workspace": ""
+        },
+        "--confirm"
+      ],
+      "output": "json",
+      "timeout": 90
+    },
+    "completion": "CLI acceptance only. Paid submission observes a new asset route; finished model and download are separate gates.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.generate",
+    "implementation": "native",
+    "notes": "Visible DOM only; reuse browser-owned login, no credential injection. Pin covers adapter files, not hostile-code isolation. Asset coverage is loaded cards, task_status unknown. Paid text path requires current quote, human confirmation, credit ceiling and durable pre-click claim. No upload, publishing or automatic retry.",
+    "paid": true,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "human_confirmed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "max_credits": {
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "prompt": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "quote_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "request_key": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,160}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt",
+        "max_credits",
+        "quote_sha256",
+        "request_key",
+        "human_confirmed"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/",
+      "https://www.tripo3d.ai/help/api-plugins/tripo-studiotripo-api"
+    ],
+    "title": "Tripo Studio generate",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "hierarchy_prepare": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "hierarchy_prepare"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "hierarchy-prepare",
+        "--pin",
+        "fb81f31b26bd92adbf7983c0cdad2b1a3d05fa2352b69b56b5ddf4c25c4cf97e",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--node",
+        {
+          "input": "node_name"
+        },
+        "--settings",
+        {
+          "json": "settings"
+        }
+      ],
+      "output": "json",
+      "timeout": 240
+    },
+    "completion": "Editor state is read back, not provider persistence, mesh quality or validated files. Camera actions report bounded input dispatched without inventing an engine pose; rendered visual acceptance is separate. Environment/render choices may be remembered. Transform edits may autosave even without a Save-button click; use an explicitly approved test asset. Transforms are two-decimal values within the reviewed magnitude bound. Destructive node menu items are not clicked.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.hierarchy_prepare",
+    "implementation": "native",
+    "notes": "Visible semantic viewer and hierarchy controls only. Exact model UUID, typed render/environment values, bounded native camera inputs, exact node name and prior transform digest. Preserve existing dialogs and close only owned environment layers. No generation, upload, export, publication, save-button click or raw authentication.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "node_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": false,
+          "properties": {
+            "select": {
+              "enum": [
+                true
+              ]
+            },
+            "visible": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "asset_id",
+        "node_name",
+        "settings"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio hierarchy_prepare",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "hierarchy_transform": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "hierarchy_transform"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "hierarchy-transform",
+        "--pin",
+        "fb81f31b26bd92adbf7983c0cdad2b1a3d05fa2352b69b56b5ddf4c25c4cf97e",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--node",
+        {
+          "input": "node_name"
+        },
+        "--settings",
+        {
+          "json": "settings"
+        }
+      ],
+      "output": "json",
+      "timeout": 240
+    },
+    "completion": "Editor state is read back, not provider persistence, mesh quality or validated files. Camera actions report bounded input dispatched without inventing an engine pose; rendered visual acceptance is separate. Environment/render choices may be remembered. Transform edits may autosave even without a Save-button click; use an explicitly approved test asset. Transforms are two-decimal values within the reviewed magnitude bound. Destructive node menu items are not clicked.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.hierarchy_transform",
+    "implementation": "native",
+    "notes": "Visible semantic viewer and hierarchy controls only. Exact model UUID, typed render/environment values, bounded native camera inputs, exact node name and prior transform digest. Preserve existing dialogs and close only owned environment layers. No generation, upload, export, publication, save-button click or raw authentication.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "node_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": false,
+          "properties": {
+            "expected_transform_sha256": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "position": {
+              "items": {
+                "maximum": 1000000,
+                "minimum": -1000000,
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "rotation": {
+              "items": {
+                "maximum": 1000000,
+                "minimum": -1000000,
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            },
+            "scale": {
+              "items": {
+                "maximum": 1000000,
+                "minimum": -1000000,
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 3,
+              "type": "array"
+            }
+          },
+          "required": [
+            "expected_transform_sha256"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "asset_id",
+        "node_name",
+        "settings"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio hierarchy_transform",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "image_form_inspect": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "image_form_inspect"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "image-form-inspect",
+        "--pin",
+        "f95635e8e0db3d85e25e34b44084fbf7752e5972359368be11856d95a597ea10",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        }
+      ],
+      "output": "json",
+      "timeout": 240
+    },
+    "completion": "Visible draft and available controls are read back, not a paid quote or completed image. Free allowance and detached price text do not establish generation cost. Model changes can hide controls; implicit visible changes are explicit. Configuration may be remembered; restore the approved test draft. Image editing/output acceptance remains separate.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.image_form_inspect",
+    "implementation": "native",
+    "notes": "Generate Image form only, separate from image-to-3D. Reviewed model/template choices and typed prompt/ratio/count/4K preparation bind the exact inspected draft digest. Ratios may be unselected; Midjourney hides ratio/count/4K controls and reports null. Existing layers are preserved; close only owned choice layers. No upload, generation, history replay, publishing, raw login state or automatic extra credits.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^(?:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio image_form_inspect",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "image_form_prepare": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "image_form_prepare"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "image-form-prepare",
+        "--pin",
+        "f95635e8e0db3d85e25e34b44084fbf7752e5972359368be11856d95a597ea10",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--settings",
+        {
+          "json": "settings"
+        }
+      ],
+      "output": "json",
+      "timeout": 240
+    },
+    "completion": "Visible draft and available controls are read back, not a paid quote or completed image. Free allowance and detached price text do not establish generation cost. Model changes can hide controls; implicit visible changes are explicit. Configuration may be remembered; restore the approved test draft. Image editing/output acceptance remains separate.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.image_form_prepare",
+    "implementation": "native",
+    "notes": "Generate Image form only, separate from image-to-3D. Reviewed model/template choices and typed prompt/ratio/count/4K preparation bind the exact inspected draft digest. Ratios may be unselected; Midjourney hides ratio/count/4K controls and reports null. Existing layers are preserved; close only owned choice layers. No upload, generation, history replay, publishing, raw login state or automatic extra credits.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^(?:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})?$",
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": false,
+          "properties": {
+            "aspect_ratio": {
+              "enum": [
+                "1:1",
+                "16:9",
+                "9:16",
+                "4:3",
+                "3:4",
+                null
+              ]
+            },
+            "expected_draft_sha256": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "model": {
+              "enum": [
+                "GPT Image 2",
+                "GPT Image 2.5",
+                "Nano Banana Pro",
+                "Nano Banana 2",
+                "Nano Banana",
+                "Midjourney v8.2"
+              ]
+            },
+            "number_images": {
+              "maximum": 4,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "prompt": {
+              "maxLength": 10000,
+              "minLength": 0,
+              "type": "string"
+            },
+            "resolution_4k": {
+              "type": "boolean"
+            },
+            "template": {
+              "enum": [
+                "Character Extraction",
+                "Head Extraction",
+                "T Pose",
+                "3D Enhance",
+                "Character Completion",
+                "Photo to Figure",
+                "Asset Extraction",
+                "Variants",
+                "3D Print-Ready",
+                null
+              ]
+            }
+          },
+          "required": [
+            "expected_draft_sha256"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "asset_id",
+        "settings"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio image_form_prepare",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "image_generate": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "image_generate"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "image-generate",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--key",
+        {
+          "input": "request_key"
+        },
+        "--ledger",
+        {
+          "workspace": ""
+        },
+        "--confirm",
+        "--quote",
+        {
+          "input": "quote_sha256"
+        },
+        "--budget",
+        {
+          "input": "max_credits"
+        },
+        "--image-sha",
+        {
+          "input": "image_sha256"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.image_generate",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": true,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "human_confirmed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "image_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "max_credits": {
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "quote_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "request_key": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,160}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_key",
+        "human_confirmed",
+        "quote_sha256",
+        "max_credits",
+        "image_sha256"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio image_generate",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "image_preview": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "image_preview"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "image-preview",
+        "--pin",
+        "13c05dc89662502d4209d7b613418b3b54ffa00a973352984206e38801b43b59",
+        "-f",
+        "json",
+        "--card",
+        {
+          "input": "card_id"
+        },
+        "--view",
+        {
+          "input": "view_index"
+        }
+      ],
+      "output": "json",
+      "timeout": 900
+    },
+    "completion": "Query is always partial without an observed authoritative end contract. Image preview verifies exact task/index and closes only the preview it opened. Preview metadata and listed actions are not completed generation.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.image_preview",
+    "implementation": "native",
+    "notes": "Observed DOM only. Model scope and Image scope are checked on each read. Collected has no filter. Image task plus index preserves distinct images; four multiview images are one card. Signed query strings are discarded. Existing dialogs are preserved. No upload, generation, publication or private API.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "card_id": {
+          "pattern": "^(?:image:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}:(?:single|[0-9]|[1-9][0-9])|multiview:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$",
+          "type": "string"
+        },
+        "view_index": {
+          "maximum": 3,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "card_id",
+        "view_index"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio image_preview",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "image_quote": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "image_quote"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "image-quote",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--key",
+        {
+          "input": "request_key"
+        },
+        "--ledger",
+        {
+          "workspace": ""
+        },
+        "--confirm",
+        "--file",
+        {
+          "file": "image"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.image_quote",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "human_confirmed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "image": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "request_key": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,160}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_key",
+        "human_confirmed",
+        "image"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio image_quote",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "quote": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "quote"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "quote",
+        "--pin",
+        "6af9b056c3f0f75ba9a4b1a8ee6b4fae41870c259f4baab6b325ed7d14863190",
+        "-f",
+        "json"
+      ],
+      "output": "json",
+      "timeout": 60
+    },
+    "completion": "CLI acceptance only. Paid submission observes a new asset route; finished model and download are separate gates.",
+    "example": {},
+    "executable": "opencliapp",
+    "id": "tripo.studio.quote",
+    "implementation": "native",
+    "notes": "Visible DOM only; reuse browser-owned login, no credential injection. Pin covers adapter files, not hostile-code isolation. Asset coverage is loaded cards, task_status unknown. Paid text path requires current quote, human confirmation, credit ceiling and durable pre-click claim. No upload, publishing or automatic retry.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/",
+      "https://www.tripo3d.ai/help/api-plugins/tripo-studiotripo-api"
+    ],
+    "title": "Tripo Studio quote",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "retopo": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "retopo"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "retopo",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--key",
+        {
+          "input": "request_key"
+        },
+        "--ledger",
+        {
+          "workspace": ""
+        },
+        "--confirm",
+        "--quote",
+        {
+          "input": "quote_sha256"
+        },
+        "--budget",
+        {
+          "input": "max_credits"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.retopo",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": true,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "human_confirmed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "max_credits": {
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "quote_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "request_key": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,160}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "request_key",
+        "human_confirmed",
+        "quote_sha256",
+        "max_credits"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio retopo",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "retopo_quote": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "retopo_quote"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "retopo-quote",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--settings",
+        {
+          "json": "settings"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.retopo_quote",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": false,
+          "properties": {
+            "polygon_count": {
+              "maximum": 200000,
+              "minimum": 500,
+              "type": "integer"
+            },
+            "smart_mesh": {
+              "type": "boolean"
+            },
+            "topology": {
+              "enum": [
+                "Quad",
+                "Triangle"
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "asset_id",
+        "settings"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio retopo_quote",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "rig": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "rig"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "rig",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--key",
+        {
+          "input": "request_key"
+        },
+        "--ledger",
+        {
+          "workspace": ""
+        },
+        "--confirm",
+        "--quote",
+        {
+          "input": "quote_sha256"
+        },
+        "--budget",
+        {
+          "input": "max_credits"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.rig",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": true,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "human_confirmed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "max_credits": {
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "quote_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "request_key": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,160}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "request_key",
+        "human_confirmed",
+        "quote_sha256",
+        "max_credits"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio rig",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "rig_quote": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "rig_quote"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "rig-quote",
+        "--pin",
+        "6b9ae8b85aade9dd4a9d9a143a8920358ec4878cbadbb7950e5e26f2512ac99c",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--settings",
+        {
+          "json": "settings"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.rig_quote",
+    "implementation": "native",
+    "notes": "Visible UI only; exact asset UUID differs from thumbnail preview UUID. Image quote uploads one explicitly approved project raster. Paid calls require current quote, budget, confirmation and shared durable receipt lock. Export delivers a validated GLB file. Scroll scan reports partial unless explicit UI end is observed. No raw auth, private endpoint replay, publication, silent retry or hostile-code isolation.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": false,
+          "properties": {
+            "rigging_type": {
+              "enum": [
+                "Humanoid",
+                "Other"
+              ]
+            },
+            "skeleton": {
+              "enum": [
+                "ActorCore",
+                "Mixamo",
+                "UE5 Mannequin",
+                "VRM 1.0 Humanoid",
+                "Unity Humanoid Compatible"
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "asset_id",
+        "settings"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio rig_quote",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "viewer_camera": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "viewer_camera"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "viewer-camera",
+        "--pin",
+        "fb81f31b26bd92adbf7983c0cdad2b1a3d05fa2352b69b56b5ddf4c25c4cf97e",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--action",
+        {
+          "input": "action"
+        }
+      ],
+      "output": "json",
+      "timeout": 240
+    },
+    "completion": "Editor state is read back, not provider persistence, mesh quality or validated files. Camera actions report bounded input dispatched without inventing an engine pose; rendered visual acceptance is separate. Environment/render choices may be remembered. Transform edits may autosave even without a Save-button click; use an explicitly approved test asset. Transforms are two-decimal values within the reviewed magnitude bound. Destructive node menu items are not clicked.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.viewer_camera",
+    "implementation": "native",
+    "notes": "Visible semantic viewer and hierarchy controls only. Exact model UUID, typed render/environment values, bounded native camera inputs, exact node name and prior transform digest. Preserve existing dialogs and close only owned environment layers. No generation, upload, export, publication, save-button click or raw authentication.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "reset",
+            "orbit_left",
+            "orbit_right",
+            "orbit_up",
+            "orbit_down",
+            "pan_left",
+            "pan_right",
+            "pan_up",
+            "pan_down",
+            "zoom_in",
+            "zoom_out"
+          ]
+        },
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "action"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio viewer_camera",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "viewer_inspect": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "viewer_inspect"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "viewer-inspect",
+        "--pin",
+        "fb81f31b26bd92adbf7983c0cdad2b1a3d05fa2352b69b56b5ddf4c25c4cf97e",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        }
+      ],
+      "output": "json",
+      "timeout": 240
+    },
+    "completion": "Editor state is read back, not provider persistence, mesh quality or validated files. Camera actions report bounded input dispatched without inventing an engine pose; rendered visual acceptance is separate. Environment/render choices may be remembered. Transform edits may autosave even without a Save-button click; use an explicitly approved test asset. Transforms are two-decimal values within the reviewed magnitude bound. Destructive node menu items are not clicked.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.viewer_inspect",
+    "implementation": "native",
+    "notes": "Visible semantic viewer and hierarchy controls only. Exact model UUID, typed render/environment values, bounded native camera inputs, exact node name and prior transform digest. Preserve existing dialogs and close only owned environment layers. No generation, upload, export, publication, save-button click or raw authentication.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio viewer_inspect",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "viewer_prepare": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "viewer_prepare"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "viewer-prepare",
+        "--pin",
+        "fb81f31b26bd92adbf7983c0cdad2b1a3d05fa2352b69b56b5ddf4c25c4cf97e",
+        "-f",
+        "json",
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--settings",
+        {
+          "json": "settings"
+        }
+      ],
+      "output": "json",
+      "timeout": 240
+    },
+    "completion": "Editor state is read back, not provider persistence, mesh quality or validated files. Camera actions report bounded input dispatched without inventing an engine pose; rendered visual acceptance is separate. Environment/render choices may be remembered. Transform edits may autosave even without a Save-button click; use an explicitly approved test asset. Transforms are two-decimal values within the reviewed magnitude bound. Destructive node menu items are not clicked.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.viewer_prepare",
+    "implementation": "native",
+    "notes": "Visible semantic viewer and hierarchy controls only. Exact model UUID, typed render/environment values, bounded native camera inputs, exact node name and prior transform digest. Preserve existing dialogs and close only owned environment layers. No generation, upload, export, publication, save-button click or raw authentication.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "settings": {
+          "additionalProperties": false,
+          "properties": {
+            "environment": {
+              "additionalProperties": false,
+              "properties": {
+                "auto_rotate": {
+                  "type": "boolean"
+                },
+                "rotation": {
+                  "maximum": 360,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "strength": {
+                  "maximum": 2,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "surrounding": {
+                  "enum": [
+                    "Beach",
+                    "Desert",
+                    "Forest",
+                    "Interior",
+                    "Night",
+                    "Studio"
+                  ]
+                }
+              },
+              "type": "object"
+            },
+            "grid": {
+              "type": "boolean"
+            },
+            "render_mode": {
+              "enum": [
+                "solid",
+                "pbr",
+                "normal",
+                "unlit",
+                "toon",
+                "sketch",
+                "hologram"
+              ]
+            },
+            "wireframe": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "asset_id",
+        "settings"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio viewer_prepare",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "workspace_inspect": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "workspace_inspect"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "workspace-inspect",
+        "--pin",
+        "3b7df85e08edf55de3dc09c777ed771c01fbc0965d13b6db0b20528536909dcc",
+        "-f",
+        "json",
+        "--module",
+        {
+          "input": "module"
+        },
+        "--asset",
+        {
+          "input": "asset_id"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Form inspection/preparation is not submission. Submitted observes provider UI progress or a new asset, not finished model/export. Full UI parity remains separately audited.",
+    "example": {
+      "asset_id": "",
+      "module": "model"
+    },
+    "executable": "opencliapp",
+    "id": "tripo.studio.workspace_inspect",
+    "implementation": "native",
+    "notes": "Observed visible workspace form only. No arbitrary selectors, JS, URL, profile or provider replay. Preparation validates typed semantic settings and exact source, preserves drafts unless replacement binds their digest. Paid submissions retain shared uncertainty lock and stable request key. Missing price stays unknown.",
+    "paid": false,
+    "permissions": [
+      "execute_code"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^(?:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})?$",
+          "type": "string"
+        },
+        "module": {
+          "enum": [
+            "model",
+            "image",
+            "segment",
+            "fill_parts",
+            "retopo",
+            "smart_uv",
+            "texture",
+            "edit",
+            "upscale",
+            "pbr",
+            "rig",
+            "animate"
+          ]
+        }
+      },
+      "required": [
+        "module",
+        "asset_id"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio workspace_inspect",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "workspace_prepare": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "workspace_prepare"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "workspace-prepare",
+        "--pin",
+        "3b7df85e08edf55de3dc09c777ed771c01fbc0965d13b6db0b20528536909dcc",
+        "-f",
+        "json",
+        "--module",
+        {
+          "input": "module"
+        },
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--settings",
+        {
+          "json": "settings"
+        }
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Form inspection/preparation is not submission. Submitted observes provider UI progress or a new asset, not finished model/export. Full UI parity remains separately audited.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.workspace_prepare",
+    "implementation": "native",
+    "notes": "Observed visible workspace form only. No arbitrary selectors, JS, URL, profile or provider replay. Preparation validates typed semantic settings and exact source, preserves drafts unless replacement binds their digest. Paid submissions retain shared uncertainty lock and stable request key. Missing price stays unknown.",
+    "paid": false,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "module": {
+          "enum": [
+            "segment",
+            "texture",
+            "edit",
+            "upscale",
+            "pbr"
+          ]
+        },
+        "settings": {
+          "additionalProperties": false,
+          "properties": {
+            "creativity_strength": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "detail_level": {
+              "enum": [
+                "Simple",
+                "Balanced",
+                "Detailed"
+              ]
+            },
+            "expected_prompt_sha256": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "prompt": {
+              "maxLength": 1000,
+              "minLength": 0,
+              "type": "string"
+            },
+            "remove_lighting": {
+              "type": "boolean"
+            },
+            "resolution": {
+              "enum": [
+                "2K",
+                "4K",
+                "8K"
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "module",
+        "asset_id",
+        "settings"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio workspace_prepare",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  },
+  "workspace_submit": {
+    "adapter": "command",
+    "capabilities": [
+      "3d",
+      "workspace_submit"
+    ],
+    "command": {
+      "argv": [
+        "__opencli_shim",
+        "tripo-studio",
+        "workspace-submit",
+        "--pin",
+        "3b7df85e08edf55de3dc09c777ed771c01fbc0965d13b6db0b20528536909dcc",
+        "-f",
+        "json",
+        "--module",
+        {
+          "input": "module"
+        },
+        "--asset",
+        {
+          "input": "asset_id"
+        },
+        "--quote",
+        {
+          "input": "quote_sha256"
+        },
+        "--budget",
+        {
+          "input": "max_credits"
+        },
+        "--key",
+        {
+          "input": "request_key"
+        },
+        "--ledger",
+        {
+          "workspace": ""
+        },
+        "--confirm"
+      ],
+      "output": "json",
+      "timeout": 180
+    },
+    "completion": "Form inspection/preparation is not submission. Submitted observes provider UI progress or a new asset, not finished model/export. Full UI parity remains separately audited.",
+    "executable": "opencliapp",
+    "id": "tripo.studio.workspace_submit",
+    "implementation": "native",
+    "notes": "Observed visible workspace form only. No arbitrary selectors, JS, URL, profile or provider replay. Preparation validates typed semantic settings and exact source, preserves drafts unless replacement binds their digest. Paid submissions retain shared uncertainty lock and stable request key. Missing price stays unknown.",
+    "paid": true,
+    "permissions": [
+      "execute_code",
+      "external_write"
+    ],
+    "provider": "tripo",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "human_confirmed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "max_credits": {
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "module": {
+          "enum": [
+            "segment",
+            "texture",
+            "edit",
+            "upscale",
+            "pbr"
+          ]
+        },
+        "quote_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "request_key": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,160}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "module",
+        "asset_id",
+        "quote_sha256",
+        "max_credits",
+        "request_key",
+        "human_confirmed"
+      ],
+      "type": "object"
+    },
+    "sources": [
+      "https://studio.tripo3d.ai/"
+    ],
+    "title": "Tripo Studio workspace_submit",
+    "user_defined": true,
+    "verification": "user_installed_not_live_verified"
+  }
+}

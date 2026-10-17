@@ -16,6 +16,7 @@ secure = ["keyring>=25"]
 test = ["pytest>=8", "pytest-cov>=5"]
 browser-test = ["playwright>=1.51"]
 web = ["playwright>=1.51"]
+server = ["playwright>=1.63,<2"]
 
 [project.scripts]
 atm = "agent_tool_maker.cli:main"
@@ -24,7 +25,7 @@ atm = "agent_tool_maker.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-agent_tool_maker = ["data/*.json", "data/*.md", "data/*.py", "data/web/*"]
+agent_tool_maker = ["data/*.json", "data/*.md", "data/*.py", "data/web/*", "data/tripo_server/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

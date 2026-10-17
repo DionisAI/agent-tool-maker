@@ -38,6 +38,7 @@ reports/v04/package-smoke.json
 *.client.json
 *.private.json
 *.sock
+*.authority
 reports/v05/*.xml
 reports/v05/*.log
 reports/v05/coverage*.json
