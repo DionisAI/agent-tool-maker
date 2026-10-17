@@ -53,6 +53,11 @@ PAGE_FETCH。标题、积分和卡片来自实际观察的 DOM。CSS 与英文�
 | `tripo.studio.hierarchy_transform` | code + write | 对已选节点以旧状态摘要绑定 XYZ 位置/旋转/缩放；可能自动保存 |
 | `tripo.studio.image_form_inspect` | code | Generate Image 草稿、模型/模板、比例/数量/4K 可用状态；不上传或生成 |
 | `tripo.studio.image_form_prepare` | code + write | 以精确草稿摘要绑定图片生成表单设置，回读并报告模型引起的隐式变化 |
+| `tripo.studio.texture_quote` | code + write | 准备纹理分辨率/摘要绑定提示词，回读价格；不生成 |
+| `tripo.studio.texture` | code + write + paid | 复用Workspace合同，精确源/报价/预算绑定的一次纹理生成 |
+| `tripo.studio.operation_status` | code | 绑定原项目提交回执；未知提交和原位更新不伪报完成，不清锁 |
+
+当前34项安装及本次真实Retopo/Texture测试见[后处理交付合同](TRIPO_DELIVERY_CONTRACT.md)。
 
 只读资产输出 `coverage=currently_loaded_cards`、`all_assets=false`。
 `preview_task_id` 从可见缩略图路径取得，与资产详情 ID 不同；`task_status=null`。

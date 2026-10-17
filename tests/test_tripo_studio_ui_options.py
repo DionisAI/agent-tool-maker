@@ -17,14 +17,14 @@ spec.loader.exec_module(builder)
 @pytest.mark.parametrize('operation', builder.UI_OPTIONS_OPERATIONS)
 def test_ui_options_bundle_is_bound_to_reviewed_source_and_permissions(operation):
     tool = builder.manifest(operation)
-    assert validate_bundle(ROOT/'generated/tripo-studio-ui-options'/operation)['sha256'] == digest(tool)
+    assert validate_bundle(ROOT/'generated/tripo-studio-delivery-stage-r4'/operation)['sha256'] == digest(tool)
     assert tool['paid'] is False
     assert set(tool['permissions']) == ({'execute_code','external_write'} if operation.endswith('_prepare') else {'execute_code'})
     assert builder.ui_options_digest() in tool['command']['argv']
     assert 'credential_env' not in tool['command']
     assert 'outputs' not in tool['command']
     # Reviewed sidebar/SPA-source waits; preserve the exact dependency assertion.
-    assert builder.workspace_digest() == '3b7df85e08edf55de3dc09c777ed771c01fbc0965d13b6db0b20528536909dcc'
+    assert builder.workspace_digest() == '3684f332b267a258d7bc9a24f003cf6ebe26bc50428a7abc6c0f2a8eef387d5e'
     assert builder.query_digest() == '13c05dc89662502d4209d7b613418b3b54ffa00a973352984206e38801b43b59'
 
 

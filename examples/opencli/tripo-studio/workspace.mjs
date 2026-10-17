@@ -174,8 +174,8 @@ export function readWorkspaceSubmissionDOM(module,priorId) {
   if(location.origin!=='https://studio.tripo3d.ai')return{kind:'origin_mismatch'};
   if(!Object.hasOwn(routes,module))return{kind:'invalid_argument'};
   const match=location.pathname.match(new RegExp('^/workspace/'+routes[module]+'/.*?([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$'));
-  const states=['Generating','Processing','Segmenting','Enhancing'];
-  const processing=[...document.querySelectorAll('main p')].some(e=>e.getClientRects().length&&states.some(s=>new RegExp('^'+s+'\\.{0,3}$','i').test(e.innerText.trim())));
+  const states=['Generating','Processing','Segmenting','Enhancing',...(module==='texture'?['Generating Texture']:[])];
+  const processing=[...document.querySelectorAll('main p')].some(e=>e.getClientRects().length&&!e.closest?.('[role="tabpanel"]')&&states.some(s=>new RegExp('^'+s+'\\.{0,3}$','i').test(e.innerText.trim())));
   if(match&&(match[1]!==priorId||processing))return{kind:'ready',asset_id:match[1],acceptance:processing?'processing_ui_not_completion':'new_asset_route_not_completion'};
   return{kind:'pending'};
 }

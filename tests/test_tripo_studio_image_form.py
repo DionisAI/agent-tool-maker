@@ -15,13 +15,13 @@ spec.loader.exec_module(b)
 @pytest.mark.parametrize('op',b.IMAGE_FORM_OPERATIONS)
 def test_image_form_definition_source_and_permissions(op):
     tool=b.manifest(op)
-    assert validate_bundle(ROOT/'generated/tripo-studio-image-form'/op)['sha256']==digest(tool)
+    assert validate_bundle(ROOT/'generated/tripo-studio-delivery-stage-r4'/op)['sha256']==digest(tool)
     assert tool['paid'] is False
     assert set(tool['permissions'])==({'execute_code'} if op.endswith('inspect') else {'execute_code','external_write'})
     assert b.image_form_digest() in tool['command']['argv']
     assert 'outputs' not in tool['command'] and 'credential_env' not in tool['command']
-    assert b.viewer_digest()=='fb81f31b26bd92adbf7983c0cdad2b1a3d05fa2352b69b56b5ddf4c25c4cf97e'
-    assert b.workspace_digest()=='3b7df85e08edf55de3dc09c777ed771c01fbc0965d13b6db0b20528536909dcc'
+    assert b.viewer_digest()=='55ea3568db6a9eee1d3d7e9bfe5b19c20bf5ecbd2e687ab1a432d45f2fd4fdf8'
+    assert b.workspace_digest()=='3684f332b267a258d7bc9a24f003cf6ebe26bc50428a7abc6c0f2a8eef387d5e'
     if op.endswith('prepare'):
         schema=tool['schema']['properties']['settings']
         assert schema['required']==['expected_draft_sha256']

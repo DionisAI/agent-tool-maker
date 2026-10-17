@@ -39,6 +39,10 @@ HOME_QUOTE_FILES=tuple(dict.fromkeys((*FORM_FILES,*AUDIO_BOUND_FILES)))+('home-q
 HOME_QUOTE_OPERATIONS=('home_quote',)
 HISTORY_FILES=(*AUDIO_BOUND_FILES,'history.mjs','history.js')
 HISTORY_OPERATIONS=('project_history_state',)
+GENERATION_FILES=(*HOME_QUOTE_FILES,'generation.mjs','generation.js')
+GENERATION_OPERATIONS=('generate','generation_status')
+RESULT_FILES=(*AUDIO_BOUND_FILES,'results.mjs','results.js')
+RESULT_OPERATIONS=('results','result_inspect','result_download_quote')
 CANVAS_FILES=(*FILES,'canvas.mjs','canvas.js')
 TEXT_FILES=(*CANVAS_FILES,'text.mjs','text.js')
 TEXT_OPERATIONS=('text_inspect','text_prepare')
@@ -287,6 +291,47 @@ def history_manifest():
         'notes':'Explicit site:xyq-web/browser routing. Read exact project/canvas UI and owned history popover/filter associations only; no popup/filter input, navigation, auth export, task-row extraction, uploads, generation, payment or download. Existing seventeen definitions keep their routing.',
         'completion':'Closed/loading counts are null; history_empty proves only current filtered visible empty state. all_records=false/task_count=null/row_scope_verified=false. Actual populated task IDs/status/results require their observed scoped layout; never treat an empty view as all media tasks completed.'})
 
+def generation_manifest(operation):
+    if operation not in GENERATION_OPERATIONS:
+        raise ValueError('Unknown XYQ generation operation')
+    generate=operation=='generate'
+    props={'settings':{'type':'object','properties':{
+        'expected_draft_sha256':{'type':'string','pattern':'^[a-f0-9]{64}$'},
+        'quote_sha256':{'type':'string','pattern':'^[a-f0-9]{64}$'},
+        'max_credits':{'type':'number','minimum':0,'maximum':10000},
+        'human_confirmed':{'type':'boolean','const':True},
+        'estimated_cost_confirmed':{'type':'boolean','const':True},
+        'request_key':{'type':'string','pattern':'^[A-Za-z0-9_.:-]{1,160}$'}},
+        'required':['expected_draft_sha256','quote_sha256','max_credits','human_confirmed','estimated_cost_confirmed','request_key'],
+        'additionalProperties':False}} if generate else {'request_key':{'type':'string','pattern':'^[A-Za-z0-9_.:-]{1,160}$'}}
+    argv=['__opencli_shim','xyq-web','generate-home-bound' if generate else 'generation-status','--pin',bundle_digest(GENERATION_FILES),'-f','json','--workspace',{'workspace':''}]
+    argv+=['--settings',{'json':'settings'}] if generate else ['--key',{'input':'request_key'}]
+    return validate_manifest({'id':'xyq.web.'+operation,'provider':'xyq','title':'小云雀媒体 · '+operation,
+        'capabilities':['website',operation],'adapter':'command','executable':'opencliapp','paid':generate,
+        'permissions':['execute_code']+(['external_write'] if generate else []),
+        'schema':{'type':'object','properties':props,'required':list(props),'additionalProperties':False},
+        'command':{'argv':argv,'output':'json','timeout':180},'sources':['https://xyq.jianying.com/'],'checked_on':'2026-10-07',
+        'notes':'Exactly one draft-bound native home submit. Requires explicit confirmation of displayed estimate and budget; unit-rate audio remains total_quote_required. Project/canvas acknowledgement is not a provider task ID. Stable request keys and unknown operation locks are preserved; no automatic retry, uploads or auth reads.',
+        'completion':'Submitted project route is not completed media. generation_status reads only the exact original local receipt; provider task polling and downloads require a separately observed UI contract. Displayed estimate is not a server-enforced spend ceiling or final bill.'})
+
+def result_manifest(operation):
+    if operation not in RESULT_OPERATIONS:
+        raise ValueError('Unknown XYQ conversation-result operation')
+    props={'thread_id':{'type':'string','pattern':'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$'}}
+    argv=['__opencli_shim','xyq-web',operation.replace('_','-')+'-bound','--pin',bundle_digest(RESULT_FILES),'-f','json','--thread',{'input':'thread_id'}]
+    if operation!='results':
+        props['result_id']={'type':'string','pattern':'^[a-f0-9]{32}$'}
+        argv+=['--result',{'input':'result_id'}]
+    if operation=='result_download_quote':
+        props['expected_result_sha256']={'type':'string','pattern':'^[a-f0-9]{64}$'}
+        argv+=['--expected',{'input':'expected_result_sha256'}]
+    return validate_manifest({'id':'xyq.web.'+operation,'provider':'xyq','title':'小云雀结果 · '+operation,
+        'capabilities':['website',operation],'adapter':'command','executable':'opencliapp','paid':False,'permissions':['execute_code'],
+        'schema':{'type':'object','properties':props,'required':list(props),'additionalProperties':False},
+        'command':{'argv':argv,'output':'json','timeout':60},'sources':['https://xyq.jianying.com/'],'checked_on':'2026-10-08',
+        'notes':'Read only the exact already-open integrated-agent conversation and its rendered image cards/selected preview. Public site:xyq-home/browser routing; no navigation, full prompts, auth files, signed query strings, generation, upload or download click. Download plan requires exact result digest and enabled unobscured preview control.',
+        'completion':'Resource ID is visible media identity, not provider task ID/status. all_results=false; loaded pixels are not task association or completed local delivery. result_download_quote is an existing-file control plan, not a price or download. Video/audio and actual download events/files remain separate acceptance.'})
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out',type=Path,required=True)
@@ -295,6 +340,8 @@ def main():
     parser.add_argument('--bound-audio-quote',action='store_true',help='Explicit browser binding for the existing audio_quote tool; estimated rate only, no fallback')
     parser.add_argument('--bound-audio-edit',action='store_true',help='Explicit browser binding for three existing audio choices/parameter/prompt tools; no automatic fallback')
     parser.add_argument('--bound-audio-upload',action='store_true',help='Explicit browser binding for one approved PCM WAV / MP3; no automatic fallback')
+    parser.add_argument('--include-delivery',action='store_true',help='Add reviewed single-submit and original local-receipt status tools; provider tasks/downloads remain separate')
+    parser.add_argument('--include-results',action='store_true',help='Add three read-only existing-conversation image-result/preview/download-plan queries; no download click')
     args=parser.parse_args()
     result=[]
     for operation in OPERATIONS:
@@ -314,6 +361,12 @@ def main():
     result.append(extensions.pack(home_quote_manifest(),args.out/'home_quote'))
     result.append(extensions.pack(history_manifest(),args.out/'project_history_state'))
     operations=list(OPERATIONS+FORM_OPERATIONS+MODE_OPERATIONS+AUDIO_OPERATIONS+AUDIO_BOUND_OPERATIONS+AUDIO_PROMPT_OPERATIONS+AUDIO_SETTINGS_OPERATIONS+AUDIO_QUOTE_OPERATIONS+HOME_QUOTE_OPERATIONS+HISTORY_OPERATIONS)
+    if args.include_delivery:
+        result.extend(extensions.pack(generation_manifest(op),args.out/op) for op in GENERATION_OPERATIONS)
+        operations.extend(GENERATION_OPERATIONS)
+    if args.include_results:
+        result.extend(extensions.pack(result_manifest(op),args.out/op) for op in RESULT_OPERATIONS)
+        operations.extend(RESULT_OPERATIONS)
     if args.include_canvas:
         result.append(extensions.pack(canvas_manifest(),args.out/'canvas_inspect'))
         for operation in TEXT_OPERATIONS:
@@ -331,6 +384,10 @@ def main():
         metadata.update(audio_upload_binding='explicit-browser',audio_upload_bound_adapter_sha256=bundle_digest(AUDIO_UPLOAD_BOUND_FILES))
     if args.include_canvas:
         metadata.update(canvas_adapter_sha256=bundle_digest(CANVAS_FILES),text_adapter_sha256=bundle_digest(TEXT_FILES))
+    if args.include_delivery:
+        metadata.update(generation_adapter_sha256=bundle_digest(GENERATION_FILES),generation_binding='explicit-browser',provider_delivery_verified=False)
+    if args.include_results:
+        metadata.update(result_adapter_sha256=bundle_digest(RESULT_FILES),result_binding='explicit-browser',result_scope='current_rendered_conversation_images',provider_delivery_verified=False)
     print(json.dumps(metadata,ensure_ascii=False))
 
 if __name__=='__main__':main()

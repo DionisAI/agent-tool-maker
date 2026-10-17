@@ -1,0 +1,111 @@
+{
+  "id": "tripo.studio.viewer_prepare",
+  "provider": "tripo",
+  "title": "Tripo Studio viewer_prepare",
+  "capabilities": [
+    "3d",
+    "viewer_prepare"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code",
+    "external_write"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "asset_id": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "render_mode": {
+            "enum": [
+              "solid",
+              "pbr",
+              "normal",
+              "unlit",
+              "toon",
+              "sketch",
+              "hologram"
+            ]
+          },
+          "wireframe": {
+            "type": "boolean"
+          },
+          "grid": {
+            "type": "boolean"
+          },
+          "environment": {
+            "type": "object",
+            "properties": {
+              "surrounding": {
+                "enum": [
+                  "Beach",
+                  "Desert",
+                  "Forest",
+                  "Interior",
+                  "Night",
+                  "Studio"
+                ]
+              },
+              "strength": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2
+              },
+              "rotation": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 360
+              },
+              "auto_rotate": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "asset_id",
+      "settings"
+    ],
+    "additionalProperties": false
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "viewer-prepare",
+      "--pin",
+      "55ea3568db6a9eee1d3d7e9bfe5b19c20bf5ecbd2e687ab1a432d45f2fd4fdf8",
+      "-f",
+      "json",
+      "--asset",
+      {
+        "input": "asset_id"
+      },
+      "--settings",
+      {
+        "json": "settings"
+      }
+    ],
+    "output": "json",
+    "timeout": 240
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Visible semantic viewer and hierarchy controls only. Exact model UUID, typed render/environment values, bounded native camera inputs, exact node name and prior transform digest. Preserve existing dialogs and close only owned environment layers. No generation, upload, export, publication, save-button click or raw authentication.",
+  "completion": "Editor state is read back, not provider persistence, mesh quality or validated files. Camera actions report bounded input dispatched without inventing an engine pose; rendered visual acceptance is separate. Environment/render choices may be remembered. Transform edits may autosave even without a Save-button click; use an explicitly approved test asset. Transforms are two-decimal values within the reviewed magnitude bound. Destructive node menu items are not clicked.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}

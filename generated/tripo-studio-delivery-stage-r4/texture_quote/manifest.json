@@ -1,0 +1,83 @@
+{
+  "id": "tripo.studio.texture_quote",
+  "provider": "tripo",
+  "title": "Tripo Studio texture_quote",
+  "capabilities": [
+    "3d",
+    "texture_quote"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code",
+    "external_write"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "asset_id": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "resolution": {
+            "enum": [
+              "2K",
+              "4K",
+              "8K"
+            ]
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "remove_lighting": {
+            "type": "boolean"
+          },
+          "expected_prompt_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "asset_id",
+      "settings"
+    ],
+    "additionalProperties": false
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "texture-quote",
+      "--pin",
+      "7e8b7f4a94542757105495557226093b3f1b9e6a3c0a603ab3dc8db8b3eb16e0",
+      "-f",
+      "json",
+      "--asset",
+      {
+        "input": "asset_id"
+      },
+      "--settings",
+      {
+        "json": "settings"
+      }
+    ],
+    "output": "json",
+    "timeout": 180
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Texture is the existing reviewed workspace texture contract, not a new provider backend. Status binds one retained project model receipt and its actual output UUID. Unknown submissions and source-only processing remain unresolved; never release their locks or resubmit.",
+  "completion": "Provider-ready model is separate from a submitted operation and validated export. Texture/rig/retopo quality and positive real paid acceptance remain distinct. No Cookie, token, profile or unrelated receipt reads.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}

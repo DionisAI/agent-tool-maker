@@ -108,6 +108,8 @@ def parser():
     studio_commands(sub)
     from .media import add_commands as media_commands
     media_commands(sub)
+    from .website_download import add_commands as delivery_commands
+    delivery_commands(sub)
     return p
 
 
@@ -290,6 +292,9 @@ def main(argv=None):
         elif args.command == "media":
             from .media import dispatch as media_dispatch
             value = media_dispatch(args)
+        elif args.command == "delivery":
+            from .website_download import dispatch as delivery_dispatch
+            value = delivery_dispatch(args)
         else:
             router=Router(args.home)
             value=dispatch(args,router)

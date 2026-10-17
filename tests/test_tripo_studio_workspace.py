@@ -19,7 +19,7 @@ spec.loader.exec_module(builder)
 @pytest.mark.parametrize('operation', builder.WORKSPACE_OPERATIONS)
 def test_workspace_bundle_factory_permissions_and_source_pin(operation):
     tool = builder.manifest(operation)
-    assert validate_bundle(ROOT/'generated/tripo-studio-workspace'/operation)['sha256'] == digest(tool)
+    assert validate_bundle(ROOT/'generated/tripo-studio-delivery-stage-r4'/operation)['sha256'] == digest(tool)
     assert tool['paid'] is (operation == 'workspace_submit')
     assert 'execute_code' in tool['permissions']
     assert ('external_write' in tool['permissions']) is (operation != 'workspace_inspect')
@@ -28,7 +28,7 @@ def test_workspace_bundle_factory_permissions_and_source_pin(operation):
     if operation == 'workspace_submit':
         assert tool['schema']['properties']['human_confirmed']['const'] is True
         assert tool['schema']['properties']['module']['enum'] == ['segment','texture','edit','upscale','pbr']
-        assert json.loads((ROOT/'generated/tripo-studio-workspace'/operation/'inputs.example.json').read_text()) == {}
+        assert json.loads((ROOT/'generated/tripo-studio-delivery-stage-r4'/operation/'inputs.example.json').read_text()) == {}
 
 
 def test_new_workspace_paid_operation_requires_paid_grant(router, workspace, tmp_path):

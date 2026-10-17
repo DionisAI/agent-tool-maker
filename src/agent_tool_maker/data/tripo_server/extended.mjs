@@ -78,7 +78,7 @@ async function clickText(page, selector, text) {
 
 export function readAssetDOM() {
   if (location.origin !== 'https://studio.tripo3d.ai') return { kind: 'origin_mismatch' };
-  const match = location.pathname.match(/^\/workspace\/(?:generate|retopology|rigging)\/.*?([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/);
+  const match = location.pathname.match(/^\/workspace\/(?:generate|retopology|rigging|segmentation|fill-parts|smart-uv|texture|texture-edit|texture-upscale|texture-pbr|animate)\/.*?([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/);
   if (!match) return { kind: 'pending' };
   const main = document.querySelector('main');
   if (!main) return { kind: 'pending' };
@@ -92,7 +92,7 @@ export function readAssetDOM() {
     const count=Number(value.split('/')[0]);return Number.isSafeInteger(count)?count:null;
   };
   const faces = numberAfter('Faces'), vertices = numberAfter('Vertices');
-  const processing = paragraphs.some(el => /^(Generating\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3})$/i.test(el.innerText.trim()));
+  const processing = paragraphs.some(el => !el.closest?.('[role="tabpanel"]') && /^(Generating(?: Texture)?\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3}|Segmenting\.{0,3}|Enhancing\.{0,3})$/i.test(el.innerText.trim()));
   const failed = paragraphs.some(el => /^(Generation failed|Unknown server error|Task failed)/i.test(el.innerText.trim()));
   const exports = Array.from(main.querySelectorAll('button')).filter(el => el.innerText.trim() === 'Export' && !el.closest('[role="dialog"]'));
   const exportEnabled = exports.length === 1 && !exports[0].disabled;
@@ -106,6 +106,9 @@ export async function navigateAsset(page, id, operation = 'asset') {
   const target = '/workspace/' + route + '/' + id;
   let where = unwrap(await page.evaluate(readLocation));
   const initial = where.origin === ORIGIN ? unwrap(await page.evaluate(readAssetDOM)) : null;
+  // A texture/segmentation result is already a model surface. Read it in place;
+  // navigating back to Generate can discard its processing state.
+  if (operation === 'asset' && /^\/workspace\/(?:generate|retopology|rigging|segmentation|fill-parts|smart-uv|texture|texture-edit|texture-upscale|texture-pbr|animate)\//.test(where.path) && where.path.endsWith(id) && initial?.kind === 'ready' && initial.asset_id === id) return initial;
   if (where.origin !== ORIGIN || !where.path.endsWith(id) || initial?.kind === 'site_error') {
     // UUID-only routes work as SPA links but cold navigation produced a visible
     // server error. Enter through the observed Workspace link, then the asset
@@ -134,7 +137,7 @@ export async function navigateAsset(page, id, operation = 'asset') {
     }
     if (!/^\/workspace\/[a-z-]+\/[a-z0-9-]+$/.test(entry.href || '')) throw new StudioError('layout_changed', 'Expected an observed asset sidebar link; use asset-resolve for older cards.');
     const priorId = where.path.match(/([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/)?.[1] || null;
-    await page.click('a[href="' + entry.href + '"]');
+    await page.click('[role="tabpanel"] a[href="' + entry.href + '"]');
     // Native click completion is not SPA route completion. Only the exact
     // known previous source may remain during this bounded transition; a
     // third source still fails immediately, and the final identity guard stays.
@@ -150,7 +153,7 @@ export async function navigateAsset(page, id, operation = 'asset') {
   if (!(where.path.startsWith('/workspace/' + route + '/') && where.path.endsWith(id)) && where.path !== target) {
     const observed = unwrap(await page.evaluate(readRouteLinkDOM, id, route));
     if (!observed?.href || !/^\/workspace\/[a-z-]+\/[a-z0-9-]+$/.test(observed.href)) throw new StudioError('layout_changed', 'Expected one visible workspace route link.');
-    await page.click('a[href="' + observed.href + '"]');
+    await page.click('a[href="' + observed.href + '"]:not([role="tabpanel"] a)');
   }
   const data = await pollDOM(page, readAssetDOM);
   if (data.asset_id !== id) throw new StudioError('asset_mismatch', 'Selected asset differs from the request.');

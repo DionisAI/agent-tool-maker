@@ -100,7 +100,7 @@ test('asset entry uses observed SPA links instead of cold UUID routes',async()=>
     assert.fail('Unexpected reader');
   }};
   assert.equal((await inspectAsset(p,{asset:ID,wait:0}))[0].model_completed,true);
-  assert.deepEqual(calls,['a[href="/workspace/generate"]','a[href="/workspace/generate/'+ID+'"]']);
+  assert.deepEqual(calls,['a[href="/workspace/generate"]','[role="tabpanel"] a[href="/workspace/generate/'+ID+'"]']);
 });
 test('an existing UUID error route recovers through Workspace, not a reload',async()=>{
   let path='/workspace/generate/'+ID,broken=true;const calls=[];
