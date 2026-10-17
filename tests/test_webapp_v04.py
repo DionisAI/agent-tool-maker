@@ -51,6 +51,30 @@ def test_public_shell_contains_no_local_data_or_token(console):
     if os.name=='posix':assert server.token_path.stat().st_mode & 0o777==0o600
 
 
+def test_bootstrap_connection_burst_is_queued_before_accept(tmp_path):
+    """The UI opens ten metadata requests; accept scheduling must not reset them."""
+    import http.client
+    server=Console(tmp_path/'state',localhost=True)
+    clients=[];thread=None
+    try:
+        # Hold accept until the complete bounded browser bootstrap is queued.
+        # This makes a backlog smaller than the burst fail without a race/retry.
+        for _ in range(10):
+            clients.append(socket.create_connection(('127.0.0.1',server.server_port),timeout=2))
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        for connection in clients:
+            connection.sendall(('GET / HTTP/1.0\r\nHost: '+server.authority+'\r\n\r\n').encode())
+        for connection in clients:
+            response=http.client.HTTPResponse(connection);response.begin()
+            assert response.status==200
+            assert b'/assets/passkeys.js' in response.read()
+            response.close()
+    finally:
+        for connection in clients:connection.close()
+        if thread:server.shutdown();thread.join(5)
+        server.server_close()
+
+
 @pytest.mark.parametrize('path',['/api/overview','/api/agents','/api/tools','/api/connections','/api/clis','/api/jobs'])
 def test_private_data_requires_per_process_bearer(console,path):
     server,client=console

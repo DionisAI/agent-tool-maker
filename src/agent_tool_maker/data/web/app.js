@@ -51,8 +51,8 @@ async function api(path, body) {
   return value;
 }
 async function refresh() {
-  const [overview,tools,connections,jobs,clis,sync,access,extensions,session]=await Promise.all(['/api/overview','/api/tools','/api/connections','/api/jobs','/api/clis','/api/sync','/api/access','/api/extensions','/api/session'].map(p=>api(p)));
-  data={overview,tools:tools.tools,connections,jobs:jobs.jobs,clis:clis.clis,sync,access,extensions,session,sessionFetchedAt:Date.now()};
+  const [overview,tools,connections,jobs,clis,sync,access,extensions,session,passkeys]=await Promise.all(['/api/overview','/api/tools','/api/connections','/api/jobs','/api/clis','/api/sync','/api/access','/api/extensions','/api/session','/api/passkeys'].map(p=>api(p)));
+  data={overview,tools:tools.tools,connections,jobs:jobs.jobs,clis:clis.clis,sync,access,extensions,session,passkeys,sessionFetchedAt:Date.now()};
   $('#version').textContent='ATM v'+overview.version;
   $('#origin').textContent=location.host;
   $('#gate').hidden=true;
@@ -63,7 +63,7 @@ function heading(title,subtitle,button) {
   return el('section',{class:'page-title'},el('div',{},el('p',{class:'eyebrow'},'AGENT TOOL MAKER / YOUR LOCAL WORKSHOP'),el('h1',{},title),el('p',{},subtitle)),button);
 }
 function section(title,meta='') {return el('div',{class:'section-head'},el('h2',{},title),el('small',{},meta));}
-function openModal(title,...content) {$('#modal-title').textContent=title;$('#modal-body').replaceChildren(...content);if(!$('#modal').open)$('#modal').showModal();}
+function openModal(title,...content) {$('#modal-title').textContent=title;$('#modal-body').replaceChildren(...content.flat().filter(c=>c!==null&&c!==undefined));if(!$('#modal').open)$('#modal').showModal();}
 function closeModal() {$('#modal').close();$('#modal-body').replaceChildren();}
 function agentCard(a) {
   const registered=a.state==='registered_not_host_verified';
@@ -135,6 +135,16 @@ function renderConnections(main) {
   main.append(heading('连接与凭证','密钥写入现有加密库；网页不回读明文，不在浏览器持久存储。',btn('添加 / 更新连接',()=>connectionDialog(),'primary')));
   const vault=data.connections.vault;
   main.append(el('div',{class:'panel'},el('div',{class:'card-head'},el('div',{},el('h3',{},'本地凭证库'),el('p',{class:'quiet'},'后端：'+(vault.backend || '未初始化')+' · '+display(vault.state))),!vault.backend?btn('初始化凭证库',vaultDialog):badge('保留现有凭证库','good')),el('p',{class:'quiet'},'口令模式仅在本次保存/检查请求中解锁，不提供后台永久解锁。系统 keyring 可能要求系统确认。')));
+  const add=btn('绑定 1Password / Passkey',passkeyDialog);
+  add.disabled=!vault.backend || !data.passkeys.available || !window.ATM_PASSKEY?.supported();
+  main.append(el('div',{class:'panel',id:'passkeys-panel'},section('Passkey 解锁','本机绑定 · 主密码保留'),
+    el('p',{},'使用支持 PRF 的 Passkey 保护现有主密钥；在 1Password 提示中由你保存并确认。解锁仍固定 30 分钟，不自动增加项目或 Key。'),
+    !data.passkeys.dependency_present?el('p',{class:'quiet'},'Passkey 验证依赖尚待安装。'):null,
+    data.passkeys.state_error?el('p',{class:'notice'},data.passkeys.state_error.code+': 本机绑定记录校验失败；密码恢复入口保留，请核对本地记录。'):null,
+    !data.passkeys.origin_supported?el('p',{class:'quiet'},'请从新版 atm ui 打开的 localhost 窗口使用。'):null,
+    el('div',{class:'card-actions'},add),
+    ...data.passkeys.credentials.map(c=>el('div',{},el('strong',{},c.label+' · '+(c.disabled?'已停用':'已绑定')),
+      !c.disabled?btn('停用 '+c.label,()=>disablePasskeyDialog(c),'plain danger'):null))));
   for (const c of data.connections.oauth || []) {
     const states={missing:'尚未登录',pending:'等待本机浏览器确认',ready:'已登录',expired:'令牌到期',refreshing:'续期中',refresh_unknown:'续期结果待确认，请重新登录',needs_login:'需要重新登录',denied:'登录未批准'};
     main.append(el('article',{class:'panel'},el('h3',{},'Higgsfield 订阅 · ATM OAuth'),badge(states[c.status] || c.status),
@@ -186,6 +196,36 @@ function setupDialog(agentNames=['claude','codex'],cliNames=[]) {
     el('div',{class:'dialog-actions'},btn('预览变更',async()=>{plan=await api('/api/setup/preview',body());output.replaceChildren(code(plan));applyButton.disabled=plan.status==='needs_review';}),applyButton));
 }
 function passwordField(label) {const input=el('input',{type:'password',autocomplete:'off'});return {input,node:el('label',{},label,input)};}
+function passkeyDialog(){
+  const pass=passwordField('现有 ATM 主密码（首次绑定验证）');pass.input.autocomplete='current-password';
+  const label=el('input',{value:'1Password',maxLength:80});
+  openModal('绑定 Passkey',el('p',{},'将出现保存凭证及 PRF 验证提示。请选择 1Password 并亲自确认；没有 PRF 时保留主密码入口。密码、Key、Passkey 私钥及解锁状态均不进入 ATM 同步。'),
+    el('label',{},'非秘密名称',label),data.connections.vault.backend==='passphrase'?pass.node:null,
+    btn('开始绑定',async()=>{
+      let password=pass.input.value;pass.input.value='';
+      try{await window.ATM_PASSKEY.register(api,password,label.value);closeModal();await refresh();toast('Passkey 已绑定，原有凭证密文保持原样。');}
+      finally{password=null;pass.input.value='';}
+    },'primary'));
+}
+function disablePasskeyDialog(credential){
+  const pass=passwordField('现有 ATM 主密码（验证停用）');pass.input.autocomplete='current-password';
+  openModal('停用 '+credential.label,el('p',{},'停用本机绑定；1Password 中的凭证及已有会话保持原样。需要立即终止新调用时另点“立即锁定”。'),
+    data.connections.vault.backend==='passphrase'?pass.node:null,
+    btn('确认停用',async()=>{let password=pass.input.value;pass.input.value='';
+      try{await api('/api/passkeys/disable',{credential_id:credential.id,confirm:credential.id,...(password?{passphrase:password}:{})});closeModal();await refresh();}
+      finally{password=null;}
+    },'secondary danger'));
+}
+function passkeyUnlockControl(){
+  const credentials=data.passkeys?.credentials.filter(c=>!c.disabled) || [];
+  if(!credentials.length || !data.passkeys.available || !window.ATM_PASSKEY?.supported())return null;
+  const select=el('select',{ariaLabel:'解锁 Passkey'},...credentials.map(c=>el('option',{value:c.id},c.label)));
+  return el('div',{},select,btn('用 Passkey 解锁 30 分钟',async()=>{
+    let proof=await window.ATM_PASSKEY.authenticate(api,'/api/passkeys/auth/begin',{credential_id:select.value},'/api/passkeys/cancel');
+    try{await api('/api/session/unlock',{passkey:proof});closeModal();await refresh();toast('Passkey 已解锁。');}
+    finally{proof=null;}
+  },'primary'));
+}
 function passphraseField() {return passwordField('现有凭证库口令（仅口令模式需要；仅用于本次请求）');}
 function connectionDialog(provider) {
   if(data.session?.session_mode_enabled&&!data.session.unlocked){unlockDialog();return;}
@@ -309,6 +349,7 @@ function sessionPanel(){
 function unlockDialog(){
   const pass=passwordField('现有库口令（仅本机解锁，不写入文件）');
   openModal('解锁凭证会话',el('p',{},'解锁后 30 分钟内，获准的 Claude / Codex 新进程复用会话。此窗口启动的会话随管理台进程关闭而结束。'),
+    passkeyUnlockControl(),
     data.connections.vault.backend==='passphrase'?pass.node:null,
     btn('确认解锁 30 分钟',async()=>{const body={ttl:'30m'};if(pass.input.value)body.passphrase=pass.input.value;
       try{await api('/api/session/unlock',body);closeModal();await refresh();toast('会话已解锁。');}
