@@ -1,0 +1,106 @@
+{
+  "id": "tripo.studio.workspace_submit",
+  "provider": "tripo",
+  "title": "Tripo Studio workspace_submit",
+  "capabilities": [
+    "3d",
+    "workspace_submit"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": true,
+  "permissions": [
+    "execute_code",
+    "external_write"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "module": {
+        "enum": [
+          "segment",
+          "texture",
+          "edit",
+          "upscale",
+          "pbr"
+        ]
+      },
+      "asset_id": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+      },
+      "quote_sha256": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "max_credits": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10000
+      },
+      "request_key": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.:-]{1,160}$"
+      },
+      "human_confirmed": {
+        "type": "boolean",
+        "const": true
+      }
+    },
+    "required": [
+      "module",
+      "asset_id",
+      "quote_sha256",
+      "max_credits",
+      "request_key",
+      "human_confirmed"
+    ],
+    "additionalProperties": false
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "workspace-submit",
+      "--pin",
+      "3b7df85e08edf55de3dc09c777ed771c01fbc0965d13b6db0b20528536909dcc",
+      "-f",
+      "json",
+      "--module",
+      {
+        "input": "module"
+      },
+      "--asset",
+      {
+        "input": "asset_id"
+      },
+      "--quote",
+      {
+        "input": "quote_sha256"
+      },
+      "--budget",
+      {
+        "input": "max_credits"
+      },
+      "--key",
+      {
+        "input": "request_key"
+      },
+      "--ledger",
+      {
+        "workspace": ""
+      },
+      "--confirm"
+    ],
+    "output": "json",
+    "timeout": 180
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Observed visible workspace form only. No arbitrary selectors, JS, URL, profile or provider replay. Preparation validates typed semantic settings and exact source, preserves drafts unless replacement binds their digest. Paid submissions retain shared uncertainty lock and stable request key. Missing price stays unknown.",
+  "completion": "Form inspection/preparation is not submission. Submitted observes provider UI progress or a new asset, not finished model/export. Full UI parity remains separately audited.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}

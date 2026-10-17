@@ -1,6 +1,7 @@
 # Tripo Studio 网页 CLI
 
 当前完整覆盖审计、未接入入口及 DOM 驱动二次调整见 [覆盖报告](TRIPO_STUDIO_COVERAGE.md)。
+“达到 computer use 操作能力”的持续目标与逐项完成门槛见 [对齐合同](TRIPO_UI_PARITY.md)。
 
 ## 范围与执行方式
 
@@ -36,6 +37,22 @@ PAGE_FETCH。标题、积分和卡片来自实际观察的 DOM。CSS 与英文�
 | `tripo.studio.image_generate` | code + write + paid | 使用未变化的已上传图片/设置/报价，单次图片生成 |
 | `tripo.studio.export_quote` | code + write | 打开已完成模型的 GLB 导出弹窗，回读格式/纹理；不下载 |
 | `tripo.studio.export` | code + write | 单次下载订阅模型 GLB，检查完整文件并返回项目内产物 |
+| `tripo.studio.workspace_inspect` | code | 观察 12 个工作区模块的源资产、设置、选项、警告与明确/未知报价 |
+| `tripo.studio.workspace_prepare` | code + write | 设置 Segment/Texture/Magic Brush/Upscale/PBR 的受审阅参数，不提交 |
+| `tripo.studio.workspace_submit` | code + write + paid | 上述五类有明确报价的模型操作，按源资产/报价/预算单次提交 |
+| `tripo.studio.assets_query` | code | 模型各筛选/Collected、单图/多视图查询，逐轮检查范围，显式 partial |
+| `tripo.studio.image_preview` | code | 核对指定图片及视图，读取预览信息，只关闭自己开的预览 |
+| `tripo.studio.animation_inspect` | code | 动画源前置、草稿/时长、按钮报价、当前渲染预置；不应用或生成 |
+| `tripo.studio.animation_prepare` | code + write | 填写动画提示词/1–10 秒并回读；替换/清除原草稿需其摘要 |
+| `tripo.studio.export_options` | code | 打开自己管理的导出弹窗，读取格式/纹理和动态选项后关闭；不下载 |
+| `tripo.studio.export_prepare` | code + write | 准备六格式、纹理、骨架、FBX 变体/OBJ 顶点色，回读后关闭；不点保存/下载 |
+| `tripo.studio.viewer_inspect` | code | 查看器、环境与层级的可见状态；恢复侧栏，只关闭自有环境浮层 |
+| `tripo.studio.viewer_prepare` | code + write | 七种有效渲染模式、线框/网格、六环境及数值/自动旋转，回读验证 |
+| `tripo.studio.viewer_camera` | code + write | 有界原生旋转/平移/缩放/重置；输入成功与画面验收分开 |
+| `tripo.studio.hierarchy_prepare` | code + write | 按准确节点名称选中/显示/隐藏；隐藏会清除选择 |
+| `tripo.studio.hierarchy_transform` | code + write | 对已选节点以旧状态摘要绑定 XYZ 位置/旋转/缩放；可能自动保存 |
+| `tripo.studio.image_form_inspect` | code | Generate Image 草稿、模型/模板、比例/数量/4K 可用状态；不上传或生成 |
+| `tripo.studio.image_form_prepare` | code + write | 以精确草稿摘要绑定图片生成表单设置，回读并报告模型引起的隐式变化 |
 
 只读资产输出 `coverage=currently_loaded_cards`、`all_assets=false`。
 `preview_task_id` 从可见缩略图路径取得，与资产详情 ID 不同；`task_status=null`。
@@ -54,7 +71,118 @@ partial 和 stop_reason，不用推测总量。该范围是模型卡片，不含
 8 个源码文件；更新用 CAS 校验旧定义、批准新摘要，并保留定义历史。原来的
 4 个包与摘要保持不变。
 
+工作区另有 3 包在 `generated/tripo-studio-workspace/`，正式注册总计 18 项。
+工作区摘要覆盖旧 8 文件和 workspace.mjs/workspace.js，旧 15 包不随这次更新改写。
+侧栏实际折叠的子项先点已观察的可见父项再进入，不把零高度误判为资产禁用。
+workspace_inspect 对按钮无报价返回 quoted_credits=null；动画预置与主表单分开报告。
+workspace_prepare 仅接受对应模块的细节/分辨率/提示词/Remove Lighting/Creativity；
+替换或清除现有提示词需要 expected_prompt_sha256，回读实际表单验证变更。
+workspace_submit 仍复用原 unknown 上传锁，不跨工具绕开；其真实付费结果尚待验收。
+
+资产查询独立 2 包在 `generated/tripo-studio-asset-query/`，已注册总计 20 项。
+`assets_query` 的 category/ownership/filter 必须是观察到的组合：Model/My Assets
+支持 All、Smart Mesh、Untextured、Textured、Rigged；Model/Collected 不显示筛选控件，
+输入 filter=All 仅表示不筛选，输出 filter=null；Image/Image Assets 支持 All、multi-views。
+limit 1–1000、max_pages 1–50；每次回读验证选中范围，用嵌套滚动容器的哨兵加载。
+没有观察到权威结束/空态契约时始终 partial、all_assets=false；零卡片保持 pending，
+不把加载或漂移写成成功的空列表。card_id 对单图为 image:TASK:INDEX（image.png 用
+single），多视图为 multiview:TASK，四个不同视图归为一卡；Model 仍是 preview_task_id。
+不输出签名 URL 或凭据，不把图片 task ID 当模型 UUID。
+
+`image_preview` 输入 card_id、view_index；单图用 view_index=0，多视图用 0–3。
+通过已观察卡片进入预览，验证准确 task/index，再读取模型名称和 Image dimensions
+对应的比例。关闭自己打开的预览；已有可见浮层保持原状。Generate HD Model /
+Generate Smart Mesh 仅列出，不提交。图片下载/编辑/转 3D 另验。
+查询摘要覆盖 core.mjs、asset-query.mjs、asset-query.js；原 18 工具的源/定义不改写。
+新增两个工具仅 execute_code，不需要 vault Key、external_write 或 paid。
+滚动后实际类别按钮会被固定导航挡住；先检查中心点命中，必要时 focus + Home
+回到真实嵌套滚动容器顶部，再验证命中后点击。未解除遮挡报 control_obscured，
+不发送误点。关闭自己打开的图片预览后移到 All，等待关闭动画，并仅处理本次
+引发的已知 Creator 说明浮层；Escape 后仍将鼠标留在头部会让该浮层再次弹出。
+
+工厂脚本固定加载本工程的 src；进程若已缓存其他 ATM 包则明确报错，避免误用
+已安装旧工厂的临时目录清理行为。构建失败保留现场，升级安装另属运行时维护。
+
+动画/导出选项独立 4 包在 `generated/tripo-studio-ui-options/`，正式总计 24 项。
+动画准备仅支持 prompt、duration 1–10、expected_prompt_sha256；已有绑骨源的
+空草稿与未绑骨源分开报告（draft_empty / rig_prerequisite_missing），不以禁用
+Generate 推断所有模型都缺绑骨。报价随可见按钮读取，返回 ready 仍不是完成动画。
+预置列表仅当前渲染范围，不声称全部预置或自动应用；动作生成/播放/下载另验。
+
+导出选项按实际菜单接受 USD、FBX、OBJ、STL、GLB、3MF；texture_resolution 为
+512/1k/2k/4k/8k。export_skeleton 仅实际可用时设置；fbx_variant 为 Blender/Mixamo/
+3dsmax 且仅 FBX；vertex_colors 仅 OBJ。准备是自有弹窗中的临时设置，回读后关闭，
+不点击保存、不触发 Send To/Export、不生成付费回执；options_sha256 不是旧 export 工具
+的 quote_sha256。未定价的选项观察保持 quoted_credits=null，不据此推断免费。
+已有弹窗留给人；布局/遮挡/源资产变化明确失败，失败后的自有弹窗关闭另验证。
+实际页面会记住部分已准备选项；关闭自有弹窗不等于恢复默认值，任何后续操作
+先重新读取选项。下拉框逐一验证 format/texture 类型并等旧列表关闭，避免关闭动画
+把上一个格式列表误当纹理列表。使用已观察的关闭图标，不以 Escape 发出算关闭成功。
+旧 GLB export_quote/export 不扩成多格式；其它格式的完成文件验收仍待进行。
+
+已有绑骨源 Rig 表单提供与侧栏 Animate 相同 href 的快捷链接。导航先按语义
+唯一定位，再把匹配序号绑定到同 href 点击，避免选择器歧义；这是工作区共享根因
+修复，所以 3 个工作区定义及新 4 包重新审阅，原 15 项和资产查询 2 项保持原摘要。
+随后实际 Quad 源显示单值 Faces/Vertices，旧完成状态仅识别 current/total；共享
+状态解析补齐两种实际格式，拒绝未知/非整数/不安全数值。这个根因修复也影响
+11 个扩展定义，已独立 CAS 审阅；因此本阶段最终保持原摘要的是基础 4 项与
+资产查询 2 项，不把早期“旧 15 不变”的阶段证据当最终状态。
+
 ## 人的体验
+
+查看器/层级独立 5 包在 `generated/tripo-studio-viewer/`，正式总计 29 项。
+查看器摘要覆盖工作区 10 文件和 viewer.mjs/viewer.js；更新新 5 项时原 24 项
+定义及源摘要逐项保留。每个工具绑定准确的已完成源 UUID，现有弹层留给人。
+
+`viewer_prepare.settings` 接受 render_mode=solid/pbr/normal/unlit/toon/sketch/hologram、
+wireframe、grid 和 environment（surrounding=Beach/Desert/Forest/Interior/Night/Studio，
+strength 0–2、rotation 0–360、auto_rotate）。实际只有 Solid/PBR/Normal 基础组互斥；
+Unlit/Toon/Sketch/Hologram 是 PBR 特效，选中时 PBR 同时保持按下。关闭特效可能
+恢复先前 Solid/Normal；恢复普通 PBR 要关闭准确特效，再回读并选择基础 PBR。
+此处 render_mode 表示最终有效模式，不是伪造七个按钮互斥。线框与网格独立。
+Auto Rotate 会持续改变可见 Rotation。设置起始角度时先停转、原生输入并回读，
+再开启/恢复旋转；`environment.rotation_preparation` 记录 requested、verified_value、
+auto_rotate_after。最终 settings.rotation 返回实际动态角度，不伪报为固定起点。
+关闭 Auto Rotate 后则按固定角度完整验证。缺少起点回读或其它字段变化仍报错。
+
+`hierarchy_prepare` 的 node_name 来自实际渲染层级，settings 支持 select=true、
+visible；隐藏会清除选中，select=false 的清除操作未观察，暂不接受。层级只代表
+当前渲染范围，不宣称全部节点。`hierarchy_transform` 需要该节点已经选中及
+expected_transform_sha256，position/rotation/scale 每组三个数，精度两位小数。
+绝对值 1000000 是本工具审阅的输入边界，不声称所有值都在真实 UI 验收过。
+文本数值经原生 Tab 提交并逐项回读。没有点击 Save 不等于没有持久变化：本次
+测试字段改动后源卡片时间更新，可能自动保存。只在批准的蓝色立方体夹具测试，
+恢复确切原向量；服务端几何持久化与重新下载仍是独立验收。
+
+`viewer_camera.action` 为 reset、orbit_left/right/up/down、pan_left/right/up/down、
+zoom_in/out。对模型画布命中预检后发出固定有界原生输入，失败也释放鼠标。
+返回 camera_pose_exposed=false / input_dispatched；具体视角、质量和每个手势的
+画面效果另行验收，既不读取隐藏引擎状态，也不将原生输入回执当精确姿态证明。
+五工具都不提交生成、上传、导出、Share/Feature 或节点 Delete。
+
+图片生成表单独立 2 包在 `generated/tripo-studio-image-form/`，已注册总计 31 项。
+该组覆盖工作区 10 文件和 image-form.mjs/js，原 29 定义与源摘要逐项不变。
+这不是 `image_quote` / `image_generate` 的图片转 3D。准备要求
+`expected_draft_sha256`，绑定源 UUID、完整设置、参考图片与实际 FileList 计数。
+模型为 GPT Image 2/2.5、Nano Banana Pro/2/基础版、Midjourney v8.2；比例为
+1:1、16:9、9:16、4:3、3:4 或 null（无选中），数量 1–4，4K 布尔，提示词
+0–10000 字符。九模板按实际渲染选择，template=null 清除；不上传参考文件。
+模板列表只代表当前渲染分类，不声称所有未来类别或全部模板已经覆盖。
+Midjourney 隐藏比例、数量、4K 和一个空上传控件。隐藏选项返回 null；
+`implicit_changes` 报告设置变化，`implicit_control_changes` 报告已观察的空控件
+1↔0 变化；非空文件丢失、参考变化及其它控件形状变化仍报错。比例按钮悬停时
+文字会消失，故以已观察的 value/data-state/aria-pressed 核验，不猜文字定位。
+实际固定页脚可能遮挡 4K：先按已观察路径聚焦准确开关并按 End，再重新核对
+中心点命中，仅命中恢复后单次点击；仍有遮挡则明确失败。
+`resolution_preparation` 记录 viewport_repair、requested 与实际 verified_value。
+读取只关闭自己打开的选择层；既有弹层保持原状，草稿变化明确失败。
+Free 14/1000 与表单旁数值只是计费观察，`quoted_credits=null`；不据此点击生成。
+实际图片生成/编辑/放大/Cutout/多视图、下载文件与画面质量仍分别验收。
+2026-10-04 同一最终源码的 35 项真实表单矩阵、独立画面与原草稿恢复通过；
+原生 4K smoke 另 3 项通过，包含实际 focus_end 视口修复。完整证据与未完成
+边界见 [对齐合同](TRIPO_UI_PARITY.md#前台恢复后的图片表单最终验收-2026-10-04)。
+自有选择层关闭卡住时保留失败和草稿，先核对准确 CLI 标签页的可见性；账号
+显示核对页可能是另一标签，不将它当作 CLI 结果。不得只凭 closed 状态放行。
 
 Agent 检查 bridge doctor、已注册定义、源文件摘要和真实可执行文件绑定，
 直接调用已安装工具。需要登录时仅打开本地官网交给人；不把安装/授权命令清单
@@ -188,3 +316,15 @@ manifest 额外固定适配器文件摘要。升级需要重新审阅。哈希�
   原四个工具的源码摘要/定义不变。临时只读诊断已放入可恢复废纸篓，正式注册仍为 15 项。
 - 新增付费路径使用合成页面和假子进程测试；真实付费重拓扑/绑骨/图片生成仍
   待指定合适源资产、内容与独立预算后验收。本次已花费的一次 40 积分批准不复用。
+
+## 当前分阶段状态
+
+上述 15 项为历史验收。现有 29 项还包含工作区 3、资产查询 2、动画/导出选项 4、查看器/层级 5。
+最新摘要、真实失败修复、逐项原生复测与剩余缺口以
+[操作对齐合同](TRIPO_UI_PARITY.md) 为准。动画草稿和多格式选项已接入不等于
+动画产物或六种格式文件均验收；旧未知上传锁保留，新付费决定单独等待。
+
+查看器/层级新增 5 项已在最终摘要下通过 41 条真实调用，另逐张验看 11 个相机
+动作的实际画面并复位；PBR 特效组合与动态旋转已按网页差异修复并真实复测。
+此前 r1–r4 失败、最终 r5 通过和精确姿态/持久几何等剩余边界分别记录在合同末尾；
+本阶段验收不代表全网站、所有模型质量或付费结果完整覆盖。

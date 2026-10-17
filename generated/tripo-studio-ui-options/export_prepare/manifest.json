@@ -1,0 +1,97 @@
+{
+  "id": "tripo.studio.export_prepare",
+  "provider": "tripo",
+  "title": "Tripo Studio export_prepare",
+  "capabilities": [
+    "3d",
+    "export_prepare"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code",
+    "external_write"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "asset_id": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "enum": [
+              "USD",
+              "FBX",
+              "OBJ",
+              "STL",
+              "GLB",
+              "3MF"
+            ]
+          },
+          "texture_resolution": {
+            "enum": [
+              "512",
+              "1k",
+              "2k",
+              "4k",
+              "8k"
+            ]
+          },
+          "export_skeleton": {
+            "type": "boolean"
+          },
+          "fbx_variant": {
+            "enum": [
+              "Blender",
+              "Mixamo",
+              "3dsmax"
+            ]
+          },
+          "vertex_colors": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "asset_id",
+      "settings"
+    ],
+    "additionalProperties": false
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "export-prepare",
+      "--pin",
+      "47aca5a146ab8b2531893e2408a1b2914f2d0efc4ea506e896d2c6655dcebfb9",
+      "-f",
+      "json",
+      "--asset",
+      {
+        "input": "asset_id"
+      },
+      "--settings",
+      {
+        "json": "settings"
+      }
+    ],
+    "output": "json",
+    "timeout": 180
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Visible semantic UI controls only. Exact source UUID, typed settings and actual enabled options. Animation preserves an existing prompt unless replacement binds its digest. Export preserves existing dialogs, opens and closes only its own transient dialog. No generation, preset application, download, upload, publication or raw authentication.",
+  "completion": "Animation form readiness is not a completed motion. Export options are read back before closing the owned dialog; UI may remember settings, so inspect again before any action. No save or export button click, no paid quote or downloaded/validated file. Multi-format output acceptance remains separate.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}

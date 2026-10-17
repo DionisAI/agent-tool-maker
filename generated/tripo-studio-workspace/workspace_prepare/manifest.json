@@ -1,0 +1,110 @@
+{
+  "id": "tripo.studio.workspace_prepare",
+  "provider": "tripo",
+  "title": "Tripo Studio workspace_prepare",
+  "capabilities": [
+    "3d",
+    "workspace_prepare"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code",
+    "external_write"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "module": {
+        "enum": [
+          "segment",
+          "texture",
+          "edit",
+          "upscale",
+          "pbr"
+        ]
+      },
+      "asset_id": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "detail_level": {
+            "enum": [
+              "Simple",
+              "Balanced",
+              "Detailed"
+            ]
+          },
+          "resolution": {
+            "enum": [
+              "2K",
+              "4K",
+              "8K"
+            ]
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1000
+          },
+          "remove_lighting": {
+            "type": "boolean"
+          },
+          "creativity_strength": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "expected_prompt_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "module",
+      "asset_id",
+      "settings"
+    ],
+    "additionalProperties": false
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "workspace-prepare",
+      "--pin",
+      "3b7df85e08edf55de3dc09c777ed771c01fbc0965d13b6db0b20528536909dcc",
+      "-f",
+      "json",
+      "--module",
+      {
+        "input": "module"
+      },
+      "--asset",
+      {
+        "input": "asset_id"
+      },
+      "--settings",
+      {
+        "json": "settings"
+      }
+    ],
+    "output": "json",
+    "timeout": 180
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Observed visible workspace form only. No arbitrary selectors, JS, URL, profile or provider replay. Preparation validates typed semantic settings and exact source, preserves drafts unless replacement binds their digest. Paid submissions retain shared uncertainty lock and stable request key. Missing price stays unknown.",
+  "completion": "Form inspection/preparation is not submission. Submitted observes provider UI progress or a new asset, not finished model/export. Full UI parity remains separately audited.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}
