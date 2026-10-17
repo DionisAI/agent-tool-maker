@@ -113,8 +113,9 @@ def validate_request(operation, argv, workspace):
 
 
 def router_only(spec):
-    """Paid or human-confirmed operations; the server never grants that consent itself."""
-    return spec["paid"] or any(field.get("const") is True for field in spec["schema"]["properties"].values())
+    """All but read-only page scripts; the server never grants write, paid or confirmation consent itself."""
+    read_only = not spec["paid"] and set(spec["permissions"]) <= {"execute_code"}
+    return not read_only or any(field.get("const") is True for field in spec["schema"]["properties"].values())
 
 
 def _ticket_binding(operation, argv, workspace, bundle):
@@ -150,9 +151,10 @@ def consume_ticket(home, ticket, spec, operation, argv, workspace, bundle):
         record = data.get("studio_ticket") or {}
         if not (row and secret and row["tool"] == binding["tool"] and row["status"] == "submitting"
                 and (data.get("paid_granted") is True or not spec["paid"]) and "consumed_at" not in record
+                and set(spec["permissions"]) <= set(data.get("permissions_granted") or [])
                 and time.time() < record.get("expires_at", 0) and all(record.get(k) == v for k, v in binding.items())
                 and hmac.compare_digest(str(record.get("sha256")).encode(), digest)):
-            raise RouterError("router_ticket_required", "Paid or human-confirmed server operations run only through atm studio run "
+            raise RouterError("router_ticket_required", "Write, paid or human-confirmed server operations run only through atm studio run "
                               "or atm run, which issue a single-use ticket after their gates; nothing was submitted.")
         record["consumed_at"] = time.time()
         c.execute("UPDATE jobs SET data=?,updated=? WHERE id=?", (canonical({**data, "studio_ticket": record}), record["consumed_at"], job_id))

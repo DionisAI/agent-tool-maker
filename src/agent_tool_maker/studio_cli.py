@@ -122,7 +122,7 @@ def dispatch(args, router):
     if operation == "adapter":
         if args.bundle != bundle_digest():
             raise RouterError("definition_changed", "Review and reinstall the changed server runtime bundle.")
-        # Paid/confirmed operations need the single-use ticket only the Router's execution sets.
+        # Write/paid/confirmed operations need the single-use ticket only the Router's execution sets.
         return asyncio.run(request(home, {"method": "run", "operation": args.tool, "argv": args.argv,
                                "workspace": str(Path.cwd()), "bundle": args.bundle, "ticket": os.environ.get(TICKET_ENV)}))
     raise RouterError("invalid_argument", "Unknown server operation.")
