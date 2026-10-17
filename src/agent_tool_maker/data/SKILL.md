@@ -53,7 +53,67 @@ the unchanged draft; do not navigate away or upload again between these steps.
 `export_quote` opens a ready model's GLB dialog; confirmed `export` delivers and
 validates a completed local GLB. Other formats and Unreal import are separate.
 All side effects share the text tool's durable project lock and stable-key reuse.
+`workspace_inspect` reads all twelve observed Workspace forms, warnings and prices;
+missing prices remain unknown. Folded children open through their visible parent
+(Texture -> Edit/Upscale/PBR, Rig -> Animate), not hidden links. `workspace_prepare`
+sets reviewed Segment/Texture/Magic Brush/Upscale/PBR options without submitting.
+Replacing or clearing an existing prompt binds its exact observed digest.
+`workspace_submit` handles those five quoted paid model operations with the same
+source/quote/budget/confirmation/uncertainty gates. Real paid acceptance remains
+separate. Follow docs/TRIPO_UI_PARITY.md for the full ongoing computer-use parity
+contract; form inspection and tool count are not full UI completion.
+`assets_query` selects Model/My Assets with the five observed filters, Model/
+Collected (no filter controls), or Image/All and Image/multi-views. It verifies
+scope on every read and reports partial while no authoritative end contract is
+observed. Single-image IDs bind task+index; four multiviews are one card. No alt
+attribute is required for image cards; signed URL query strings are discarded.
+`image_preview` verifies an exact image/view, reads generation-model/aspect-ratio
+metadata and closes only the preview it opened. Listed generation actions are
+not clicked. Existing visible dialogs stay untouched; no upload/paid grant.
+Covered scope controls return Home and verify the pointer hit before clicking.
+An incidental Creator hover popover triggered by closing this tool's own preview
+is dismissed after moving to the safe All control; other dialogs are preserved.
+`animation_inspect` separates an empty draft from a real rig prerequisite;
+`animation_prepare` sets prompt/duration 1-10 without generation, with exact
+prompt digest for replacement/clearing. Presets are listed, not applied.
+`export_options`/`export_prepare` inspect six formats and prepare enabled typed
+texture/skeleton/FBX variant/OBJ vertex-color options. They close only their own
+dialog after readback; the UI may remember options, so recheck before any action.
+No save or export button is clicked and no download starts.
+options_sha256 is not a quote for legacy GLB export. Other files still need real
+download validation. Existing dialogs stay untouched. A same-href Rig shortcut
+and Animate sidebar require the exact inspected semantic link's match index.
+`viewer_inspect` reads visible render/environment and hierarchy controls, restoring
+the sidebar and closing only its own environment layers. `viewer_prepare` sets
+seven effective modes, independent wireframe/grid, six environment presets,
+strength 0-2, rotation 0-360 and auto-rotate. PBR effects keep PBR pressed too;
+restoring plain PBR clears the exact effect and verifies its restored base.
+Auto Rotate changes the visible environment angle. A requested starting rotation
+is verified while stopped; rotation_preparation records that readback before
+enabling/restoring rotation. The final angle remains the actual dynamic UI value.
+`hierarchy_prepare` selects an exact rendered node or changes visibility; hiding
+deselects it. `hierarchy_transform` requires the selected node and exact prior
+transform digest; XYZ vectors have two-decimal precision. Edits may autosave
+without a Save click: use the approved test asset and restore its exact values.
+`viewer_camera` sends bounded native orbit/pan/zoom/reset input, reports no engine
+pose, and requires separate rendered visual acceptance. No generation, upload,
+export, publication or Delete action is included in these five tools.
 Never reuse the already-spent one-time cube approval for new paid operations.
+`image_form_inspect` / `image_form_prepare` are the separate Generate Image form,
+not image-to-3D. Inspect visible model/template choices, then bind preparation to
+expected_draft_sha256. Typed prompt (0-10000), ratio/null, count 1-4, 4K and
+template/null settings do not upload or click Generate. Midjourney hides ratio,
+count and 4K controls: null is unavailable, not a guessed default. Hover can hide
+ratio text; reviewed value/state markers are used. Model-induced visible option
+changes are reported in implicit_changes. Existing references and unrequested
+prompts stay intact; only owned choice layers close. Free allowance and detached
+price text remain observations, not a generation quote or spending approval.
+Midjourney removes one empty file input; restoring another model reinstates it.
+This exact observed change is reported in implicit_control_changes; nonempty
+FileList loss, reference changes and other input-shape changes still fail.
+The fixed generation footer can cover 4K. Focus + End repairs the observed nested
+viewport, then the exact hit test runs again; resolution_preparation records the
+repair and actual value. Remaining covering still fails without a switch click.
 Distinguish installed/offline-tested paths, real quotes/upload/export, and real
 paid generation or rigging acceptance; no automatic extra credit consumption.
 
