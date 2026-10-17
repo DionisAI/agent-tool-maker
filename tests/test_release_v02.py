@@ -40,7 +40,12 @@ def test_custom_api_cannot_send_credentials_to_private_host(router,tmp_path,work
     t={'id':'custom.private','provider':'custom','title':'Bad private destination','adapter':'rest','capabilities':['inspect'],
        'schema':{'type':'object','properties':{},'additionalProperties':False},
        'request':{'origin':'https://127.0.0.1','path':'/','auth':'bearer'},'credential':'custom'}
-    t=validate_manifest(t,router.catalog);p=tmp_path/'custom.json';p.write_text(canonical(t));install(router.state,router.catalog,p,digest(t))
+    p=tmp_path/'custom.json';p.write_text(canonical(t))
+    with pytest.raises(RouterError) as refused:install(router.state,router.catalog,p,digest(t))
+    assert refused.value.code=='bad_manifest'
+    # A definition installed before origin review existed must still never reach the private host.
+    legacy=validate_manifest({**t,'request':{**t['request'],'origin':'https://api.example.com'}},router.catalog);legacy['request']['origin']='https://127.0.0.1'
+    router.state.set_setting('custom_tools',[legacy])
     router.catalog=Catalog(router.state);router.vault.put('custom','NEVER_SEND_THIS');seen=[]
     router.net.client=httpx.Client(transport=httpx.MockTransport(lambda req:seen.append(req)))
     j=router.run('custom.private',{},workspace)

@@ -85,8 +85,9 @@ def test_pack_failure_preserves_partial_bundle_and_never_removes(tmp_path, monke
         real_write(path, data)
     monkeypatch.setattr(ex, 'atomic_write', fail_lock)
     directory = tmp_path / 'partial'
-    with pytest.raises(OSError):
+    with pytest.raises(RouterError) as failed:
         pack(builder.manifest('account'), directory)
+    assert failed.value.code == 'bundle_incomplete' and str(directory) in str(failed.value)
     assert (directory / 'tool.py').is_file()
     with pytest.raises(Exception):
         validate_bundle(directory)

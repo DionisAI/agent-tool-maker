@@ -109,5 +109,14 @@ def draft(router, agent: str, seed_path: Path, brief_path: Path, out: Path, *, a
             raise
         if candidate['id'] != seed['id'] or candidate['adapter'] != seed['adapter']:
             raise RouterError('draft_identity_changed', 'Model changed tool ID or adapter; refused instead of silently installing new authority.')
+        # Adding gates is stricter; removing the seed's paid flag or permissions is not.
+        if seed['paid'] and not candidate['paid']:
+            raise RouterError('draft_authority_changed', 'Model removed the seed paid flag; refused instead of silently dropping the paid approval gate.')
+        if set(seed['permissions']) - set(candidate['permissions']):
+            raise RouterError('draft_authority_changed', 'Model removed seed permissions; refused instead of silently dropping approval gates.')
+        # Which vault secret leaves the vault, and through which bound executable, is authority too.
+        secrets = lambda t: {t.get('credential')} | set((t.get('command') or {}).get('credential_env', {}).values())
+        if secrets(candidate) - secrets(seed) or candidate.get('credential') != seed.get('credential') or candidate.get('executable') != seed.get('executable'):
+            raise RouterError('draft_authority_changed', 'Model changed the credential or executable; refused instead of silently redirecting a stored Key.')
         receipt = write_draft(candidate, out, router.catalog)
         return {**plan, **receipt, 'status': 'drafted', 'needs_owner_review': True, 'live_tested': False}
