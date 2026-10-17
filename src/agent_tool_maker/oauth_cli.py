@@ -53,7 +53,7 @@ def dispatch(args, router):
         print(__import__("json").dumps(result), flush=True)
         try:
             final = server.run()
-            if final["status"] == "ready" and final.get("refreshable") and args.keep_login:
+            if final["action"] == "connected" and final.get("refreshable") and args.keep_login:
                 from .oauth_service import install_service
                 final["service"] = install_service(router.state, executable=sys.argv[0], apply=True)
             return final
