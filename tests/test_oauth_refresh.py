@@ -5,6 +5,7 @@ No real provider accounts, credential files, browser consent or billing.
 import json
 import os
 import plistlib
+import socket
 import subprocess
 import sys
 import threading
@@ -207,7 +208,8 @@ def test_refresh_rotation_reopen_and_resource_before_unlock(oauth):
 
 @pytest.mark.parametrize('response,expected', [(httpx.Response(400,json={'error':'invalid_grant','error_description':'FIXTURE_REFRESH_1'}),'needs_login'),
     (httpx.Response(503,json={'error':'server_error','secret':'FIXTURE_ACCESS_1'}),'refresh_unknown'),
-    (httpx.ReadTimeout('fixture'),'refresh_unknown'), (httpx.Response(200,content='not JSON'),'refresh_unknown'),
+    (httpx.ReadTimeout('fixture'),'refresh_unknown'), (httpx.WriteTimeout('fixture'),'refresh_unknown'),
+    (httpx.RemoteProtocolError('fixture'),'refresh_unknown'), (httpx.Response(200,content='not JSON'),'refresh_unknown'),
     (httpx.Response(200,json={'access_token':'bad\nheader','refresh_token':'next','expires_in':3600,'token_type':'Bearer'}),'refresh_unknown'),
     (httpx.Response(200,content='{"access_token":"next","expires_in":Infinity,"token_type":"Bearer"}'),'refresh_unknown')])
 def test_refresh_errors_and_no_blind_retry(oauth, response, expected):
@@ -536,3 +538,139 @@ def test_proxy_reserved_dns_is_explicit_and_sends_nothing(oauth,monkeypatch):
         manager.discovery()
     assert caught.value.code=='oauth_dns_policy' and not caught.value.uncertain
     assert not fixture.requests
+
+
+def offline(*args, **kwargs):
+    raise socket.gaierror('fixture offline')
+
+
+@pytest.mark.parametrize('resolver,code', [(offline,'dns_error'),
+    (lambda *a,**kw:[(socket.AF_INET,socket.SOCK_STREAM,6,'',('198.18.0.138',443))],'oauth_dns_policy')])
+def test_refresh_resolution_failure_sends_nothing_and_stays_refreshable(oauth, monkeypatch, resolver, code):
+    manager, fixture, now = connected(oauth)
+    now[0] += 3600
+    count = len(fixture.requests)
+    monkeypatch.setattr(manager.net, 'resolver', resolver)
+    with pytest.raises(RouterError) as caught:
+        manager.refresh()
+    assert caught.value.code == code and not caught.value.uncertain
+    assert len(fixture.requests) == count
+    status = manager.status()
+    assert status['status'] == 'expired' and status['refreshable'] and status['last_error'] == code
+    router = Router(manager.state.home, vault=manager.vault, network=manager.net)
+    manager.keep_login(enabled=True)
+    monkeypatch.setattr('agent_tool_maker.oauth_cli.OAuth', lambda *args: manager)
+    assert tick(router)['action'] == 'paused' and manager.status()['status'] == 'expired'
+    monkeypatch.setattr(manager.net, 'resolver', fixture_resolver)
+    fixture.next_access = 'FIXTURE_ACCESS_2'
+    assert tick(router)['action'] == 'refreshed'
+    assert parse_qs(fixture.requests[-1].content.decode())['refresh_token'] == ['FIXTURE_REFRESH_1']
+    assert manager.status()['last_error'] is None and manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_2'
+
+
+@pytest.mark.parametrize('error', [httpx.ConnectError('fixture refused'), httpx.ConnectTimeout('fixture connect timeout')])
+def test_refresh_connect_failure_sent_nothing_and_stays_refreshable(oauth, error):
+    manager, fixture, now = connected(oauth)
+    fixture.token_result = error
+    now[0] += 3600
+    with pytest.raises(RouterError) as caught:
+        manager.refresh()
+    assert caught.value.code == 'oauth_network' and not caught.value.uncertain
+    assert 'FIXTURE_' not in json.dumps(caught.value.as_dict())
+    status = manager.status()
+    assert status['status'] == 'expired' and status['refreshable'] and status['last_error'] == 'oauth_network'
+    fixture.token_result = None
+    fixture.next_access = 'FIXTURE_ACCESS_2'
+    assert manager.refresh()['action'] == 'refreshed'
+    assert parse_qs(fixture.requests[-1].content.decode())['refresh_token'] == ['FIXTURE_REFRESH_1']
+    assert manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_2'
+
+
+@pytest.mark.parametrize('mode', ['discovery', 'offline', 'denied', 'timeout', 'abandoned', 'exchange_unknown'])
+def test_failed_replacement_keeps_previous_connection(oauth, monkeypatch, mode):
+    manager, fixture, now = connected(oauth)
+    fixture.next_access, fixture.next_refresh = 'FIXTURE_ACCESS_2', 'FIXTURE_REFRESH_2'
+    if mode in {'discovery', 'offline'}:
+        if mode == 'discovery':
+            fixture.metadata_patch = {'issuer': 'https://other.invalid'}
+        else:
+            monkeypatch.setattr(manager.net, 'resolver', offline)
+        with pytest.raises(RouterError):
+            begin(manager, replace=True)
+        monkeypatch.setattr(manager.net, 'resolver', fixture_resolver)
+        fixture.metadata_patch = {}
+    else:
+        server, result, query = begin(manager, replace=True, timeout=.01 if mode == 'timeout' else 300)
+        try:
+            assert result['status'] == 'pending' and result['action'] == 'started'
+            callback = {'state': query['state'], 'iss': ISSUER}
+            if mode == 'denied':
+                assert manager.callback(server.claim, {**callback, 'error': 'access_denied'})['action'] == 'denied'
+            elif mode == 'timeout':
+                final = server.run()
+                assert final['status'] == 'ready' and final['action'] == 'login_failed' and final['last_error'] == 'oauth_login_timeout'
+            elif mode == 'abandoned':
+                assert manager.keep_login(enabled=True)['status'] == 'pending'
+                now[0] += 301  # Login process exited without cleanup; its window lapsed.
+                assert manager.status()['keep_login'] and manager.status()['last_error'] == 'oauth_login_timeout'
+            else:
+                fixture.token_result = httpx.ReadTimeout('fixture')
+                with pytest.raises(RouterError):
+                    manager.callback(server.claim, {**callback, 'code': 'FIXTURE_CODE'})
+                fixture.token_result = None
+        finally:
+            server.server_close()
+    status = manager.status()
+    assert status['status'] == 'ready' and status['refreshable'] and status['last_error']
+    reopened = OAuth(State(manager.state.home), Vault(manager.state, keyring_backend=manager.vault.keyring_backend), manager.net, clock=manager.clock)
+    assert reopened.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_1'
+    reopened.refresh(force=True)
+    assert parse_qs(fixture.requests[-1].content.decode())['refresh_token'] == ['FIXTURE_REFRESH_1']
+
+
+def test_replacement_keeps_tokens_until_completion(oauth):
+    manager, fixture, _ = connected(oauth)
+    fixture.next_access, fixture.next_refresh = 'FIXTURE_ACCESS_2', 'FIXTURE_REFRESH_2'
+    server, result, query = begin(manager, replace=True)
+    try:
+        assert result['status'] == 'pending'
+        with manager.state.db() as db:
+            row, _ = manager._row(db)
+        assert manager._open(row)['refresh_token'] == 'FIXTURE_REFRESH_1'
+        assert manager.callback(server.claim, {'state': query['state'], 'code': 'FIXTURE_CODE', 'iss': ISSUER})['action'] == 'connected'
+    finally:
+        server.server_close()
+    assert manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_2'
+    status = manager.status()
+    assert status['status'] == 'ready' and status['last_error'] is None
+    manager.refresh(force=True)
+    assert parse_qs(fixture.requests[-1].content.decode())['refresh_token'] == ['FIXTURE_REFRESH_2']
+
+
+@pytest.mark.parametrize('value,code', [({'status':'missing'},2), ({'status':'needs_login'},2), ({'status':'pending'},3),
+    ({'status':'ready'},0), ({'status':'ready','action':'connected'},0), ({'status':'ready','action':'login_failed'},2),
+    ({'status':'ready','action':'denied'},2)])
+def test_cli_oauth_exit_codes_follow_contract(tmp_path, monkeypatch, capsys, value, code):
+    from agent_tool_maker.cli import main
+    monkeypatch.setattr('agent_tool_maker.oauth_cli.dispatch', lambda args, router: value)
+    assert main(['--home', str(tmp_path/'state'), 'oauth', 'status']) == code
+    assert json.loads(capsys.readouterr().out) == value
+
+
+def test_cli_status_for_missing_connection_needs_login(tmp_path, capsys):
+    from agent_tool_maker.cli import main
+    assert main(['--home', str(tmp_path/'state'), 'oauth', 'status']) == 2
+    assert json.loads(capsys.readouterr().out)['status'] == 'missing'
+
+
+def test_failed_cli_replacement_does_not_install_service(oauth, monkeypatch):
+    from types import SimpleNamespace
+    from agent_tool_maker.oauth_cli import dispatch
+    manager, _, _ = connected(oauth)
+    server = SimpleNamespace(run=lambda: {**manager.status(), 'action': 'login_failed'})
+    monkeypatch.setattr(manager, 'begin_login', lambda *a, **kw: (server, {'status': 'pending', 'action': 'started'}))
+    monkeypatch.setattr('agent_tool_maker.oauth_cli.OAuth', lambda *args: manager)
+    monkeypatch.setattr('agent_tool_maker.oauth_service.install_service', lambda *a, **kw: pytest.fail('failed replacement installed service'))
+    args = SimpleNamespace(operation='login', provider=NAME, keep_login=True, replace=True)
+    router = SimpleNamespace(state=manager.state, vault=manager.vault, net=manager.net)
+    assert dispatch(args, router)['action'] == 'login_failed'

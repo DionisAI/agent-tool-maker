@@ -311,7 +311,7 @@ def main(argv=None):
         if args.command == "oauth" and isinstance(value, dict):
             if value.get("status") in {"pending", "refreshing"}:
                 return 3
-            if value.get("status") in {"needs_login", "refresh_unknown", "denied", "expired"} or value.get("action") == "paused":
+            if value.get("status") in {"missing", "needs_login", "refresh_unknown", "denied", "expired"} or value.get("action") in {"paused", "denied", "login_failed"}:
                 return 2
         return 2 if isinstance(value,dict) and value.get("status") in ["failed","submission_unknown","download_failed","delivery_failed","blocked","partial_rejection","login_required"] else 0
     except RouterError as e:
