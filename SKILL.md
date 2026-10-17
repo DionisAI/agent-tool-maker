@@ -1,6 +1,6 @@
 ---
 name: agent-tool-maker
-description: Use ATM when a local Claude Code or Codex project needs API Keys, .env configuration, saved credentials, a local unlock, or reviewed logged-in CLI tools such as Higgsfield subscriptions. Open the human window automatically; never ask for secrets in chat.
+description: Use ATM to make reviewed website CLIs or use API Keys, saved credentials, local unlocks, Higgsfield subscriptions and Tripo Studio browser tools in local Claude Code or Codex projects. Never ask for secrets in chat.
 ---
 # ATM — let the Agent do the setup
 
@@ -16,6 +16,28 @@ Never move/reset an existing vault, clear existing credentials, or read token/pr
 The registered runtime block below takes precedence over PATH for daily commands.
 
 ## Daily workflow — execute these steps yourself, not a checklist for the human
+
+### Tripo Studio website tools and CLI making
+
+For Tripo Studio subscription credits, discover `tripo.studio.*`, not the built-in
+`tripo.generate` developer API. `account` and `assets` are read-only, need
+`--allow-code`, and use Chrome-owned login through the reviewed OpenCLIApp bridge.
+No vault Key unlock or cookie/token export. Assets cover currently loaded model
+cards only; `preview_task_id` is not an asset ID or proof of task completion.
+
+`quote` switches the generation panel to text mode but never clicks Generate;
+it requires code/write permission. `generate` also requires paid permission and
+explicit human approval of prompt, credit ceiling and visible quote. It is private,
+text-only, uses current observed settings and does not upload files or publish.
+Keep one stable request key in both ATM and input. Reuse returns the prior result.
+On uncertainty, retain receipt/lock and inspect the provider; never change the key
+or remove the lock to resubmit. Submission and finished model/download are separate.
+
+To make/update tools, read docs/TRIPO_STUDIO_CLI.md and docs/EXTENSIBILITY.md.
+Observe selectors first, preserve user drafts, build reviewed definitions with
+`scripts/build_tripo_studio.py` / `atm make pack`, and verify generated CLI plus
+real browser paths separately. Pin adapter files and the actual bridge executable;
+changed code needs explicit review. Do not install unreviewed global tooling.
 
 ### Higgsfield subscription credits — a separate login route
 
