@@ -1,5 +1,6 @@
 """Protocol, real local subprocess and isolated Chromium tests; never production login."""
 import asyncio
+import hashlib
 import importlib.util
 import json
 import os
@@ -13,6 +14,7 @@ from types import SimpleNamespace
 import pytest
 from agent_tool_maker.actions import compile_command
 from agent_tool_maker.errors import RouterError
+from agent_tool_maker.storage import State, canonical
 from agent_tool_maker.studio_cli import dispatch, manifests
 from agent_tool_maker import studio_runtime as runtime
 
@@ -177,6 +179,140 @@ def test_login_viewer_fixed_ttl_loopback_and_preserved_browser(tmp_path, monkeyp
     assert command[command.index("-auth") + 1] == str(authority)
 
 
+def test_studio_help_hides_router_only_adapter(capsys):
+    from agent_tool_maker.cli import parser
+    with pytest.raises(SystemExit):
+        parser().parse_args(["studio", "--help"])
+    shown = capsys.readouterr().out
+    assert "{serve,status,login,login-close,install,run}" in shown
+    assert "==SUPPRESS==" not in shown and not re.search(r"^\s+adapter\b", shown, re.M)
+    hidden = parser().parse_args(["studio", "adapter", "--bundle", "pin", "account", "--pin", "x"])
+    assert hidden.operation == "adapter" and hidden.argv == ["--pin", "x"]
+
+
+ROUTER_ONLY = sorted(op for op, spec in runtime.index().items() if runtime.router_only(spec))
+
+
+def router_job(home, operation, project, *, paid_granted=True, request_key="fixture-ticket", inputs=None):
+    """The Router's job claim and ticket issue (engine.run -> execute_command) for one server call."""
+    original = runtime.index()[operation]
+    if inputs is None:
+        inputs = {key: sample(value) for key, value in original["schema"]["properties"].items()}
+    if "image" in inputs:
+        (project / inputs["image"]).write_bytes(b"fake raster fixture")
+    tool = next(t for t in manifests(home) if t["id"] == "tripo.server." + operation)
+    argv = compile_command(None, tool, inputs, project, project)["argv"]
+    state = State(home)
+    job, _ = state.create_job(tool["id"], inputs, project, request_key)
+    job = state.update_job(job["id"], "submitting", paid_granted=paid_granted)
+    return state, job, argv, runtime.issue_ticket(state, job, argv, project).get(runtime.TICKET_ENV)
+
+
+def test_router_only_operations_are_paid_or_human_confirmed():
+    assert ROUTER_ONLY == ["export", "generate", "image_generate", "image_quote", "retopo", "rig", "workspace_submit"]
+    assert {op for op, spec in runtime.index().items() if spec["paid"]} <= set(ROUTER_ONLY)
+    # Read-only operations keep working without a ticket.
+    assert not any(runtime.router_only(spec) for spec in runtime.index().values() if spec["permissions"] == ["execute_code"])
+
+
+def test_router_ticket_is_single_use_and_bound_to_its_job(tmp_path, monkeypatch):
+    home, project, other = tmp_path / "state", tmp_path / "project", tmp_path / "other"
+    project.mkdir()
+    other.mkdir()
+    state, job, argv, ticket = router_job(home, "generate", project)
+    pin, rest = argv[5], argv[7:]
+    def consume(value, operation="generate", arguments=rest, workspace=project):
+        runtime.consume_ticket(home, value, runtime.index()[operation], operation, arguments, workspace, pin)
+    job_id, secret = ticket.split(".")
+    assert job_id == job["id"] and len(secret) == 64
+    record = state.job(job_id)["data"]["studio_ticket"]
+    assert secret not in json.dumps(state.job(job_id)) and record["expires_at"] <= runtime.time.time() + runtime.TICKET_TTL
+    budget = rest.index("--budget") + 1
+    for forged in [{"value": None}, {"value": ""}, {"value": job_id}, {"value": job_id + "." + "0" * 64},
+                   {"value": "unknown." + secret}, {"value": ticket, "operation": "rig"},
+                   {"value": ticket, "arguments": rest[:budget] + ["9999"] + rest[budget + 1:]},
+                   {"value": ticket, "workspace": other}]:
+        with pytest.raises(RouterError) as refused:
+            consume(**forged)
+        assert refused.value.code == "router_ticket_required" and not refused.value.uncertain
+    assert "consumed_at" not in state.job(job_id)["data"]["studio_ticket"]
+    consume(ticket)
+    assert state.job(job_id)["data"]["studio_ticket"]["consumed_at"]
+    with pytest.raises(RouterError, match="single-use"):
+        consume(ticket)  # Replay of a consumed ticket.
+    with state.db() as c:
+        assert [r[0] for r in c.execute("SELECT kind FROM events WHERE job_id=?", (job_id,))].count("studio_ticket_consumed") == 1
+    # Paid tickets also need the Router's paid grant, a still-submitting job and an unexpired ticket.
+    _, _, _, ungranted = router_job(home, "generate", project, paid_granted=False, request_key="no-paid-grant")
+    _, finished, _, settled = router_job(home, "generate", project, request_key="already-settled")
+    state.update_job(finished["id"], "submission_unknown")
+    _, _, _, stale = router_job(home, "generate", project, request_key="expired-ticket")
+    for value in (ungranted, settled):
+        with pytest.raises(RouterError, match="single-use"):
+            consume(value)
+    later = runtime.time.time() + runtime.TICKET_TTL + 1
+    monkeypatch.setattr(runtime.time, "time", lambda: later)
+    with pytest.raises(RouterError, match="single-use"):
+        consume(stale)
+
+
+@pytest.mark.parametrize("operation", ROUTER_ONLY)
+def test_server_refuses_router_only_operation_without_ticket_before_spawn(operation, tmp_path, monkeypatch):
+    home, project = tmp_path / "state", tmp_path / "project"
+    project.mkdir()
+    state, job, argv, ticket = router_job(home, operation, project)
+    class Spawned(Exception):
+        pass
+    async def spawn(*command, **kwargs):
+        raise Spawned()
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", spawn)
+    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[SimpleNamespace(url="about:blank")]), "node")
+    packet = {"method": "run", "operation": operation, "argv": argv[7:], "workspace": str(project), "bundle": runtime.bundle_digest()}
+    for forged in (None, job["id"] + "." + "0" * 64):
+        with pytest.raises(RouterError) as refused:
+            asyncio.run(browser.run({**packet, "ticket": forged}))
+        assert refused.value.code == "router_ticket_required" and not refused.value.uncertain
+    assert "consumed_at" not in state.job(job["id"])["data"]["studio_ticket"]
+    with pytest.raises(Spawned):
+        asyncio.run(browser.run({**packet, "ticket": ticket}))  # The Router's ticket reaches the adapter.
+    assert state.job(job["id"])["data"]["studio_ticket"]["consumed_at"]
+
+
+def test_router_passes_ticket_only_after_its_gates(router, tmp_path):
+    executable = tmp_path / "fixture-atm"
+    executable.write_text('#!/bin/sh\nprintf "%s" "$ATM_STUDIO_TICKET" > "$PWD/received-ticket"\necho "[]"\n')
+    executable.chmod(0o700)
+    preview = dispatch(args("install", apply=False), router)
+    dispatch(args("install", apply=True, approve=preview["bundle_sha256"], atm_executable=executable), router)
+    project = tmp_path / "project"
+    project.mkdir()
+    received = project / "received-ticket"
+    inputs = {"prompt": "Synthetic fixture cube", "quote_sha256": "a" * 64, "max_credits": 40,
+              "request_key": "router-paid-once", "human_confirmed": True}
+    grants = ["execute_code", "external_write"]
+    with pytest.raises(RouterError) as unpaid:
+        router.run("tripo.server.generate", inputs, project, request_key="router-paid-once", grants=grants)
+    assert unpaid.value.code == "paid_confirmation_required" and not received.exists()
+    account = router.run("tripo.server.account", {}, project, request_key="router-read", grants=["execute_code"])
+    assert account["status"] == "completed" and received.read_text() == "" and "studio_ticket" not in account["data"]
+    job = router.run("tripo.server.generate", inputs, project, request_key="router-paid-once", allow_paid=True, grants=grants)
+    assert job["status"] == "completed", job
+    ticket = received.read_text()
+    job_id, secret = ticket.split(".")
+    record = job["data"]["studio_ticket"]
+    assert job_id == job["id"] and record["tool"] == "tripo.server.generate" and record["workspace"] == str(project.resolve())
+    assert record["sha256"] == hashlib.sha256(secret.encode()).hexdigest() and secret not in json.dumps(job)
+    tool = router.catalog.get("tripo.server.generate")
+    argv = compile_command(None, tool, inputs, project.resolve(), project.resolve())["argv"]
+    assert record["argv_sha256"] == hashlib.sha256(canonical(argv[7:]).encode()).hexdigest()
+    # Once the Router job settles, the captured ticket cannot be replayed.
+    assert State(router.state.home).job(job_id)["status"] == "completed"
+    with pytest.raises(RouterError, match="single-use"):
+        runtime.consume_ticket(router.state.home, ticket, runtime.index()["generate"], "generate", argv[7:], project.resolve(), argv[5])
+    again = router.run("tripo.server.generate", inputs, project, request_key="router-paid-once", allow_paid=True, grants=grants)
+    assert again["id"] == job["id"] and received.read_text() == ticket  # Request-key reuse issues no new ticket.
+
+
 @pytest.mark.browser
 @pytest.mark.integration
 def test_real_production_serve_entry_and_exclusive_profile(source_atm, tmp_path):
@@ -322,9 +458,27 @@ def test_real_fake_paid_gate_and_single_submission(server_process, source_atm, t
     code, denied = cli(source_atm, home, *command)
     assert code == 2 and denied["error"]["code"] == "paid_confirmation_required"
     assert not (project / ".atm/tripo-studio-paid").exists()
+    # The hidden adapter is not a second paid path: the installed command line, run directly
+    # without (or with a forged) Router ticket, is refused before any form or paid click.
+    tool = next(t for t in manifests(home) if t["id"] == "tripo.server.generate")
+    direct = compile_command(None, tool, json.loads(paid.read_text()), project, project)["argv"]
+    for ticket in (None, "00000000-0000-4000-8000-000000000000." + "0" * 64):
+        env = {k: v for k, v in os.environ.items() if k != runtime.TICKET_ENV}
+        if ticket:
+            env[runtime.TICKET_ENV] = ticket
+        result = subprocess.run([str(source_atm), *direct], cwd=project, env=env, text=True, capture_output=True, timeout=45)
+        refused = json.loads(result.stdout)["error"]
+        assert result.returncode == 2 and refused["code"] == "router_ticket_required" and not refused["outcome_uncertain"]
+    with pytest.raises(RouterError) as raw:
+        asyncio.run(runtime.request(home, {"method": "run", "operation": "generate", "argv": direct[7:],
+            "workspace": str(project), "bundle": runtime.bundle_digest()}))
+    assert raw.value.code == "router_ticket_required" and not raw.value.uncertain
+    assert not (project / ".atm/tripo-studio-paid").exists()
     code, first = cli(source_atm, home, *command, "--allow-paid")
     assert code == 0 and first["status"] == "completed", first
     assert first["data"]["result"][0]["status"] == "submitted"
+    ticket = first["data"]["studio_ticket"]
+    assert ticket["tool"] == "tripo.server.generate" and ticket["consumed_at"]  # The Router path consumed its own ticket.
     code, second = cli(source_atm, home, *command, "--allow-paid")
     assert code == 0 and first["id"] == second["id"]
     code, account = cli(source_atm, home, "run", "account", "--input", str(empty), "--request-key", "fake-balance", *base)
@@ -340,9 +494,10 @@ def test_real_image_flag_mapping_preserves_missing_draft(server_process, tmp_pat
     original = runtime.index()["image_generate"]
     inputs = {key: sample(value) for key, value in original["schema"]["properties"].items()}
     argv = compile_command(None, original, inputs, project, project)["argv"][3:]
+    _, _, _, ticket = router_job(home, "image_generate", project, inputs=inputs)  # Paid: Router ticket required.
     with pytest.raises(RouterError) as missing:
         asyncio.run(runtime.request(home, {"method": "run", "operation": "image_generate", "argv": argv,
-            "workspace": str(project), "bundle": runtime.bundle_digest()}))
+            "workspace": str(project), "bundle": runtime.bundle_digest(), "ticket": ticket}))
     # The original OpenCLI wrapper maps --image-sha to image_sha. Check that the
     # server reaches the real draft gate rather than rejecting a valid image hash.
     assert missing.value.code == "draft_missing"
