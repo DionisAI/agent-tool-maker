@@ -1,0 +1,751 @@
+{
+  "1password": {
+    "name": "1Password",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/1password.svg",
+    "hex": "145FE4",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "1Password",
+      "hex": "145FE4",
+      "source": "https://1password.com/press",
+      "guidelines": "https://1password.com/press"
+    },
+    "upstream_sha256": "7153e7c2de67386c02835960855f627769573039aeb03e89577c7fb7f94f0c44",
+    "bundled_svg_sha256": "8ec69e387669001dfd439e1349074ed3dc3e2b5c87a54e0be0d83b2c60103599"
+  },
+  "blender": {
+    "name": "Blender",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/blender.svg",
+    "hex": "E87D0D",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Blender",
+      "hex": "E87D0D",
+      "source": "https://www.blender.org/about/logo",
+      "guidelines": "https://www.blender.org/about/logo"
+    },
+    "upstream_sha256": "ec86e2c9cf9fc25f5c8d3bf2e8d201c0dce6683137f37a1e61f992da6566bff5",
+    "bundled_svg_sha256": "54aaa8feba0aa723678dd12dd6f869ddc6399660e9017f024db230772df1037b"
+  },
+  "buffer": {
+    "name": "Buffer",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/buffer.svg",
+    "hex": "231F20",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Buffer",
+      "hex": "231F20",
+      "source": "https://buffer.com"
+    },
+    "upstream_sha256": "e9a9bc613840afb4d8c29bb2f1987c37436c7b7bffcc5c3dc84f4e6b04190ed5",
+    "bundled_svg_sha256": "1f84a4a7ab5d437fdc7d27110bc7f97b03836ee7402b45b5a58521c9c1eef8f7"
+  },
+  "canva": {
+    "name": "Canva",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/13.21.0/icons/canva.svg",
+    "hex": "00C4CC",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Canva",
+      "hex": "00C4CC",
+      "source": "https://www.canva.com"
+    },
+    "upstream_sha256": "0d90ba2030f2ad642e19234241467280e97034a151905d60e05f0fc9fc41dcff",
+    "bundled_svg_sha256": "2f51af618b29721c5e5ddcf4ad9ed26086b532005923b5160f3b87c47a40c14b"
+  },
+  "chrome": {
+    "name": "Google Chrome",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/googlechrome.svg",
+    "hex": "4285F4",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Google Chrome",
+      "hex": "4285F4",
+      "source": "https://www.google.com/chrome",
+      "guidelines": "https://partnermarketinghub.withgoogle.com/brands/chrome"
+    },
+    "upstream_sha256": "ce2ff9d2a010ed24f821ef34e40dc125d2bdf1dd28f42ded7b6017585b73c1dd",
+    "bundled_svg_sha256": "9d2e89003e53b7ba9fba145e3154ea8d55dcaf29731947b3ee9efb2734f20dc1"
+  },
+  "claude": {
+    "name": "Claude",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/claude.svg",
+    "hex": "D97757",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Claude",
+      "hex": "D97757",
+      "source": "https://claude.ai"
+    },
+    "upstream_sha256": "2d6fda79eb18ddccca35b799eeb3cece0dfabc22520ce3b10abd25668df9fa93",
+    "bundled_svg_sha256": "148afc8c8704e2c49ce1bab1efd51c36ee7ebc1761049ee962c5159ddba2bb2a"
+  },
+  "cloudflare": {
+    "name": "Cloudflare",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/cloudflare.svg",
+    "hex": "F38020",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Cloudflare",
+      "hex": "F38020",
+      "source": "https://www.cloudflare.com/logo/",
+      "guidelines": "https://www.cloudflare.com/trademark/"
+    },
+    "upstream_sha256": "408096d99907fd99e0863cb5d73f77a72537c6a85fd8d5e2704178a83a891f08",
+    "bundled_svg_sha256": "c842da6d81d9b1b38a8ca2da30d89424ce9518e521bfb9b32fe2c1c41fc89aa4"
+  },
+  "comfyui": {
+    "name": "ComfyUI",
+    "url": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/comfyui.svg",
+    "hex": "287C57",
+    "library": "Lobe Icons",
+    "license": "MIT",
+    "upstream_sha256": "1169cfa777743f92e268502a56edf820c04314e0219b95cbe95536aaf44682db",
+    "bundled_svg_sha256": "bd61fe49b74daf0d92f9290417681f4d22e7dde3241a954d04139dcc75c9b707"
+  },
+  "docker": {
+    "name": "Docker",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/docker.svg",
+    "hex": "2496ED",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Docker",
+      "hex": "2496ED",
+      "source": "https://www.docker.com/company/newsroom/media-resources"
+    },
+    "upstream_sha256": "65571291c261ef869c31540a38f3ca0f0ee3bb73f179c172211c8860f19a6359",
+    "bundled_svg_sha256": "9df8e12fa08d8b1f67cb550bf32f70f34d87aabe3f367e4249aa7d1e63659223"
+  },
+  "elevenlabs": {
+    "name": "ElevenLabs",
+    "url": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/elevenlabs.svg",
+    "hex": "182C30",
+    "library": "Lobe Icons",
+    "license": "MIT",
+    "upstream_sha256": "152a4a89fd5228924b6ccc91a72675966df35e3b69d1cf93a67b6866cf846584",
+    "bundled_svg_sha256": "3ca9ad2bfddb4c013da1e22815a04dc9eba6aadc0c45a415eea6b62640aa9cfa"
+  },
+  "exa": {
+    "name": "Exa",
+    "url": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/exa.svg",
+    "hex": "1764F2",
+    "library": "Lobe Icons",
+    "license": "MIT",
+    "upstream_sha256": "b1ae01ccce6798d7b9a129807e0fb9b0629cc035f4ead27d6300ab2adde792bb",
+    "bundled_svg_sha256": "ce504a969d6762dd69a3529cc3de3dce0d900f0b694e2b694c31f2818fd66f60"
+  },
+  "expo": {
+    "name": "Expo",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/expo.svg",
+    "hex": "1C2024",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Expo",
+      "hex": "1C2024",
+      "source": "https://expo.dev/brand/",
+      "guidelines": "https://expo.dev/brand/"
+    },
+    "upstream_sha256": "fe31b54a038878735a20ff497c6b250221707047785a324c4f7ef83228f40c6a",
+    "bundled_svg_sha256": "2c4913bc7e57e05b98c3e990fc4de9dab9dd2d3930a407a458538ea1fc426590"
+  },
+  "fal": {
+    "name": "fal.ai",
+    "url": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/fal.svg",
+    "hex": "6747ED",
+    "library": "Lobe Icons",
+    "license": "MIT",
+    "upstream_sha256": "622cdc2ccc3aefe55d60f2bb65af9e16c74143da980a806c4074c98e31b0e5b7",
+    "bundled_svg_sha256": "ad1c6496298abab914275aa94511c2cb9a366def657aaf40e8a29489bab044b3"
+  },
+  "ffmpeg": {
+    "name": "FFmpeg",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/ffmpeg.svg",
+    "hex": "007808",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "FFmpeg",
+      "hex": "007808",
+      "source": "https://commons.wikimedia.org/wiki/File:FFmpeg_Logo_new.svg"
+    },
+    "upstream_sha256": "076e200007de7d3f03ddc970e63a23f7cb46a772d1f4e7c670ceb22a9d46ed35",
+    "bundled_svg_sha256": "dca9c5892c660d8c5d19881ab17ce495f0a00f3cf82ebc575e5c5bc6addeb4d3"
+  },
+  "figma": {
+    "name": "Figma",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/figma.svg",
+    "hex": "F24E1E",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Figma",
+      "hex": "F24E1E",
+      "source": "https://www.figma.com/using-the-figma-brand/",
+      "guidelines": "https://www.figma.com/using-the-figma-brand/"
+    },
+    "upstream_sha256": "2f86fca501dfed321a62f28743f29d9dd738dac91668eac5260ab746d1ef8840",
+    "bundled_svg_sha256": "6b602f03868121b671cf90dca746be39319c6d601e9838fbf9b4132b7ab5c23c"
+  },
+  "fiverr": {
+    "name": "Fiverr",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/fiverr.svg",
+    "hex": "1DBF73",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Fiverr",
+      "hex": "1DBF73",
+      "source": "https://www.fiverr.com/press-kit"
+    },
+    "upstream_sha256": "a690e7c170a8fbef3644dd05dc0933071a945e3b03bc23122037ee4443174807",
+    "bundled_svg_sha256": "c1106d65ad4c8caf491b7d6add9bb31ce4bf13e190ad1949af30fe147a9b8cdf"
+  },
+  "freecad": {
+    "name": "FreeCAD",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/freecad.svg",
+    "hex": "418FDE",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "FreeCAD",
+      "hex": "418FDE",
+      "source": "https://fpa.freecad.org/handbook/process/logo.html",
+      "guidelines": "https://fpa.freecad.org/handbook/process/logo.html"
+    },
+    "upstream_sha256": "5240258315b8655a466978dfc7b9da34421cf3f076607befaf746eb2d715d5d2",
+    "bundled_svg_sha256": "edfd81af7320c431a6dc859ef9fb7369178b9e4ccd5143bbcfcbdf61a91f97ce"
+  },
+  "freelancer": {
+    "name": "Freelancer",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/freelancer.svg",
+    "hex": "29B2FE",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Freelancer",
+      "hex": "29B2FE",
+      "source": "https://www.freelancer.com"
+    },
+    "upstream_sha256": "495dcf9b6059b2d047f1b4f709fb91759866c107a4aa7b5f502a39a191b3ecf7",
+    "bundled_svg_sha256": "b7b95d9c55d9d6c661bb33d20e59d5029b2bc461716376d883468c74c2e86e8d"
+  },
+  "ghost": {
+    "name": "Ghost",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/ghost.svg",
+    "hex": "15171A",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Ghost",
+      "hex": "15171A",
+      "source": "https://github.com/TryGhost/Admin/blob/e3e1fa3353767c3729b1658ad42cc35f883470c5/public/assets/icons/icon.svg",
+      "guidelines": "https://ghost.org/docs/logos/"
+    },
+    "upstream_sha256": "be65c50c473f30df3f4da1defbfbb402bdbde934fbac0e90dae35f889175af1a",
+    "bundled_svg_sha256": "dd907bdbf57a51503e4bbedbe5bb959a150c9a645dc9373b70889fec8d733b7b"
+  },
+  "github": {
+    "name": "GitHub",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/github.svg",
+    "hex": "181717",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "GitHub",
+      "hex": "181717",
+      "source": "https://github.com/logos",
+      "guidelines": "https://github.com/logos"
+    },
+    "upstream_sha256": "3bf8cceead820aec50d4ee825a3fd02c5a1cd6665cc9cf4cbf3d9c8861a204bb",
+    "bundled_svg_sha256": "9c61829cd824a29596100b50ea0d3c5237c5852003f2e1ad7c6e38f36f941361"
+  },
+  "gltf": {
+    "name": "glTF",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/gltf.svg",
+    "hex": "87C540",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "glTF",
+      "hex": "87C540",
+      "source": "https://www.khronos.org/legal/trademarks",
+      "guidelines": "https://www.khronos.org/files/legal/Khronos-Logo-Usage-Guide.pdf"
+    },
+    "upstream_sha256": "3bbf1f9908fc5552b4a1ec6fc71b0b08b391587c870f1a1c38679bc978ebadcd",
+    "bundled_svg_sha256": "5e2633fbd65b6ea0ac21db2f8eb605722f77cb15ac117f62d32d9d103dbc6d53"
+  },
+  "godot": {
+    "name": "Godot Engine",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/godotengine.svg",
+    "hex": "478CBF",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Godot Engine",
+      "hex": "478CBF",
+      "source": "https://godotengine.org/press",
+      "guidelines": "https://godotengine.org/press",
+      "license": {
+        "type": "CC-BY-4.0"
+      }
+    },
+    "upstream_sha256": "95757647fedf1440fd24cc32a00f592ead4b050f8a63fdfcc46fbcd3a2952ffb",
+    "bundled_svg_sha256": "c4a8443fbe84913a92863bcbc6dd79be792fca3be7b6a967f30d6b2d04595290"
+  },
+  "google": {
+    "name": "Google",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/google.svg",
+    "hex": "4285F4",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Google",
+      "hex": "4285F4",
+      "source": "https://partnermarketinghub.withgoogle.com",
+      "guidelines": "https://about.google/brand-resource-center/brand-elements/",
+      "aliases": {
+        "loc": {
+          "ko-KR": "구글"
+        }
+      }
+    },
+    "upstream_sha256": "d8cf9fb2d5e234e03254f1d6400d8cc8160c309b010d031a64f37084b5a21d01",
+    "bundled_svg_sha256": "75be33be2853f81b3cc963eb23a15cf71d9433127d2f5877f69c2af5f60450ee"
+  },
+  "google_ads": {
+    "name": "Google Ads",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/googleads.svg",
+    "hex": "4285F4",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Google Ads",
+      "hex": "4285F4",
+      "source": "https://ads.google.com/home/"
+    },
+    "upstream_sha256": "729bf1f97587dd60e7592a98993543fec7ec3583a907a0e54b9fd88f7f28726f",
+    "bundled_svg_sha256": "0b330fb97b0b5a152d567f79ad526789b17516d5a4cefa6a665f80887f7abb70"
+  },
+  "higgsfield": {
+    "name": "Higgsfield",
+    "url": "https://higgsfield.ai/",
+    "hex": "182C30",
+    "library": "Official website navigation mark",
+    "license": "Brand identification; trademark owner retains rights",
+    "upstream_sha256": "7b0a5f4bb808440e4e41c921978d19ee48eb54219449c14f511c72043e415dc6",
+    "bundled_svg_sha256": "1e070c721fdf0bcc755d8a8a7f684edc3a551007a9d2f598a3d341ddf555103d"
+  },
+  "hubspot": {
+    "name": "HubSpot",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/hubspot.svg",
+    "hex": "FF7A59",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "HubSpot",
+      "hex": "FF7A59",
+      "source": "https://www.hubspot.com/style-guide",
+      "guidelines": "https://www.hubspot.com/style-guide"
+    },
+    "upstream_sha256": "f96cfb6bba27c8e70a03e782f07d4d649e9f39d2fb8bea7136b370ab2c3f04a9",
+    "bundled_svg_sha256": "444bba9a7df8bc9d99610da55bf87461b5d24d7dd44e86769b6401543d628b02"
+  },
+  "kicad": {
+    "name": "KiCad",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/kicad.svg",
+    "hex": "314CB0",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "KiCad",
+      "hex": "314CB0",
+      "source": "https://www.kicad.org/about/kicad/",
+      "license": {
+        "type": "GPL-3.0-or-later"
+      }
+    },
+    "upstream_sha256": "0d03e26e5858a61bf010b91d4384bec468553207e50d602becab92ba742158d8",
+    "bundled_svg_sha256": "1fd72b923ec0901c47f9817835aa7e31d0c6661df5500e445c786c7e90c73229"
+  },
+  "linear": {
+    "name": "Linear",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/linear.svg",
+    "hex": "5E6AD2",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Linear",
+      "hex": "5E6AD2",
+      "source": "https://linear.app"
+    },
+    "upstream_sha256": "90b91b61090f4f9c94f9cb24769642278f03e8eedcfe5680738cf3a186bfc00f",
+    "bundled_svg_sha256": "49c910b61766269d0679c7bac2f9551433cdcbe689a5de38430dd2bba64c2964"
+  },
+  "meshy": {
+    "name": "Meshy",
+    "url": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/meshy.svg",
+    "hex": "182C30",
+    "library": "Lobe Icons",
+    "license": "MIT",
+    "upstream_sha256": "c3d9715544c7210878547797a629b4ab3c535d5cfa69f1a0e580fea977f9476d",
+    "bundled_svg_sha256": "495267d4a8ead4e01af3f4c30b888164d4a379a5659d23ba53fd9f71d2bc3437"
+  },
+  "n8n": {
+    "name": "n8n",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/n8n.svg",
+    "hex": "EA4B71",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "n8n",
+      "hex": "EA4B71",
+      "source": "https://n8n.io/press"
+    },
+    "upstream_sha256": "f5a606188c78bf134fe7d85ae3d1310f6f4b7beafcd1d2fbdef2af02c92240a8",
+    "bundled_svg_sha256": "6b99956abfa1e5a25fbeab4084cba4b74f74789a51f8d19f7588983e3886bf5c"
+  },
+  "notion": {
+    "name": "Notion",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/notion.svg",
+    "hex": "000000",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Notion",
+      "hex": "000000",
+      "source": "https://www.notion.so"
+    },
+    "upstream_sha256": "b17d2a2b592a06252efef522d5205f0c7a958f748d40df1011ed081417e42f85",
+    "bundled_svg_sha256": "8c9d2e4478fa8caa8ffb61d12a8bb658dd56509210ce42a2eea5d11074b51c95"
+  },
+  "openai": {
+    "name": "OpenAI",
+    "url": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/openai.svg",
+    "hex": "182C30",
+    "library": "Lobe Icons",
+    "license": "MIT",
+    "upstream_sha256": "a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186",
+    "bundled_svg_sha256": "a923afd3043a003eb1ba091e75282ddea82caaca416cfddb638733ef5a052696"
+  },
+  "pandoc": {
+    "name": "Pandoc",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/pandoc.svg",
+    "hex": "4093DA",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Pandoc",
+      "hex": "4093DA",
+      "source": "https://github.com/tarleb/pandoc-logo/blob/1c547bbfaefa7e842c67e617775a44bc2342db8e/pandoc.svg",
+      "license": {
+        "type": "CC-BY-SA-4.0"
+      }
+    },
+    "upstream_sha256": "69d1ddfb15624f58352872338eae85b368bc3527695cf2feedcfacdd0bc8e91b",
+    "bundled_svg_sha256": "c701513d758a8f7060dd517d72cf7fafbc43c87faf14be55760937fc3a42903b"
+  },
+  "pexels": {
+    "name": "Pexels",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/pexels.svg",
+    "hex": "05A081",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Pexels",
+      "hex": "05A081",
+      "source": "https://www.pexels.com"
+    },
+    "upstream_sha256": "19459fc27e870fcea28793a3376f87ad5e463e7c6ee0562184ed5749844711cc",
+    "bundled_svg_sha256": "6ffd0586297012f3b1be118cb3c93698e583a3f36ebe0b6ca167ac447fd54570"
+  },
+  "photopea": {
+    "name": "Photopea",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/photopea.svg",
+    "hex": "18A497",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Photopea",
+      "hex": "18A497",
+      "source": "https://github.com/photopea/photopea/blob/d5c532e8ad8ece246e2ea8646aac7df768407c64/logo.svg"
+    },
+    "upstream_sha256": "5c26fb16def3fe1836efb351de59663b61400733d3a4dac718926a9320e8fb8b",
+    "bundled_svg_sha256": "2a8ea94dc6176aae54f821d9a2f251d8bb91d33673308e873dabdafa17a2853d"
+  },
+  "posthog": {
+    "name": "PostHog",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/posthog.svg",
+    "hex": "000000",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "PostHog",
+      "hex": "000000",
+      "source": "https://posthog.com/handbook/company/brand-assets",
+      "guidelines": "https://posthog.com/handbook/company/brand-assets"
+    },
+    "upstream_sha256": "5bf868765c8159a0d308d5577c86f2fc2f76d63795182a5a39bc362d5d4329f1",
+    "bundled_svg_sha256": "9c37c376a09cb44c506af543742a55d5562dc28e172ab8e53c5147c19c1e73f8"
+  },
+  "postiz": {
+    "name": "Postiz",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/postiz.svg",
+    "hex": "612BD3",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Postiz",
+      "hex": "612BD3",
+      "source": "https://postiz.com"
+    },
+    "upstream_sha256": "81845bf73ba4e661b0211e830f4bc990c12d8359608b643995dd0373858422a3",
+    "bundled_svg_sha256": "fe836d9252434c149f3a900cc92bf2906b2ccf2c35dd0a1a5bd551910b1cc6c3"
+  },
+  "recraft": {
+    "name": "Recraft",
+    "url": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/recraft.svg",
+    "hex": "182C30",
+    "library": "Lobe Icons",
+    "license": "MIT",
+    "upstream_sha256": "ccb97a588aebf55a78bbc6ef6416cb0d9c5862a180dfada2713e0b6fc3245d08",
+    "bundled_svg_sha256": "18e09334b550b682472629a905f4e38745295c571319d076826b85fab6fc6800"
+  },
+  "resend": {
+    "name": "Resend",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/resend.svg",
+    "hex": "000000",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Resend",
+      "hex": "000000",
+      "source": "https://resend.com/brand",
+      "guidelines": "https://resend.com/brand"
+    },
+    "upstream_sha256": "1a95a84811b2f856852afdbcb475419d9f8d18d6cc9dd7353d89a246162662eb",
+    "bundled_svg_sha256": "a2555138a5398665e8707d76a7915810559369919afe182de0f445a73fb68a2c"
+  },
+  "runway": {
+    "name": "Runway",
+    "url": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/runway.svg",
+    "hex": "182C30",
+    "library": "Lobe Icons",
+    "license": "MIT",
+    "upstream_sha256": "dba3459264af7b4fffb5c4bfc909748e1ec1f122ffcaf0a8fbb626781888eaf2",
+    "bundled_svg_sha256": "75951036ab1f48d23ad2bbf8f3a1d65db9571114b2993c3fc8f35ee1d7fdfccc"
+  },
+  "search_console": {
+    "name": "Google Search Console",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/googlesearchconsole.svg",
+    "hex": "458CF5",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Google Search Console",
+      "hex": "458CF5",
+      "source": "https://search.google.com/search-console"
+    },
+    "upstream_sha256": "2a9115b4cd3e3bcda3ff8cdb5732ff02ef3674ba72007bc3b3f7f9d69cf90f0e",
+    "bundled_svg_sha256": "13511bef084d38296f5b4725494062a41a0116a3d44e327fa259f00bcd54b013"
+  },
+  "sentry": {
+    "name": "Sentry",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/sentry.svg",
+    "hex": "362D59",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Sentry",
+      "hex": "362D59",
+      "source": "https://sentry.io/branding/"
+    },
+    "upstream_sha256": "8ba32902ffbac503784607374f57df5e3cbcf57a99d0adff03e735575500adc6",
+    "bundled_svg_sha256": "dc0a3fa24c53923a931e0bc93d58245119f8042498fbf01bbef068a566510b4c"
+  },
+  "shopify": {
+    "name": "Shopify",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/shopify.svg",
+    "hex": "7AB55C",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Shopify",
+      "hex": "7AB55C",
+      "source": "https://www.shopify.com/brand-assets",
+      "guidelines": "https://www.shopify.com/brand-assets"
+    },
+    "upstream_sha256": "a5ea31f53511bb0b3663cb73ff96eaa8d0451fe9cad586625adfc02b729e4d4d",
+    "bundled_svg_sha256": "69cd51801f7fcbd0be9144fc03250a237b9571905ad473c045147b85ad285a2d"
+  },
+  "slack": {
+    "name": "Slack",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/13.21.0/icons/slack.svg",
+    "hex": "4A154B",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Slack",
+      "hex": "4A154B",
+      "source": "https://slack.com/brand-guidelines",
+      "guidelines": "https://slack.com/brand-guidelines"
+    },
+    "upstream_sha256": "f23c317b279f53dcd2260a6cd2e279f7a696f87dcb3da259d6201f05bbc45b0d",
+    "bundled_svg_sha256": "9041800c6390d9213655a2373fa9366a28aef297d8fe8219b290ac1af02b58c3"
+  },
+  "stripe": {
+    "name": "Stripe",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/stripe.svg",
+    "hex": "635BFF",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Stripe",
+      "hex": "635BFF",
+      "source": "https://stripe.com/newsroom/information"
+    },
+    "upstream_sha256": "130c6d957b8977f5eda2928267b9df531ca038a400a801765d263801bb1bd870",
+    "bundled_svg_sha256": "5c007f5ea0776bfddc57b7334f33b16142eae7dc51ec006e29557db16a87f501"
+  },
+  "suno": {
+    "name": "Suno",
+    "url": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/suno.svg",
+    "hex": "182C30",
+    "library": "Lobe Icons",
+    "license": "MIT",
+    "upstream_sha256": "591debb0ed912ff6cb89fc66a05f58e3291eb383c691c9dbf717927559d4eafc",
+    "bundled_svg_sha256": "7b4597aae42ca1a2517259c2b2a1b4bb33471a924e8527ec3b6ebf385cb56a1f"
+  },
+  "supabase": {
+    "name": "Supabase",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/supabase.svg",
+    "hex": "3FCF8E",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Supabase",
+      "hex": "3FCF8E",
+      "source": "https://github.com/supabase/supabase/blob/4031a7549f5d46da7bc79c01d56be4177dc7c114/packages/common/assets/images/supabase-logo-wordmark--light.svg"
+    },
+    "upstream_sha256": "61bf16d93be418f723ae1e137e57afdad4f185352fbc6dea9482af1e0a89ccf7",
+    "bundled_svg_sha256": "92ea07e7dedc431574ac5936d3706c9ed91f91d99d82932a6f267c5c890e972d"
+  },
+  "telegram": {
+    "name": "Telegram",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/telegram.svg",
+    "hex": "26A5E4",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Telegram",
+      "hex": "26A5E4",
+      "source": "https://telegram.org/tour/screenshots"
+    },
+    "upstream_sha256": "147fd8f8923e7e5f463fe98c0eb9913bead6b2ae59935728cda141002ec8a7c9",
+    "bundled_svg_sha256": "8aa1bbea53b57c90e270e68a67e779e90faa588bd69de3e5d75e6d9aabaa7123"
+  },
+  "tiktok": {
+    "name": "TikTok",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/tiktok.svg",
+    "hex": "000000",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "TikTok",
+      "hex": "000000",
+      "source": "https://tiktok.com"
+    },
+    "upstream_sha256": "6f54ac8d325faacea8935bdc44cbed60206a6b408641799e5fea1cba7c1a0af7",
+    "bundled_svg_sha256": "5e99a400d386066c220abc0f3a5efa853c691f663236316d3bcd4d9bb1bc6f78"
+  },
+  "tripo": {
+    "name": "Tripo3D",
+    "url": "https://unpkg.com/@lobehub/icons-static-svg@1.95.1/icons/tripo.svg",
+    "hex": "FC682D",
+    "library": "Lobe Icons",
+    "license": "MIT",
+    "upstream_sha256": "524cd9f636cdf501952abd4cb552d6a4fdeef1d78c36d57438ab3d4241fec74b",
+    "bundled_svg_sha256": "f979afd17579b0717951dc292f607d26aac25738019a844a7cb812a16280e97a"
+  },
+  "typeform": {
+    "name": "Typeform",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/typeform.svg",
+    "hex": "262627",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Typeform",
+      "hex": "262627",
+      "source": "https://www.typeform.com"
+    },
+    "upstream_sha256": "9a14cfeed09743b6d368dc6b1836be112984ebb68366bf6cc0df3fe1f3ebfe54",
+    "bundled_svg_sha256": "4af6c75116144dff61466142556534e9755a77af45ed93df886436edd94b434e"
+  },
+  "upwork": {
+    "name": "Upwork",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/upwork.svg",
+    "hex": "6FDA44",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Upwork",
+      "hex": "6FDA44",
+      "source": "https://www.upwork.com/press/"
+    },
+    "upstream_sha256": "ea14e70a60da4c2a1b7e1be7600d9606deb9ec083b3edc23c4e486001a7ae8d4",
+    "bundled_svg_sha256": "b71957685b898f8745de4baca2863849d4f0f55037cf031f5d74a9ab74297d19"
+  },
+  "vercel": {
+    "name": "Vercel",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/vercel.svg",
+    "hex": "000000",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "Vercel",
+      "hex": "000000",
+      "source": "https://vercel.com/geist/brands",
+      "guidelines": "https://vercel.com/geist/brands"
+    },
+    "upstream_sha256": "57f1e4135486c566e9878fddd259f7f6bf8ec43f31e7e6e38a36d9e814a1c0e0",
+    "bundled_svg_sha256": "9c3423721d9394feab873392ea57baa23adb0b1b15fcfce1dcd8cc333139b62f"
+  },
+  "wordpress": {
+    "name": "WordPress",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/wordpress.svg",
+    "hex": "21759B",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "WordPress",
+      "hex": "21759B",
+      "source": "https://wordpress.org/about/logos",
+      "guidelines": "https://wordpressfoundation.org/trademark-policy"
+    },
+    "upstream_sha256": "8877151b8978c3c961d16659ba28603a4015872e79fbbb770d09b68b0da8a4ff",
+    "bundled_svg_sha256": "c0290e1dea0cd7e032b165882afd12b7b43d90860c79e0ff89fdddf0adaefecc"
+  },
+  "youtube": {
+    "name": "YouTube",
+    "url": "https://raw.githubusercontent.com/simple-icons/simple-icons/98820a4dc8c363ca72fa2c0d294ea4a0a9bba75d/icons/youtube.svg",
+    "hex": "FF0000",
+    "library": "Simple Icons",
+    "license": "CC0-1.0",
+    "metadata": {
+      "title": "YouTube",
+      "hex": "FF0000",
+      "source": "https://www.youtube.com/howyoutubeworks/resources/brand-resources/#logos-icons-and-colors",
+      "guidelines": "https://www.youtube.com/howyoutubeworks/resources/brand-resources/#logos-icons-and-colors"
+    },
+    "upstream_sha256": "5038808acbbc4e6edda16cbeb1cc6dec80e4e4ee4e227e039c41229fa222aa8c",
+    "bundled_svg_sha256": "9f4e72c6c6c234f599037c344f7f23a12fad780a18c7be4996087d3ca9a6a286"
+  }
+}
