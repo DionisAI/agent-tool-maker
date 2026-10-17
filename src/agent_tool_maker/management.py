@@ -88,7 +88,9 @@ def connections(router) -> dict:
                         "sync_conflict": router.state.setting("sync_conflict:"+name, False),
                         "expired": bool(name in stored and expiry is not None and expiry <= time.time()),
                         "connect_supported": name in known})
-    return {"connections": records, "vault": vault_health(router.vault),
+    from .oauth import OAuth
+    from .oauth_service import service_status
+    return {"connections": records, "oauth": [{**OAuth(router.state, router.vault, router.net).status(), "service": service_status(router.state)}], "vault": vault_health(router.vault),
             "verification_history": verification_history(router.state), "secrets_returned": False}
 
 

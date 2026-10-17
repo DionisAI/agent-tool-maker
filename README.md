@@ -56,6 +56,7 @@ ATM 把选定 Key 临时提供给实际运行的程序。Python 等程序仍可�
 ## 常见问题
 
 **Higgsfield 想用已有订阅额度，而不是 API Key？** 官方 CLI 浏览器登录及[订阅只读工具](docs/HIGGSFIELD_SUBSCRIPTION.md)查询额度、模型与报价；订阅与 API 分开计费，生成另行确认。
+CLI 自己管理登录；[ATM OAuth 自动续期](docs/OAUTH_REFRESH.md)另建独立连接，明确启用后保持登录，不延长项目的 30 分钟 Key 授权。
 
 **每个新 session 都要重配吗？** 不用。安装与 Key 持久保存；当前项目授权仍有效就直接复用。
 授权到期才需要重新解锁。切换新的项目或增加 Key 需要确认范围。

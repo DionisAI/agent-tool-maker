@@ -135,12 +135,33 @@ function renderConnections(main) {
   main.append(heading('连接与凭证','密钥写入现有加密库；网页不回读明文，不在浏览器持久存储。',btn('添加 / 更新连接',()=>connectionDialog(),'primary')));
   const vault=data.connections.vault;
   main.append(el('div',{class:'panel'},el('div',{class:'card-head'},el('div',{},el('h3',{},'本地凭证库'),el('p',{class:'quiet'},'后端：'+(vault.backend || '未初始化')+' · '+display(vault.state))),!vault.backend?btn('初始化凭证库',vaultDialog):badge('保留现有凭证库','good')),el('p',{class:'quiet'},'口令模式仅在本次保存/检查请求中解锁，不提供后台永久解锁。系统 keyring 可能要求系统确认。')));
+  for (const c of data.connections.oauth || []) {
+    const states={missing:'尚未登录',pending:'等待本机浏览器确认',ready:'已登录',expired:'令牌到期',refreshing:'续期中',refresh_unknown:'续期结果待确认，请重新登录',needs_login:'需要重新登录',denied:'登录未批准'};
+    main.append(el('article',{class:'panel'},el('h3',{},'Higgsfield 订阅 · ATM OAuth'),badge(states[c.status] || c.status),
+      el('p',{},'独立加密保存订阅登录令牌，不读取官方 CLI 登录文件。项目 Key 的 30 分钟解锁期保持不变。'),
+      el('p',{class:'quiet'},'自动续期：'+(c.keep_login?(c.status==='ready'&&c.refreshable&&c.service?.status==='loaded'?'已启用':'已请求，待连接 / 服务就绪'):'未启用')+' · 后台服务：'+(c.service?.status || 'not_installed')+(c.last_error?' · '+c.last_error:'')),
+      el('p',{class:'quiet'},c.expires_at?'当前令牌有效至 '+new Date(c.expires_at*1000).toLocaleString():'登录后显示令牌有效期。'),
+      el('div',{class:'card-actions'},btn(c.status==='missing'?'浏览器登录':'重新登录',()=>oauthDialog(c)),btn('刷新状态',()=>refresh()),
+        c.keep_login?btn('停止自动续期',async()=>{await api('/api/oauth/keep-login',{provider:c.provider,enabled:false});await refresh();}):null)));
+  }
   const q=el('input',{placeholder:'搜索连接提供方…',ariaLabel:'搜索连接'}), host=el('div',{class:'connection-grid'});
   const draw=()=>host.replaceChildren(...data.connections.connections.filter(c=>c.provider.includes(q.value.toLowerCase())).map(c=>el('article',{class:'card'},
     el('div',{class:'card-head'},el('h3',{},c.provider),badge(c.expired?'凭证已过期':c.configured?'已保存':'未连接',c.expired?'bad':c.configured?'good':'')),
     el('p',{},c.configured?'凭证已持久保存，未保证当前权限与余额。':'仅在需要这项工具时配置；不必连接所有服务。'),
     el('div',{class:'card-actions'},c.connect_supported?btn(c.configured?'更新连接':'连接',()=>connectionDialog(c.provider)):null,c.configured?btn('检查',()=>verifyDialog(c.provider),'plain'):null,c.configured?btn('移除',()=>removeConnection(c.provider),'plain danger'):null))));
   q.oninput=draw; main.append(section('供应商连接','浏览器与 CLI 的官方登录态仍由原工具管理'),el('div',{class:'filterbar'},q),host);draw();
+}
+function oauthDialog(connection) {
+  const pass=passphraseField(),keep=el('input',{type:'checkbox'}),replace=el('input',{type:'checkbox'});
+  keep.disabled=data.connections.vault.backend!=='keyring';
+  openModal('Higgsfield 订阅登录',el('p',{},'打开官方 OAuth 页面，由你完成登录和授权；不生成内容、不消费订阅额度。'),
+    el('label',{},keep,'保持登录：系统 keyring 加密保存，安装本用户后台续期服务；供应商撤销或要求验证时提示重新登录'),
+    el('label',{},replace,'明确替换已有 ATM OAuth 连接（官方 CLI 登录保持原样）'),
+    data.connections.vault.backend==='passphrase'?pass.node:null,
+    el('div',{class:'dialog-actions'},btn('打开官方登录窗口',async()=>{
+      try{const r=await api('/api/oauth/login',{provider:connection.provider,keep_login:keep.checked,replace:replace.checked,...(pass.input.value?{passphrase:pass.input.value}:{})});await refresh();closeModal();toast(r.browser_opened?'请在官方页面完成登录和授权，然后刷新状态。':'登录窗口尚未打开或已有请求，请查看连接状态。');}
+      finally{pass.input.value='';}
+    },'primary')));
 }
 function renderJobs(main) {
   main.append(heading('任务记录','读取 ATM 的实际任务摘要；不显示提示词、原始响应和带签名的素材链接。'));

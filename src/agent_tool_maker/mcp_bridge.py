@@ -1,7 +1,7 @@
 """Small MCP client subset: stdio and Streamable HTTP JSON/SSE.
 
-Initialize -> discover -> validate -> call in one bounded session. No OAuth client,
-server sampling, elicitation, legacy SSE, automatic paid retry or resumable stream.
+Initialize -> discover -> validate -> call in one bounded session. Pinned owner-managed
+Higgsfield OAuth is optional. No sampling, elicitation, legacy SSE or paid retry.
 """
 from __future__ import annotations
 import hashlib
@@ -41,9 +41,13 @@ def check_schema_local(schema):
 
 def bind_server(state,name,config):
     if not re.fullmatch(r'[a-z][a-z0-9_-]{1,63}',name):raise RouterError('bad_server','Invalid server name.')
-    if not isinstance(config,dict) or set(config)-{'transport','command','args','url','credential','env_credentials','allow_tools','allow_local','timeout'}:
+    if not isinstance(config,dict) or set(config)-{'transport','command','args','url','credential','oauth','env_credentials','allow_tools','allow_local','timeout'}:
         raise RouterError('bad_server','Unknown MCP configuration fields. Secrets belong in the vault.')
     cfg=dict(config);mode=cfg.get('transport')
+    if 'oauth' in cfg:
+        from .oauth import NAME, RESOURCE
+        if mode != 'http' or cfg.get('oauth') != NAME or cfg.get('url') != RESOURCE or cfg.get('credential') or cfg.get('env_credentials') or cfg.get('allow_local'):
+            raise RouterError('oauth_resource','OAuth binding requires the exact Higgsfield HTTP resource and no other credentials.')
     if mode=='stdio':
         p=Path(cfg.get('command','')).expanduser().resolve()
         if not p.is_file() or not os.access(p,os.X_OK): raise RouterError('bad_executable','MCP command must be an installed absolute executable.')
@@ -127,12 +131,19 @@ class Stdio:
 class HTTP:
     def __init__(self,cfg,vault,network):
         self.cfg=cfg;self.net=network;self.session=None;self.version=None
+        self.oauth = None
+        if cfg.get('oauth'):
+            from .oauth import OAuth
+            self.oauth = OAuth(vault.state, vault, network)
         self.headers={'Accept':'application/json, text/event-stream','Content-Type':'application/json'}
         if cfg.get('credential'):self.headers['Authorization']='Bearer '+vault.get(cfg['credential'])
     def exchange(self,msg,notify=False):
         url=self.cfg['url']
         if not self.cfg.get('allow_local'):public_address(url,self.net.resolver)
         headers=dict(self.headers)
+        if self.oauth:
+            headers['Authorization'] = 'Bearer ' + self.oauth.access_token(self.cfg['oauth'], url)
+            self.headers['Authorization'] = headers['Authorization']  # Same pinned resource for session DELETE, without refresh/replay.
         if self.session:headers['Mcp-Session-Id']=self.session
         if self.version:headers['MCP-Protocol-Version']=self.version
         self.net.client.cookies.clear()

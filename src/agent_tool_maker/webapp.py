@@ -237,6 +237,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def mutate(self, router, body):
         path = self.path
+        if path == "/api/oauth/login":
+            fields(body, ("provider",), ("keep_login", "replace", "passphrase"))
+            from .oauth_web import login
+            return login(router, provider=text(body, "provider"), keep_login=flag(body, "keep_login"),
+                         replace=flag(body, "replace"), executable=self.server.executable)
+        if path == "/api/oauth/keep-login":
+            fields(body, ("provider", "enabled"))
+            from .oauth import OAuth
+            result = OAuth(router.state, router.vault, router.net).keep_login(text(body, "provider"), enabled=flag(body, "enabled"))
+            if flag(body, "enabled"):
+                from .oauth_service import install_service
+                result["service"] = install_service(router.state, executable=self.server.executable, apply=True)
+            return result
         if path == "/api/session/unlock":
             fields(body, optional=("ttl", "passphrase"))
             from .session import status, ttl_seconds, SecretSession, run_service
