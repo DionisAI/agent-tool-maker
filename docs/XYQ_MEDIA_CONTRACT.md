@@ -37,6 +37,19 @@ CLI 应绑定实际可选 ID/名称与当前状态并回读验证。参考上传
 6. 任务区分 submitted / pending / needs_input / completed / failed / submission_unknown。
    完成通知不是文件交付；下载到明确项目路径并检查类型、摘要和媒体信息。
 
+模式/参数、素材发现、音频参考上传、报价、单次提交及图片结果/下载已分别接入工具；
+生产安装与每项真实网页/完成媒体验收分列，不依据安装数量判定上述链路全部完成。
+
+## 当前事实与待验证项
+
+2026-10-08：生产 ATM 共27项 `xyq.web.*`，其中20项媒体运行时、3项图片结果读取、
+2项图片下载、2项首页素材发现。具体定义、pin 与边界分别见
+[运行时](XYQ_MEDIA_RUNTIME_CONTRACT.md)、[结果](XYQ_RESULT_CONTRACT.md)、
+[下载](XYQ_DOWNLOAD_CONTRACT.md)、[素材发现](XYQ_HOME_MATERIAL_CONTRACT.md)。
+首页实际 CLI 读取格式/三项素材菜单和已有会话图片结果通过；完整原稿保持，临时绑定已解除。
+声明 WAV/MP3 接受格式仍不是上传、声音效果或完成音频。原 MP3/图片下载未知状态、
+独立音频项目 origin_mismatch 保留；真实生成、非默认参数全量覆盖与视频/音频结果/下载仍待验收。
+
 ## 阶段记录（2026-10-07）与未完成验收
 
 - 十八个媒体阶段工具：account / surface / form_inspect / form_options /

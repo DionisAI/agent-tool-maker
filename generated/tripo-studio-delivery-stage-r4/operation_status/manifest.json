@@ -1,0 +1,67 @@
+{
+  "id": "tripo.studio.operation_status",
+  "provider": "tripo",
+  "title": "Tripo Studio operation_status",
+  "capabilities": [
+    "3d",
+    "operation_status"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "request_key": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.:-]{1,160}$"
+      },
+      "wait_seconds": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 120
+      }
+    },
+    "required": [
+      "request_key",
+      "wait_seconds"
+    ],
+    "additionalProperties": false
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "operation-status",
+      "--pin",
+      "7e8b7f4a94542757105495557226093b3f1b9e6a3c0a603ab3dc8db8b3eb16e0",
+      "-f",
+      "json",
+      "--key",
+      {
+        "input": "request_key"
+      },
+      "--ledger",
+      {
+        "workspace": ""
+      },
+      "--wait",
+      {
+        "input": "wait_seconds"
+      }
+    ],
+    "output": "json",
+    "timeout": 180
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Texture is the existing reviewed workspace texture contract, not a new provider backend. Status binds one retained project model receipt and its actual output UUID. Unknown submissions and source-only processing remain unresolved; never release their locks or resubmit.",
+  "completion": "Provider-ready model is separate from a submitted operation and validated export. Texture/rig/retopo quality and positive real paid acceptance remain distinct. No Cookie, token, profile or unrelated receipt reads.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}

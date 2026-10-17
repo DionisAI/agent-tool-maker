@@ -1,0 +1,58 @@
+{
+  "id": "tripo.studio.assets",
+  "provider": "tripo",
+  "title": "Tripo Studio readonly assets",
+  "capabilities": [
+    "3d",
+    "assets"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100
+      }
+    },
+    "additionalProperties": false,
+    "required": [
+      "limit"
+    ]
+  },
+  "example": {
+    "limit": 20
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "assets",
+      "--pin",
+      "d34bd8e9a69c55c28c176fb978577bc0390dbdf41d1b96495cc3774ae319fd46",
+      "-f",
+      "json",
+      "--limit",
+      {
+        "input": "limit"
+      }
+    ],
+    "output": "json",
+    "timeout": 60
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/",
+    "https://www.tripo3d.ai/help/api-plugins/tripo-studiotripo-api"
+  ],
+  "notes": "Visible DOM only; reuse browser-owned login, no credential injection. Pin covers adapter source files; not hostile-code isolation. Asset coverage is loaded cards only, task_status remains unknown.",
+  "completion": "A successful live DOM read is not generation, complete pagination or independent task acceptance.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}
