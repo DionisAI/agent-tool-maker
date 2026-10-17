@@ -37,6 +37,34 @@
 预设音色选择或生成声音效果。每秒音频单价不等于单次总价；总价合同仍待取得。
 复杂白板、故事板、3D导演台和时间线维持暂缓。
 
+## 从源码重建并安装27项
+
+四个编译器的 ID 互不重叠：运行时20项、结果读取3项、下载2项、首页素材2项。
+`build_xyq_web.py` 默认及其它阶段输出与运行时有18项同 ID 不同定义，安装会报
+`duplicate_tool`，不要混装。`--results-only` 只产出3个结果包，与 `--include-results`
+中的对应包逐字节相同，且不能与其它阶段选项同用。
+
+```sh
+OPENCLIAPP=/Applications/OpenCLIApp.app/Contents/MacOS/opencli-app  # 已审阅的 App 实际可执行文件
+DOWNLOADS="$HOME/Downloads"                                          # 浏览器固定下载目录
+OUT=/absolute/new/directory                                          # 尚不存在；编译器不覆盖
+python scripts/build_xyq_runtime.py --out "$OUT/runtime"             # 20
+python scripts/build_xyq_web.py --results-only --out "$OUT/results"  # 3
+python scripts/build_xyq_download.py --out "$OUT/download" --bridge "$OPENCLIAPP" --download-root "$DOWNLOADS"  # 2
+python scripts/build_xyq_material.py --out "$OUT/material"           # 2
+for d in "$OUT"/*/*/; do atm make check-bundle "$d" && atm make validate "$d/manifest.json"; done
+# 逐包审阅 manifest.json 与上面的 sha256，再每包安装一次（共27次，四组顺序不限）：
+atm make install "$OUT/runtime/account/manifest.json" --approve REVIEWED_SHA256
+# 安装之后才能绑定；没有已安装定义引用的名称报 unsupported_cli。
+atm cli bind opencliapp "$OPENCLIAPP"
+atm cli bind atm "$(command -v atm)"   # 两项下载工具经 atm delivery 执行
+```
+
+下载包固定桥接程序路径/SHA 与下载目录，换 App 二进制或目录须重新编译审阅。
+已安装旧定义时用 `atm make update MANIFEST --approve NEW_SHA --expected OLD_SHA`，不是重复安装。
+这些步骤只安装 ATM 定义；`xyq-media`、`xyq-web` 结果、`xyq-material` 及下载的
+OpenCLI 侧加载器仍按各合同另行审阅安装。
+
 ## 修复与部署证据
 
 1. 原生成回执更新在单链接校验前使用 O_TRUNC；新增红/绿测试证明硬链接文件

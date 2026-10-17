@@ -20,6 +20,7 @@ import tempfile
 import threading
 import time
 
+from agent_tool_maker import __version__
 from agent_tool_maker.engine import Router
 from agent_tool_maker.secrets_provider import permit_exec
 from agent_tool_maker.storage import State
@@ -65,7 +66,7 @@ def cli(atm, args, *, cwd=None):
 
 def demo():
     atm=shutil.which('atm');assert atm,'Install the reviewed source first.'
-    receipt={'version':'0.7.0','real_model_calls':0,'real_vendor_calls':0,'fake_credentials':True,
+    receipt={'version':__version__,'real_model_calls':0,'real_vendor_calls':0,'fake_credentials':True,
              'two_stores_on_one_machine':True,'native_keyring_tested':False,'real_agent_hosts_tested':False}
     with tempfile.TemporaryDirectory(prefix='atm7-demo-') as td:
         root=Path(td);password='fake-password-for-this-test';key='fake-acceptance-'+os.urandom(16).hex()
