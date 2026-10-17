@@ -24,6 +24,15 @@ For Tripo Studio subscription credits, discover `tripo.studio.*`, not the built-
 `--allow-code`, and use Chrome-owned login through the reviewed OpenCLIApp bridge.
 No vault Key unlock or cookie/token export. Assets cover currently loaded model
 cards only; `preview_task_id` is not an asset ID or proof of task completion.
+Use `assets_all` for bounded automatic model-card scrolling (1–1000 cards,
+1–50 rounds); a quiet footer reports partial, not authoritative full coverage.
+Read scope/coverage_evidence: Model / My Assets / All must stay selected; Image
+assets and other Workspace modules are separate. Use docs/TRIPO_STUDIO_COVERAGE.md
+for observed gaps and the reviewed DOM -> regression -> pin -> live-retest loop.
+`asset_resolve` opens a selected preview card and its observed Edit in Workspace
+control to obtain the real UUID. `asset` reports visible model readiness/counts
+and supports bounded waiting; a UUID route alone is not completion. Asset entry
+uses visible Workspace/sidebar links, not guessed slugs or cold UUID routes.
 
 `quote` switches the generation panel to text mode but never clicks Generate;
 it requires code/write permission. `generate` also requires paid permission and
@@ -32,6 +41,21 @@ text-only, uses current observed settings and does not upload files or publish.
 Keep one stable request key in both ATM and input. Reuse returns the prior result.
 On uncertainty, retain receipt/lock and inspect the provider; never change the key
 or remove the lock to resubmit. Submission and finished model/download are separate.
+
+`retopo_quote`/`rig_quote` prepare whitelisted settings without paid submission;
+their paid `retopo`/`rig` tools need the exact source asset, unchanged quote, budget
+and separate human approval. Rig supports the observed UE5 Mannequin preset,
+but preserve pose/prerequisite warnings; a cube is not a humanoid rig fixture.
+`image_quote` uploads one explicitly approved project PNG/JPEG/WebP (up to 20MiB)
+to an empty Private image panel and returns a hash-bound quote. This is an upload,
+not a read-only query. `image_generate` needs new generation/budget approval and
+the unchanged draft; do not navigate away or upload again between these steps.
+`export_quote` opens a ready model's GLB dialog; confirmed `export` delivers and
+validates a completed local GLB. Other formats and Unreal import are separate.
+All side effects share the text tool's durable project lock and stable-key reuse.
+Never reuse the already-spent one-time cube approval for new paid operations.
+Distinguish installed/offline-tested paths, real quotes/upload/export, and real
+paid generation or rigging acceptance; no automatic extra credit consumption.
 
 To make/update tools, read docs/TRIPO_STUDIO_CLI.md and docs/EXTENSIBILITY.md.
 Observe selectors first, preserve user drafts, build reviewed definitions with
