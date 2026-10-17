@@ -43,6 +43,20 @@ files; the installed cost extension deliberately accepts text only. Generation,
 upload, or publication is a separate action: confirm actual parameters and cost,
 then preserve task IDs and reconcile uncertain submissions before any retry.
 
+### ATM-managed Higgsfield OAuth refresh
+
+For an explicit request to keep a Higgsfield subscription login, open `atm ui` and
+let the human use the separate ATM OAuth card and keep-login checkbox. Or prepare
+one `atm oauth login higgsfield --keep-login` browser flow and hand consent to the
+human. Check `atm oauth status` only; never export/read tokens or click consent.
+This is a new pinned MCP OAuth connection, not a refresh of CLI authentication.
+Existing subscription CLI extensions still use the CLI login. Native-keyring
+keep-login installs an opt-in macOS user refresh worker; passphrase mode requires
+explicit local unlock. Neither extends the project's 30-minute Key lease.
+On `needs_login`/`refresh_unknown`, hand off an explicit replacement login; do not
+repeat token exchange or paid tool calls. Consult docs/OAUTH_REFRESH.md for MCP
+binding, exact tool approval and remaining real-provider acceptance.
+
 ### API credentials
 
 1. Identify the CURRENT project and exact credential needed. Use `atm keys find NAME`
