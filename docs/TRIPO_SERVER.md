@@ -47,14 +47,17 @@ atm studio run account --input account.json --workspace /srv/tripo-project \
 绑定的明确内容、source、quote、credit ceiling 和 human confirmation。
 也可使用普通 `atm run tripo.server.OP`；严格 broker scope 保持严格。
 
-**付费与确认工具只走 Router。** generate、image_generate、retopo、rig、workspace_submit
-（付费）以及 schema 含 const `human_confirmed` 的 export、image_quote，只能经 `atm studio run`、
-`atm run` 或 broker 执行。Router 通过 `--allow-paid`、权限与 broker scope 并认领 job/request-key 后，
+**写入、付费与确认工具只走 Router。** 原定义权限含 `external_write` 的工具：付费的
+generate、image_generate、retopo、rig、workspace_submit，schema 含 const `human_confirmed` 的
+export、image_quote，以及未确认的表单/查看器工具 quote、retopo_quote、rig_quote、export_quote、
+各 `*_prepare`、viewer_camera、hierarchy_transform，只能经 `atm studio run`、`atm run` 或 broker 执行。
+Router 通过 `--allow-write`/`--allow-paid`、权限与 broker scope 并认领 job/request-key 后，
 签发一次性 ticket（60 秒），绑定该 job、确切 argv、项目目录和 bundle；服务器在打开表单或点击前
-原子消费它。隐藏的 `atm studio adapter` 只供已安装定义调用：直接运行它或直接连接 socket
-仍可执行只读及未确认的表单工具（其 `--allow-write` 仍只在 Router 路径检查），
-但上述工具一律报 `router_ticket_required`（`outcome_uncertain: false`），
-没有提交、没有重试。`--confirm` 对应的 const 确认因此只在 Router 已按原 schema 校验真实输入后成立。
+原子消费它，并核对该 job 记录了工具所需的全部权限（付费工具另需 paid 授权）。
+隐藏的 `atm studio adapter` 只供已安装定义调用：直接运行它或直接连接 socket 只能执行
+只读（仅 `execute_code`）工具，即 account、`asset*`、`*_inspect`、export_options、image_preview；
+其余工具一律报 `router_ticket_required`（`outcome_uncertain: false`），没有打开表单、没有提交、
+没有重试。`--confirm` 对应的 const 确认因此只在 Router 已按原 schema 校验真实输入后成立。
 
 `deploy/atm-tripo-studio.service.in` 是 systemd **用户服务模板**。Agent 替换绝对路径，
 先本机前台验证再安装。需要断开 SSH 后运行/开机恢复时，按服务器管理员策略设置
@@ -71,7 +74,7 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
   只信任本用户代码，不宣称隔离恶意同用户程序。
 - Router ticket 只把哈希写入本地 job 记录，secret 只进入该次 adapter 进程环境；
   消费、过期、job 已结束或复用 request-key 后都不能再用。它防止 Agent 绕过
-  `--allow-paid`、job 记录或 broker scope，但仍属同 UID 信任：不防御能改写 ATM 状态
+  `--allow-write`、`--allow-paid`、job 记录或 broker scope，但仍属同 UID 信任：不防御能改写 ATM 状态
   或读取本用户进程环境的恶意程序。Router 与 `studio serve` 须使用同一 `--home`。
 - 每次操作绑定包含 Python 驱动、Node dispatcher 和 20 个原适配源文件的 bundle 摘要
   （含随源码闭包打包、但不分派的 2 份 delivery 源）。
@@ -83,7 +86,7 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
 - profile 仅由浏览器打开。Agent 不读取、导出、复制 Cookies、Token 或 profile 内容。
   停机保留 profile、回执、旧 socket。没有自动永久删除/清理。
 - 登录/验证码/站点错误/未知提交明确失败。普通 ATM job 的 CLI 失败可能报告
-  `cli_failed`/`submission_unknown`；直接 `studio adapter`（非 Router 专属工具）的 JSON 及保留回执区分根因，
+  `cli_failed`/`submission_unknown`；直接 `studio adapter`（只读工具）的 JSON 及保留回执区分根因，
   不因进程或浏览器健康伪造供应商成功。
 
 ## 本机验收与待验收
@@ -121,6 +124,12 @@ wheel 核对：`/private/tmp/atm-studio-server-wheel-readback-20261004.json`。
 `atm studio adapter generate …`（无 ticket 或伪造 ticket）与直接 socket `run` 均报
 `router_ticket_required`，无付费 ledger；`atm studio run --allow-paid` 消费自身 ticket 并只提交一次
 （假 DOM 余额 99→59）。完整回归 **1469 passed / 2 skipped**（两项为本机缺少 pandoc）。
+
+2026-10-17 写入工具 ticket 扩展（同一假 Tripo 夹具，非供应商验收）：`tests/test_studio_server.py`
+**66 passed / 0 skipped**（60 项协议/定义/权限 + 6 项真实 Chromium）。全部 19 个 `external_write`
+工具无 ticket 或伪造 ticket 时在启动 runner 前拒绝；job 缺少写入授权时 ticket 也被拒绝。
+真实 Chromium 中直接 socket `quote` 无 ticket 报 `router_ticket_required`，带 Router 签发的 ticket
+才读到假报价 40 积分。完整回归 **1481 passed / 2 skipped**（两项为本机缺少 pandoc）。
 
 **仍待用户服务器验收**：Linux Xvfb/x11vnc 生命周期和 SSH 断开后的服务运行；
 真实 Tripo 登录/验证码、3D/WebGL、全部 DOM 操作、上传/生成/下载和机器重启。

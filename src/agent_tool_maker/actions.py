@@ -220,7 +220,7 @@ def execute_command(router,tool,job):
         if credential in router.state.secret_names(): env[name]=router.vault.get(credential)
         elif tool['command'].get('credential_required'):raise RouterError('missing_credential','A required CLI credential slot is not configured; no process was started.')
     if tool['id'].startswith('tripo.server.'):
-        from .studio_runtime import issue_ticket  # Paid/confirmed server calls prove they passed these Router gates.
+        from .studio_runtime import issue_ticket  # Write/paid/confirmed server calls prove they passed these Router gates.
         env.update(issue_ticket(router.state,job,plan['argv'],plan['cwd']))
     result=execute_cli(router.state,plan['executable'],plan['argv'],Path(plan['cwd']),timeout=plan['timeout'],
                        parse_json=plan['output']=='json',output_mode=plan['output'],extra_env=env)

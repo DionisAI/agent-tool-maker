@@ -193,7 +193,8 @@ def test_studio_help_hides_router_only_adapter(capsys):
 ROUTER_ONLY = sorted(op for op, spec in runtime.index().items() if runtime.router_only(spec))
 
 
-def router_job(home, operation, project, *, paid_granted=True, request_key="fixture-ticket", inputs=None):
+def router_job(home, operation, project, *, paid_granted=True, grants=("execute_code", "external_write"),
+               request_key="fixture-ticket", inputs=None):
     """The Router's job claim and ticket issue (engine.run -> execute_command) for one server call."""
     original = runtime.index()[operation]
     if inputs is None:
@@ -204,13 +205,17 @@ def router_job(home, operation, project, *, paid_granted=True, request_key="fixt
     argv = compile_command(None, tool, inputs, project, project)["argv"]
     state = State(home)
     job, _ = state.create_job(tool["id"], inputs, project, request_key)
-    job = state.update_job(job["id"], "submitting", paid_granted=paid_granted)
+    job = state.update_job(job["id"], "submitting", permissions_granted=list(grants), paid_granted=paid_granted)
     return state, job, argv, runtime.issue_ticket(state, job, argv, project).get(runtime.TICKET_ENV)
 
 
-def test_router_only_operations_are_paid_or_human_confirmed():
-    assert ROUTER_ONLY == ["export", "generate", "image_generate", "image_quote", "retopo", "rig", "workspace_submit"]
+def test_router_only_operations_are_every_write_paid_or_confirmed():
+    assert ROUTER_ONLY == ["animation_prepare", "export", "export_prepare", "export_quote", "generate", "hierarchy_prepare",
+                           "hierarchy_transform", "image_form_prepare", "image_generate", "image_quote", "quote", "retopo",
+                           "retopo_quote", "rig", "rig_quote", "viewer_camera", "viewer_prepare", "workspace_prepare",
+                           "workspace_submit"]
     assert {op for op, spec in runtime.index().items() if spec["paid"]} <= set(ROUTER_ONLY)
+    assert {op for op, spec in runtime.index().items() if "external_write" in spec["permissions"]} == set(ROUTER_ONLY)
     # Read-only operations keep working without a ticket.
     assert not any(runtime.router_only(spec) for spec in runtime.index().values() if spec["permissions"] == ["execute_code"])
 
@@ -242,12 +247,13 @@ def test_router_ticket_is_single_use_and_bound_to_its_job(tmp_path, monkeypatch)
         consume(ticket)  # Replay of a consumed ticket.
     with state.db() as c:
         assert [r[0] for r in c.execute("SELECT kind FROM events WHERE job_id=?", (job_id,))].count("studio_ticket_consumed") == 1
-    # Paid tickets also need the Router's paid grant, a still-submitting job and an unexpired ticket.
+    # Tickets also need the Router's paid and write grants, a still-submitting job and an unexpired ticket.
     _, _, _, ungranted = router_job(home, "generate", project, paid_granted=False, request_key="no-paid-grant")
+    _, _, _, unwritable = router_job(home, "generate", project, grants=("execute_code",), request_key="no-write-grant")
     _, finished, _, settled = router_job(home, "generate", project, request_key="already-settled")
     state.update_job(finished["id"], "submission_unknown")
     _, _, _, stale = router_job(home, "generate", project, request_key="expired-ticket")
-    for value in (ungranted, settled):
+    for value in (ungranted, unwritable, settled):
         with pytest.raises(RouterError, match="single-use"):
             consume(value)
     later = runtime.time.time() + runtime.TICKET_TTL + 1
@@ -295,6 +301,12 @@ def test_router_passes_ticket_only_after_its_gates(router, tmp_path):
     assert unpaid.value.code == "paid_confirmation_required" and not received.exists()
     account = router.run("tripo.server.account", {}, project, request_key="router-read", grants=["execute_code"])
     assert account["status"] == "completed" and received.read_text() == "" and "studio_ticket" not in account["data"]
+    with pytest.raises(RouterError) as unwritable:
+        router.run("tripo.server.quote", {}, project, request_key="router-write", grants=["execute_code"])
+    assert unwritable.value.code == "permission_required" and received.read_text() == ""
+    quote = router.run("tripo.server.quote", {}, project, request_key="router-write", grants=grants)
+    assert quote["status"] == "completed" and quote["data"]["studio_ticket"]["tool"] == "tripo.server.quote"
+    assert received.read_text().split(".")[0] == quote["id"]  # Unconfirmed write tools get a ticket too.
     job = router.run("tripo.server.generate", inputs, project, request_key="router-paid-once", allow_paid=True, grants=grants)
     assert job["status"] == "completed", job
     ticket = received.read_text()
@@ -442,10 +454,12 @@ def test_real_fake_paid_gate_and_single_submission(server_process, source_atm, t
     empty = tmp_path / "empty.json"
     empty.write_text("{}")
     base = ["--workspace", str(project), "--allow-code", "--allow-write"]
-    original = runtime.index()["quote"]
-    argv = compile_command(None, original, {}, project, project)["argv"][3:]
-    probe = asyncio.run(runtime.request(home, {"method": "run", "operation": "quote", "argv": argv,
-        "workspace": str(project), "bundle": runtime.bundle_digest()}))
+    _, _, argv, quote_ticket = router_job(home, "quote", project)  # Opening the form is a write: Router ticket required.
+    packet = {"method": "run", "operation": "quote", "argv": argv[7:], "workspace": str(project), "bundle": runtime.bundle_digest()}
+    with pytest.raises(RouterError) as unticketed:
+        asyncio.run(runtime.request(home, packet))
+    assert unticketed.value.code == "router_ticket_required" and not unticketed.value.uncertain
+    probe = asyncio.run(runtime.request(home, {**packet, "ticket": quote_ticket}))
     assert probe[0]["quoted_credits"] == 40
     code, quoted = cli(source_atm, home, "run", "quote", "--input", str(empty), "--request-key", "fake-quote", *base)
     assert code == 0, quoted
