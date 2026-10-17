@@ -1,10 +1,9 @@
 # ATM — Agent Tool Maker
 
-**把 API Key 配一次，以后交给 Agent。**
+**让 Agent 制作和调用工具；登录、Key 与付费确认留在本地。**
 
-ATM 在本机加密保存 Key，供 **Claude Code / Codex** 使用。
-Agent 需要 Key 时打开一个本地窗口；你输入一次主密码，接下来 **30 分钟**内，
-它能在你允许的项目和 Key 范围内继续工作，不需要逐条批准命令，也不往项目写 `.env`。
+ATM 在本机加密保存 Key，供 **Claude Code / Codex** 使用。Agent 需要 Key 时打开一个本地窗口；
+你输入一次主密码，接下来 **30 分钟**内，它能在允许的项目和 Key 范围内继续工作，不逐条批准命令，也不写 `.env`。
 
 ## 我怎么开始？
 
@@ -33,8 +32,7 @@ Agent 负责安装和非秘密配置。**你只处理本地窗口：**
 **你：**“改一下脚本，再生成一版。”  
 **Agent：**在同一授权范围和期限内继续，不再让你配置或批准每条命令。
 
-ATM 把选定 Key 临时提供给实际运行的程序。Python 等程序仍可以使用
-`os.environ["ELEVENLABS_API_KEY"]`，无需改成 ATM 插件。
+ATM 把选定 Key 临时提供给程序；Python 仍可用 `os.environ["ELEVENLABS_API_KEY"]`，无需改成 ATM 插件。
 
 ## 查看、添加或修改 Key
 
@@ -62,29 +60,29 @@ CLI 自己管理登录；[ATM OAuth 自动续期](docs/OAUTH_REFRESH.md)另建�
 **每个新 session 都要重配吗？** 不用。安装与 Key 持久保存；当前项目授权仍有效就直接复用。
 授权到期才需要重新解锁。切换新的项目或增加 Key 需要确认范围。
 
-**多台电脑或服务器呢？** Key 支持[加密同步](docs/MULTI_DEVICE.md)，每台机器独立解锁。
-本地一键窗口需要桌面浏览器；纯 SSH/无显示服务器使用指南中的终端会话方式。
+**多台电脑或服务器呢？** Key 支持[加密同步](docs/MULTI_DEVICE.md)，各机器独立解锁。本地窗口需要浏览器；纯 SSH/无显示服务器走指南的终端会话方式。
 
-**有 Skill 就一定能访问本机吗？** 需要本地 Claude Code/Codex 有执行权限。
-网页聊天或云端沙箱不会因为加载 Skill 就连接到你的电脑。
+**有 Skill 就能访问本机吗？** 需要本地 Claude Code/Codex 有执行权限；网页聊天/云端沙箱加载 Skill 不会因此连接到本机。
 
 <details><summary>手动安装（可选；正常由 Agent 做）</summary>
 
-Python 3.11+、macOS/Linux。先取得并审阅本仓库，在源码目录执行：
+Python 3.11+、macOS/Linux。取得并审阅本仓库后，在源码目录执行：
 
 ```sh
 pipx install '.[secure]'
 atm setup --apply
 ```
 
-升级使用 `pipx install --force '.[secure]'`，再让 Agent 审阅并更新 Skill。
-不要重建 vault。已有不同 Skill 会先报冲突；审阅后用 `--replace-skills` 备份替换。
-包未发布到 PyPI，不要安装来源不明的同名 `atm` 包。
+升级由 Agent 离线准备独立环境、验收后保留旧安装并切换，再审阅更新 Skill；vault 保持原位。
+Skill 冲突须审阅后用 `--replace-skills` 备份替换。包未发布到 PyPI，避免来源不明的同名 `atm` 包。
 </details>
 
-## 开发与高级功能
+## 网页工具与开发
 
-[Agent 操作说明](SKILL.md) · [架构与安全](SECURITY.md) · [工具扩展](docs/EXTENSIBILITY.md)
-· [开发说明](CONTRIBUTING.md) · [v0.8 验收](docs/TEST_REPORT_V08.md)
+ATM 也能观察网页、制作可审阅适配器，生成固定定义、返回 JSON 的 CLI；凭证与登录留在本地，合同记录功能和验收边界。
+- [小云雀](docs/XYQ_MEDIA_CONTRACT.md)：当前专注图像、视频、音频生成的参数、音色、参考素材、任务与下载，不以 Pippit 命令数量代表覆盖。[MP3 参考上传源码/隔离验收](docs/XYQ_MP3_REFERENCE_CONTRACT.md)与实机接收分列；白板、故事板、3D 导演台和复杂时间线暂缓，原实验源码保留。
+- [本地产物校验](docs/XYQ_MEDIA_DELIVERY_CONTRACT.md)：检查图片/音频/视频的字节、格式和完整解码；合成文件验收与网页下载、任务关联分开，不据此宣称供应商交付。
+
+[Agent 操作说明](SKILL.md) · [架构与安全](SECURITY.md) · [工具扩展](docs/EXTENSIBILITY.md) · [开发说明](CONTRIBUTING.md) · [v0.8 验收](docs/TEST_REPORT_V08.md)
 
 MIT · `atm` 是唯一命令名称。运行测试不等于真实供应商、原生 keyring 或全部客户端已经验收。
