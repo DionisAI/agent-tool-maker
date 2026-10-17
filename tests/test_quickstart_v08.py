@@ -176,6 +176,33 @@ def test_revocation_and_lock_fail_closed(window):
     assert not r.state.jobs()
 
 
+@pytest.mark.parametrize('iteration', range(4))
+def test_immediate_lock_returns_needs_unlock_without_starting_a_child(window, iteration):
+    r,w,ui,c,root=window;approve(window)
+    marker=w/'unexpected-execution'
+    (w/'app.py').write_text('from pathlib import Path;Path("unexpected-execution").write_text("ran")')
+    locked=owner_call(r.state.home,'session.lock')
+    assert locked['status']=='locked' and locked['unlocked'] is False
+    # No sleep/join: exercise the original shutdown window rather than hiding it.
+    result=use(r.state.home,w,['FAL_KEY=atm://fal'],[sys.executable,'app.py'],
+               request_key='immediate-lock-'+str(iteration),dry_run=True,open_browser=False)
+    assert result['status']=='needs_unlock'
+    assert result['execution_started'] is False and result['credentials_read'] is False
+    process=subprocess.run([sys.executable,'-m','agent_tool_maker','--home',str(r.state.home),
+        'use','--workspace',str(w),'--env','FAL_KEY=atm://fal','--dry-run','--no-browser',
+        '--request-key','immediate-lock-cli-'+str(iteration),'--',sys.executable,'app.py'],
+        stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=15)
+    assert process.returncode==3,process.stdout+process.stderr
+    pending=json.loads(process.stdout)
+    assert pending['status']=='needs_unlock' and pending['execution_started'] is False
+    with pytest.raises(RouterError) as error:
+        call(profile_path(r.state,w),'exec',{'argv':[sys.executable,'app.py'],
+            'environment':{'FAL_KEY':'fal'},'workspace':str(w),'request_key':'locked-exec'})
+    assert error.value.code in {'broker_locked','broker_unavailable','session_locked'}
+    assert not marker.exists() and not r.state.jobs()
+    assert status(r.state.home)['unlocked'] is False
+
+
 def test_old_project_approval_not_revived_by_new_unlock(window):
     r,w,ui,c,root=window;approve(window);p=profile_path(r.state,w)
     owner_call(r.state.home,'session.lock');ui.secret_session_thread.join(5)
