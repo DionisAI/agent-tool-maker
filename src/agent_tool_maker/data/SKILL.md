@@ -19,6 +19,16 @@ The registered runtime block below takes precedence over PATH for daily commands
 
 ### Tripo Studio website tools and CLI making
 
+For independent/headless server execution, read docs/TRIPO_SERVER.md. Use the
+server-owned Chromium runtime and reviewed `tripo.server.*` definitions, not a
+local-computer relay or auth-state copying. Agent prepares reviewed dependencies,
+preview/install bundle, foreground/service and a bounded SSH-forwarded VNC entry.
+Human logs in to the SERVER browser; close the viewer before Agent execution.
+Status is runtime health only; verify login/credits via account. Browser state and
+project outputs stay separate. Preserve original schema, permissions, paid budget,
+receipts and stable request keys. No public VNC/CDP/tool endpoint, no sandbox-policy
+changes or auth-file reads. Linux/runtime/provider acceptance remains separate.
+
 For Tripo Studio subscription credits, discover `tripo.studio.*`, not the built-in
 `tripo.generate` developer API. `account` and `assets` are read-only, need
 `--allow-code`, and use Chrome-owned login through the reviewed OpenCLIApp bridge.

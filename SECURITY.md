@@ -55,6 +55,10 @@ MCP 支持可选的固定 Higgsfield OAuth PKCE 登录/刷新，详见 docs/OAUT
 
 ## 发布前仍需完成
 
+独立 Tripo 浏览器见 [服务器契约](docs/TRIPO_SERVER.md)：仅同 UID Unix 工具桥接，
+原权限/预算/防重发保留；profile 不同步。临时 VNC 只经 SSH 转发的 loopback 使用，
+信任服务器本地用户；不是多租户隔离。停机保留 profile，登录过期需人工重新认证。
+
 见 `docs/ROADMAP.md` 的真实供应商/OS 矩阵、OAuth、受限执行、可信批准、webhook 验签和硬预算门槛。发现问题请在用户选择的私有渠道报告；此包尚未提供真实托管披露邮箱或已发布 GitHub security advisory 地址，不要给虚构地址发送秘密。
 
 
