@@ -1,6 +1,7 @@
 """Generate a coverage map from the original 66-provider scope and installed actions."""
 from pathlib import Path
-import json,html,collections
+import argparse,json,html,collections
+if __name__=='__main__':argparse.ArgumentParser(description='Regenerate src/agent_tool_maker/data/roadmap.json, docs/ROADMAP.{json,md,html}, docs/TOOL_CATALOG.md and examples/actions/*.json in place; takes no options.').parse_args()
 from agent_tool_maker.catalog import Catalog
 ROOT=Path(__file__).resolve().parents[1];DATA=ROOT/'src/agent_tool_maker/data';DOCS=ROOT/'docs'
 research=json.loads((DATA/'research.json').read_text());tools=list(Catalog().tools.values())
@@ -117,7 +118,7 @@ md+=['## 路线图不是承诺','', '所有阶段以验收门槛而非日期排�
 # Full finite-action catalog with mechanically checkable rows and schemas/examples in package.
 cat=['# ATM v0.2 · 可发现动作目录','',f'共 {len(tools)} 个入口。native = 执行适配器已实现；bridge = 通用 MCP 协议入口；handoff/browser = 任务交接，不能当作自动执行。',
  '','任何动作的账号、CLI、MCP 服务器或桌面应用仍需用户配置。`atm describe ID` 是输入 schema、例子和权限的可执行来源。','',
- '| ID | 适配器 / 实现 | 声明权限 | 可能计费 | 本版动作 | 来源 |','|---|---|---|---|---|']
+ '| ID | 适配器 / 实现 | 声明权限 | 可能计费 | 本版动作 | 来源 |','|---|---|---|---|---|---|']
 for t in tools:
  links=' / '.join(f'[文档{i+1}]({u})' for i,u in enumerate(t.get('sources',[])))
  cat.append(f"| `{t['id']}` | {t['adapter']} / {t['implementation']} | {', '.join(t.get('permissions',[])) or '按已配置权限读取/本地操作'} | {'是/未知价格' if t.get('paid') else '无额外计费标记，不等于服务免费'} | {t['title']} | {links} |")

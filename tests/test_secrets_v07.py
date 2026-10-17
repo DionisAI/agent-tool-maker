@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -13,6 +14,7 @@ from urllib.parse import quote
 import httpx
 import pytest
 
+from agent_tool_maker import __version__
 from agent_tool_maker.broker import call, revoke
 from agent_tool_maker.engine import Router
 from agent_tool_maker.errors import RouterError
@@ -471,3 +473,12 @@ def test_executable_symlink_retarget_invalidates_permit(env):
     link.unlink();link.symlink_to(replacement)
     with pytest.raises(RouterError) as error:call(root/'link.json','exec',request(w,argv=normalized_argv([str(link),'ok'])))
     assert error.value.code=='grant_stale'
+
+
+@pytest.mark.integration
+def test_secrets_first_demo_receipt_reports_package_version(tmp_path):
+    root=Path(__file__).resolve().parents[1];out=tmp_path/'receipt.json'
+    # The demo runs `atm` from PATH; put this environment's atm first so the code under test is exercised.
+    env={**os.environ,'PATH':str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH','')}
+    subprocess.run([sys.executable,str(root/'scripts/demo_secrets_first.py'),'--out',str(out)],check=True,capture_output=True,timeout=300,env=env)
+    assert json.loads(out.read_text())['version']==__version__
