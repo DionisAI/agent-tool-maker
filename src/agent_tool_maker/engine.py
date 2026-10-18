@@ -144,7 +144,7 @@ class Router:
         except RouterError as e:
             status="submission_unknown" if e.uncertain else "failed"
             return self.state.update_job(job["id"],status,error=e.as_dict())
-        except (ValueError, TypeError, KeyError, IndexError, AttributeError, OSError):
+        except (ValueError, TypeError, KeyError, IndexError, AttributeError, OSError, RecursionError):
             error=RouterError("execution_interrupted", "Unexpected provider shape or local execution failure; reconcile the existing task before any new submission.", uncertain=True)
             return self.state.update_job(job["id"],"submission_unknown",error=error.as_dict())
 
@@ -240,7 +240,7 @@ class Router:
         except RouterError as e:
             # Polling errors never turn into a new paid submission.
             return self.state.update_job(job_id,job["status"],last_error=e.as_dict())
-        except (ValueError, TypeError, KeyError, IndexError, AttributeError, OSError):
+        except (ValueError, TypeError, KeyError, IndexError, AttributeError, OSError, RecursionError):
             e=RouterError("upstream_schema", "Unexpected status/output shape; existing task retained without resubmission.")
             return self.state.update_job(job_id,job["status"],last_error=e.as_dict())
 

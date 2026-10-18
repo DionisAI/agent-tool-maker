@@ -1,4 +1,4 @@
-import json,sys
+import json,sys,threading
 from pathlib import Path
 import httpx,pytest
 from agent_tool_maker.mcp_bridge import bind_server
@@ -53,6 +53,18 @@ def test_mcp_full_batch_schema_validation_before_first_call(router,workspace,tmp
     assert j['status']=='failed' and j['data']['error']['code']=='invalid_input'
     assert 'mcp_started' not in j['data']
 
+@pytest.mark.integration
+@pytest.mark.parametrize('line',['{not json','['*200000],ids=['invalid','nested'])
+def test_stdio_nested_json_is_interrupted_like_invalid_json(router,workspace,tmp_path,monkeypatch,line):
+    cfg=stdio_config(tmp_path);p=Path(cfg['command'])
+    p.write_text(p.read_text().replace(' print(json.dumps(',f" if method=='tools/call':print({line!r},flush=True);continue\n print(json.dumps(",1))
+    bind_server(router.state,'playwright',cfg);hooked=[]
+    monkeypatch.setattr(threading,'excepthook',lambda args:hooked.append(args.exc_type))
+    kwargs={'request_key':'deep','allow_paid':True,'grants':['external_write','execute_code']}
+    j=router.run('playwright.mcp_batch',{'calls':[{'name':'read','arguments':{}}]},workspace,**kwargs)
+    assert j['status']=='submission_unknown' and j['data']['error']['code']=='mcp_interrupted' and j['data']['error']['outcome_uncertain'] is True
+    assert hooked==[] and router.run('playwright.mcp_batch',{'calls':[{'name':'read','arguments':{}}]},workspace,**kwargs)['id']==j['id']
+
 @pytest.mark.parametrize('sse',[False,True])
 def test_streamable_http_json_sse_and_session_headers(router,workspace,sse):
     calls=[]
@@ -83,3 +95,21 @@ def test_streamable_http_json_sse_and_session_headers(router,workspace,sse):
 ])
 def test_invalid_mcp_binding_rejected(router,cfg):
     with pytest.raises(RouterError):bind_server(router.state,'figma',cfg)
+
+@pytest.mark.parametrize('sse',[False,True])
+@pytest.mark.parametrize('raw',['{not json','['*200000],ids=['invalid','nested'])
+def test_streamable_http_nested_json_is_interrupted_like_invalid_json(router,workspace,raw,sse):
+    calls=[]
+    bind_server(router.state,'figma',{'transport':'http','url':'https://mcp.example.com/mcp','allow_tools':['read']})
+    def handler(req):
+        if req.method=='DELETE':return httpx.Response(204)
+        q=json.loads(req.content);calls.append(q['method'])
+        if q['method']=='notifications/initialized':return httpx.Response(202)
+        body=raw if q['method']=='tools/call' else json.dumps({'jsonrpc':'2.0','id':q['id'],'result':INIT if q['method']=='initialize' else {'tools':TOOLS}})
+        if sse:return httpx.Response(200,headers={'Content-Type':'text/event-stream'},content=('data: '+body+'\n\n').encode())
+        return httpx.Response(200,headers={'Content-Type':'application/json'},content=body.encode())
+    router.net.client=httpx.Client(transport=httpx.MockTransport(handler),trust_env=False)
+    kwargs={'request_key':'deep','allow_paid':True,'grants':['external_write','execute_code']}
+    j=router.run('figma.mcp_batch',{'calls':[{'name':'read','arguments':{}}]},workspace,**kwargs)
+    assert j['status']=='submission_unknown' and j['data']['error']['code']=='mcp_interrupted' and j['data']['error']['outcome_uncertain'] is True
+    assert router.run('figma.mcp_batch',{'calls':[{'name':'read','arguments':{}}]},workspace,**kwargs)['id']==j['id'] and calls.count('tools/call')==1
