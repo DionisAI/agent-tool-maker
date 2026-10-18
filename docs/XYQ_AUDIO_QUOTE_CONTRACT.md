@@ -66,6 +66,7 @@
   安装计划和0600回执：`/private/tmp/atm-xyq-quote-bound-install-plan-20261007.json`、
   `/private/tmp/atm-xyq-quote-bound-install-20261007.json`。
 - 新16包 `generated/xyq-web-audio-quote-bound-stage/`，相对于原首页准备阶段仅费率定义变化。
+  该目录是本机构建输出，未提交到仓库；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
   仅两个只读定义安装在新 `/private/tmp/atm-xyq-quote-bound-e2e-20261007/state`，生产 vault/ATM保持。
   生成CLI → 隔离ATM → 已安装App → 原已绑定测试项目：before、quote、after 三个job completed；
   quote job `b7f54aaf-d068-48d5-9c45-d079fe6536a7`，同request-key复用同job而非重新取价。

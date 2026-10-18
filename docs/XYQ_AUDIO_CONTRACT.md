@@ -95,6 +95,7 @@
   截图：`/private/tmp/atm-xyq-audio-prompt-readonly-final-20261007.jpg`。
 
 当前生成包为 `generated/xyq-web-audio-prompt-stage/`，12个均通过完整性验证。
+本页 `generated/xyq-*` 阶段目录都是本机构建输出，未提交到仓库；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
 prompt 源码 pin：`094f2a8475c4e60ea2ffbfec5a52ab4f6068898017fbd09f02d9f38feb8fa8b6`。
 上传、引用准备、真实音色效果、付费生成、持久化和下载保持独立验收。
 
@@ -140,7 +141,7 @@ audio 原始源码 pin 保持 `b90b0a150403016741e29f8034723ea4fa58db2aa64eff227
   提示词/token/参考卡片的完整 form SHA 保持 `64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97`。
   未选择新参数，积分显示6396；这里是源码菜单发现，不是已安装 CLI 参数写入验收。
 
-当前14包：`generated/xyq-web-audio-settings-stage-r2/`，均完整性有效，未安装到真实 ATM。
+当前14包：`generated/xyq-web-audio-settings-stage-r2/`（本机构建输出，未提交），均完整性有效，未安装到真实 ATM。
 源码 pin：`357d3a6ed5a0795145fa1a9e5e24ed829a37c046aeb17ba826f60912d644b5d6`。
 初轮包/源码回执保留；r2 增加显式 JSON 字符串类型校验，最终 CUA 回执 pin 与14包一致。
 真实 mode-600 回执：`/private/tmp/atm-xyq-audio-settings-cua-receipt-20261007-r2.json`；
@@ -163,7 +164,7 @@ audio 原始源码 pin 保持 `b90b0a150403016741e29f8034723ea4fa58db2aa64eff227
 回执 `/private/tmp/atm-xyq-mode-modal-readonly-20261007.json`（0600），
 截图 `/private/tmp/atm-xyq-mode-modal-readonly-20261007.jpg`。
 
-首页模式菜单修复更新共享 core，因此新默认14包位于 `generated/xyq-web-mode-modal-stage-r2/`，
+首页模式菜单修复更新共享 core，因此新默认14包位于 `generated/xyq-web-mode-modal-stage-r2/`（本机构建输出，未提交），
 音频 source pin 也随依赖更新。上一节音频参数14包是保留的历史快照；最新 pin 和
 回归真源见 XYQ_WEB_COVERAGE.md 末节。新 ATM 包尚未安装，当前旧只读安装不静默替换。
 
