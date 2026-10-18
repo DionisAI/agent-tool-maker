@@ -31,6 +31,22 @@ def test_node_python_result_pin_and_opt_in_compiler(tmp_path):
     assert len(meta['operations'])==23 and meta['operations'][-3:]==list(b.RESULT_OPERATIONS)
     assert meta['result_adapter_sha256']==b.bundle_digest(b.RESULT_FILES) and not meta['provider_delivery_verified']
 
+def test_results_only_compiler_emits_exactly_the_three_identical_bundles(tmp_path):
+    def build(out,*flags):
+        return subprocess.run([sys.executable,'scripts/build_xyq_web.py','--out',str(tmp_path/out),*flags],cwd=ROOT,capture_output=True,text=True)
+    p=build('only','--results-only');assert p.returncode==0,p.stderr
+    meta=json.loads(p.stdout);ids=['xyq.web.'+op for op in b.RESULT_OPERATIONS]
+    assert meta['operations']==list(b.RESULT_OPERATIONS) and [x['tool'] for x in meta['bundles']]==ids
+    assert sorted(d.name for d in (tmp_path/'only').iterdir())==sorted(b.RESULT_OPERATIONS)
+    assert meta['result_adapter_sha256']==b.bundle_digest(b.RESULT_FILES) and not meta['provider_delivery_verified']
+    assert build('full','--include-results').returncode==0
+    snapshot=lambda d:{f.name:f.read_bytes() for f in d.iterdir()}
+    for op in b.RESULT_OPERATIONS:
+        assert snapshot(tmp_path/'only'/op)==snapshot(tmp_path/'full'/op) and len(snapshot(tmp_path/'only'/op))==5
+    for i,flag in enumerate(('--include-results','--include-delivery','--include-canvas','--bound-home','--bound-audio-quote','--bound-audio-edit','--bound-audio-upload')):
+        p=build(f'mixed{i}','--results-only',flag)
+        assert p.returncode==2 and 'cannot be combined' in p.stderr and not (tmp_path/f'mixed{i}').exists()
+
 def test_result_command_real_subprocess_never_reads_vault_and_reuses_job(router,workspace,tmp_path):
     from agent_tool_maker.catalog import Catalog
     from agent_tool_maker.cli_adapter import bind_cli

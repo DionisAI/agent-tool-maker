@@ -342,7 +342,16 @@ def main():
     parser.add_argument('--bound-audio-upload',action='store_true',help='Explicit browser binding for one approved PCM WAV / MP3; no automatic fallback')
     parser.add_argument('--include-delivery',action='store_true',help='Add reviewed single-submit and original local-receipt status tools; provider tasks/downloads remain separate')
     parser.add_argument('--include-results',action='store_true',help='Add three read-only existing-conversation image-result/preview/download-plan queries; no download click')
+    parser.add_argument('--results-only',action='store_true',help='Emit only the three --include-results bundles, to install beside build_xyq_runtime.py without colliding IDs')
     args=parser.parse_args()
+    stages=('include_canvas','bound_home','bound_audio_quote','bound_audio_edit','bound_audio_upload','include_delivery','include_results')
+    if args.results_only and any(getattr(args,k) for k in stages):
+        parser.error('--results-only cannot be combined with other stage options')
+    if args.results_only:
+        result=[extensions.pack(result_manifest(op),args.out/op) for op in RESULT_OPERATIONS]
+        print(json.dumps({'status':'compiled','scope':'results-only','operations':list(RESULT_OPERATIONS),'result_adapter_sha256':bundle_digest(RESULT_FILES),
+                          'result_binding':'explicit-browser','result_scope':'current_rendered_conversation_images','provider_delivery_verified':False,'bundles':result},ensure_ascii=False))
+        return
     result=[]
     for operation in OPERATIONS:
         result.append(extensions.pack(manifest(operation),args.out/operation))
