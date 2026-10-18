@@ -2,6 +2,7 @@
 from __future__ import annotations
 import copy
 import hashlib
+import ipaddress
 import json
 import re
 from pathlib import Path
@@ -74,6 +75,10 @@ def _validate_manifest(tool,catalog=None):
         from urllib.parse import urlsplit
         p=urlsplit(spec['origin'])
         if p.path not in {'','/'} or p.query:raise RouterError('bad_manifest','API origin cannot contain a path or query.')
+        try:literal=ipaddress.ip_address(p.hostname)
+        except ValueError:literal=None
+        # Runtime refuses these anyway (public_address); refuse at review instead of a misleading run failure.
+        if literal is not None and not literal.is_global:raise RouterError('bad_manifest','Custom API origins must be public hosts; loopback/private address literals are refused.')
         method=spec.get('method','GET')
         if method not in {'GET','POST','PUT','PATCH','DELETE'}:raise RouterError('bad_manifest','Unsupported method.')
         if method!='GET':permissions.add('external_write')

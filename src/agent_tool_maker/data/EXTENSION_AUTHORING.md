@@ -1,8 +1,9 @@
 # ATM extension authoring contract v1
 
 One JSON manifest, no executable Python inside the manifest. Required keys: id, provider,
-title, capabilities (list), schema (JSON Schema object with type=object), adapter,
-paid (boolean, default conservatively true). Inputs do not carry secrets.
+title, capabilities (list), schema (JSON Schema object with type=object), adapter.
+paid (boolean; omitted means false, so set true whenever a call can spend money or credits).
+Keep a seed's paid:true and permissions; drafts that drop them are refused. Inputs do not carry secrets.
 
 - rest: request={origin:fixed HTTPS origin, path:/relative/{id}, method:GET/POST/PUT/PATCH/DELETE,
   auth:bearer/basic/header:X-Api-Key/none, query:{name:"$name"}, optional_query:[optional keys],

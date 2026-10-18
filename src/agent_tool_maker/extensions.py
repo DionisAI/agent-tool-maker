@@ -45,7 +45,12 @@ def declare_credential(router, name: str, *, label: str | None = None, apply=Fal
 
 def write_draft(tool: dict, out: Path, catalog=None) -> dict:
     tool = validate_manifest(tool, catalog)
-    write_sync_file(Path(out), (json.dumps(tool, ensure_ascii=False, indent=2) + "\n").encode())
+    try:
+        write_sync_file(Path(out), (json.dumps(tool, ensure_ascii=False, indent=2) + "\n").encode())
+    except RouterError as error:
+        if error.code != "file_exists":
+            raise
+        raise RouterError("file_exists", "Choose a new draft path; existing definitions are not overwritten.") from None
     return {"path": str(Path(out).absolute()), "id": tool["id"], "sha256": digest(tool),
             "installed": False, "execution_started": False, "verification": "schema_only"}
 
@@ -239,8 +244,11 @@ def pack(tool: dict, directory: Path, catalog=None) -> dict:
     # A failed build remains inspectable; no directory cleanup or deletion occurs.
     # This also works on systems without macOS Trash. Partial bundles fail check-bundle.
     dest.mkdir()
-    for name, text in data.items():
-        atomic_write(dest / name, text.encode())
+    try:
+        for name, text in data.items():
+            atomic_write(dest / name, text.encode())
+    except OSError:
+        raise RouterError("bundle_incomplete", f"Bundle write failed; the partial directory is kept at {dest} for inspection, fails check-bundle, and is never reused. Choose a new --out.") from None
     return {"directory": str(dest), "tool": tool["id"], "sha256": sha,
             "files": sorted(data), "installed": False, "generated_python_cli": True}
 
@@ -255,6 +263,13 @@ def validate_bundle(directory: Path) -> dict:
     lock = strict_json(lock_path.read_bytes(), limit=16384)
     if not isinstance(lock,dict) or lock.get("format") != FORMAT or set(lock.get("files", {})) != {"manifest.json", "tool.py", "README.md", "inputs.example.json"}:
         raise RouterError("invalid_bundle", "Unknown bundle format or file set.")
+    # Finder metadata is never imported or run; anything else unlocked is a modification.
+    extra = sorted({p.name for p in directory.iterdir()} - set(lock["files"]) - {"bundle-lock.json", ".DS_Store"})
+    if extra:
+        # Names come from an untrusted bundle; never echo arbitrary text to the Agent.
+        shown = [n if re.fullmatch(r"[A-Za-z0-9._-]{1,64}", n) else "<unsafe-name>" for n in extra[:10]]
+        raise RouterError("bundle_modified", "Bundle contains files not covered by its lock: " + ", ".join(shown) +
+                          (", ..." if len(extra) > 10 else "") + "; review/rebuild before use.")
     for name, expected in lock["files"].items():
         path = directory / name
         if path.is_symlink() or not path.is_file() or path.stat().st_size > 512*1024 or hashlib.sha256(path.read_bytes()).hexdigest() != expected:

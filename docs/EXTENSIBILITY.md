@@ -149,7 +149,7 @@ atm cli bind ffprobe "$(command -v ffprobe)"
 python ./media-cli/tool.py --input ./task.json --workspace /your/project --dry-run
 ```
 
-生成的是**只需 Python 标准库、调用已安装 ATM>=0.6 命令的真实 CLI**，不是独立供应商SDK。ATM 在 pipx 的独立环境也可用；找不到入口时通过 `--atm /absolute/path/to/atm` 指定，不要求生成脚本和 ATM 安装在同一个Python环境。它固定tool ID和定义摘要；定义不同就拒绝运行，不偷偷安装或换版本。实际CLI也支持 `--client claude` / `--client codex` / `--client-profile`，继承Broker scope。包里没有Key、Cookie、权限或外部可执行文件。hash只证明文件一致，不是作者签名或安全审计。
+生成的是**只需 Python 标准库、调用已安装 ATM>=0.6 命令的真实 CLI**，不是独立供应商SDK。ATM 在 pipx 的独立环境也可用；找不到入口时通过 `--atm /absolute/path/to/atm` 指定，不要求生成脚本和 ATM 安装在同一个Python环境。它固定tool ID和定义摘要；定义不同就拒绝运行，不偷偷安装或换版本。实际CLI也支持 `--client claude` / `--client codex` / `--client-profile`，继承Broker scope。包里没有Key、Cookie、权限或外部可执行文件。hash只证明文件一致，不是作者签名或安全审计。`make pack` 写入中途失败时返回 `bundle_incomplete`：部分目录原样保留在 `--out` 供检查，`check-bundle` 判为无效且不会被复用，请换一个新的 `--out`。
 
 **可选模型路径：**ATM自己调用已安装并登录的Claude Code或Codex，只接收结构化工具定义，再使用同一编译器生成CLI。
 
