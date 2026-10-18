@@ -2,6 +2,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import signal
 import subprocess
 import tempfile
@@ -27,6 +28,20 @@ def bind_cli(state: State, name: str, path: str):
     state.set_setting(f"cli:{name}",str(p))
     state.set_setting(f"cli_hash:{name}", hashlib.sha256(p.read_bytes()).hexdigest())
     return {"bound":name,"path":str(p),"authentication":"not_verified"}
+
+
+def native_refusal(out):
+    # ATM's own hash-pinned child states definite refusals; any other shape stays uncertain.
+    out.seek(0)
+    data=out.read(64*1024+1)
+    if len(data)>64*1024: return None
+    try: parsed=json.loads(data)
+    except (ValueError,RecursionError): return None
+    error=parsed.get("error") if isinstance(parsed,dict) and len(parsed)==1 else None
+    if not isinstance(error,dict) or error.get("outcome_uncertain") is not False: return None
+    code,message=error.get("code"),error.get("message")
+    if not isinstance(code,str) or not re.fullmatch(r"[a-z_]{1,64}",code) or not isinstance(message,str): return None
+    return RouterError(code,message[:300])
 
 
 def execute_cli(state: State,name: str,args: list[str],workspace: Path,timeout=60,parse_json=True,output_mode=None,extra_env=None):
@@ -58,6 +73,8 @@ def execute_cli(state: State,name: str,args: list[str],workspace: Path,timeout=6
             proc.wait()
             raise RouterError("cli_timeout","CLI timed out; upstream completion is unknown. Do not resubmit blindly.",uncertain=True) from None
         if proc.returncode:
+            refusal=native_refusal(out) if name=="atm" and expected and proc.returncode==2 else None
+            if refusal: raise refusal
             raise RouterError("cli_failed",f"CLI exited with code {proc.returncode}; stderr suppressed. Check its login/status directly.",uncertain=True)
         out.seek(0)
         data=out.read(2*1024*1024+1)
@@ -71,5 +88,5 @@ def execute_cli(state: State,name: str,args: list[str],workspace: Path,timeout=6
             parsed=json.loads(data)
             if not isinstance(parsed,(dict,list)): raise ValueError()
             return parsed
-        except (ValueError,UnicodeDecodeError):
+        except (ValueError,UnicodeDecodeError,RecursionError):
             raise RouterError("cli_protocol","CLI did not return a JSON object; upstream outcome may be unknown.",uncertain=True) from None

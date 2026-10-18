@@ -204,7 +204,7 @@ def execute_rest(router, tool, job):
     response=router.net.request(req['method'],url,host=urlsplit(url).hostname,headers=headers,body=req['body'],
                                 allow_local=req['local'], form=tool['request'].get('form',False))
     try: result=response.json()
-    except ValueError: raise RouterError('upstream_schema','Expected JSON response.',uncertain=req['method']!='GET') from None
+    except (ValueError,RecursionError): raise RouterError('upstream_schema','Expected JSON response.',uncertain=req['method']!='GET') from None
     if _semantic_error(result):
         raise RouterError('upstream_rejected','Provider returned an application-level error; result body suppressed.',uncertain=req['method']!='GET')
     result=router.vault.redact(result)

@@ -90,7 +90,7 @@ class Stdio:
                     if not line:break
                     if len(line)>MAX_MESSAGE: self.queue.put(RouterError('mcp_limit','MCP message too large.'));break
                     try:self.queue.put(json.loads(line),timeout=1)
-                    except (ValueError,queue.Full):break
+                    except (ValueError,RecursionError,queue.Full):break
             finally:
                 try:self.queue.put(None,timeout=1)
                 except queue.Full:pass
@@ -175,7 +175,7 @@ class HTTP:
                     if size>MAX_MESSAGE:raise RouterError('mcp_limit','MCP response exceeded limit.')
                     chunks.append(c)
                 return json.loads(b''.join(chunks))
-        except (httpx.HTTPError,OSError,ValueError):raise RouterError('mcp_interrupted','MCP response was interrupted or invalid.',uncertain=msg.get('method')=='tools/call') from None
+        except (httpx.HTTPError,OSError,ValueError,RecursionError):raise RouterError('mcp_interrupted','MCP response was interrupted or invalid.',uncertain=msg.get('method')=='tools/call') from None
     def close(self):
         # Stateless invocation; no reconnect or automatic replay. Explicit DELETE is best effort.
         if self.session:

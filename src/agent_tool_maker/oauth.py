@@ -143,7 +143,7 @@ class OAuth:
                     data = json.loads(raw, object_pairs_hook=pairs, parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
                     if not isinstance(data, dict):
                         raise ValueError()
-                except (ValueError, UnicodeDecodeError):
+                except (ValueError, UnicodeDecodeError, RecursionError):
                     raise RouterError("oauth_response", "OAuth response was not a bounded JSON object.", uncertain=method == "POST") from None
                 if not 200 <= response.status_code < 300:
                     # Only standardized, fixed error names survive; bodies/descriptions are secret-bearing.

@@ -82,7 +82,7 @@ class Network:
             if not isinstance(value,dict):
                 raise ValueError()
             return value
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError, RecursionError):
             raise RouterError("upstream_schema", "Provider did not return a JSON object.",uncertain=submission) from None
 
     def download(self, url, max_bytes=MAX_RESPONSE):

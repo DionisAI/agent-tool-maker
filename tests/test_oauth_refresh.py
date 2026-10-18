@@ -209,7 +209,8 @@ def test_refresh_rotation_reopen_and_resource_before_unlock(oauth):
     (httpx.Response(503,json={'error':'server_error','secret':'FIXTURE_ACCESS_1'}),'refresh_unknown'),
     (httpx.ReadTimeout('fixture'),'refresh_unknown'), (httpx.Response(200,content='not JSON'),'refresh_unknown'),
     (httpx.Response(200,json={'access_token':'bad\nheader','refresh_token':'next','expires_in':3600,'token_type':'Bearer'}),'refresh_unknown'),
-    (httpx.Response(200,content='{"access_token":"next","expires_in":Infinity,"token_type":"Bearer"}'),'refresh_unknown')])
+    (httpx.Response(200,content='{"access_token":"next","expires_in":Infinity,"token_type":"Bearer"}'),'refresh_unknown'),
+    (httpx.Response(200,content=b'['*60000),'refresh_unknown')])
 def test_refresh_errors_and_no_blind_retry(oauth, response, expected):
     manager, fixture, now = connected(oauth)
     fixture.token_result = response
