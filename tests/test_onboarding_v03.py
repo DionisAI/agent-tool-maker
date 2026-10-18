@@ -1,6 +1,8 @@
 """Real local state/files/processes; all vendor HTTP is simulated, never billed."""
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, PathDistribution
+from importlib.resources import files
 import json
 import os
 from pathlib import Path
@@ -12,6 +14,7 @@ import time
 import httpx
 import pytest
 
+from agent_tool_maker import onboarding
 from agent_tool_maker.cli import main
 from agent_tool_maker.cli_adapter import bind_cli
 from agent_tool_maker.engine import Router
@@ -142,6 +145,162 @@ def test_export_idempotent_and_conflict(tmp_path):
     with pytest.raises(RouterError):
         export_skill(tmp_path / "skills")
     assert Path(export_skill(tmp_path / "skills", replace=True)["backup"]).read_text() == "user changes"
+
+
+ROOT = Path(__file__).resolve().parents[1]
+RELATIVE = "docs/, scripts/, examples/ and deploy/ paths in this Skill are relative to it; the installed package does not include them."
+UNKNOWN = ("docs/, scripts/, examples/ and deploy/ paths in this Skill refer to a reviewed checkout of this repository, "
+           "which the installed package does not include. Ask the owner for its location; do not download another copy.")
+NO_DIST = object()
+PACKAGED_SKILL = files("agent_tool_maker.data").joinpath("SKILL.md").read_bytes()
+
+
+def checkout(root, name="agent-tool-maker-local"):
+    (root / "scripts").mkdir(parents=True)
+    (root / "pyproject.toml").write_text(f'[project]\nname = "{name}"\nversion = "0.8.0"\n')
+    (root / "SKILL.md").write_bytes(PACKAGED_SKILL)
+    (root / "scripts/build_tripo_studio.py").write_text("")
+    return root
+
+
+def installed(monkeypatch, tmp_path, direct_url, package_dir=None):
+    """Simulated dist-info and module location; nothing is installed."""
+    dist = tmp_path / "site/agent_tool_maker_local-0.8.0.dist-info"
+    dist.mkdir(parents=True)
+    if direct_url not in (None, NO_DIST):
+        (dist / "direct_url.json").write_text(direct_url if isinstance(direct_url, str) else json.dumps(direct_url))
+    def distribution(name):
+        assert name == "agent-tool-maker-local"
+        if direct_url is NO_DIST:
+            raise PackageNotFoundError(name)
+        return PathDistribution(dist)
+    monkeypatch.setattr(onboarding, "distribution", distribution)
+    monkeypatch.setattr(onboarding, "PACKAGE_DIR", package_dir or tmp_path / "site/agent_tool_maker")
+
+
+def runtime_block(tmp_path):
+    text = onboarding.render_skill(executable(tmp_path), tmp_path / "state").decode()
+    assert text.startswith(ROOT.joinpath("SKILL.md").read_text())
+    return text.split("\n## Registered local runtime — ATM ", 1)[1]
+
+
+@pytest.mark.parametrize("dir_info", [{}, {"editable": True}])
+def test_full_skill_names_pep610_directory_checkout(monkeypatch, tmp_path, dir_info):
+    root = checkout(tmp_path / "reviewed atm")
+    installed(monkeypatch, tmp_path, {"url": root.as_uri(), "dir_info": dir_info})
+    block = runtime_block(tmp_path)
+    assert f"\n\nSource checkout: `{root.resolve()}`. {RELATIVE}\n\nThe paths are local to this OS user." in block
+    assert UNKNOWN not in block
+    scoped = onboarding.render_skill(executable(tmp_path), tmp_path / "state", client="claude").decode()
+    assert "Source checkout" not in scoped and "deploy/" not in scoped and str(root) not in scoped
+
+
+@pytest.mark.parametrize("direct_url", [
+    lambda root: {"url": root.as_uri(), "archive_info": {"hashes": {"sha256": "0" * 64}}},
+    lambda root: {"url": root.as_uri(), "vcs_info": {"vcs": "git", "commit_id": "0" * 40}},
+    lambda root: {"url": "file://build-host" + root.as_posix(), "dir_info": {}},
+    lambda root: {"url": str(root), "dir_info": {}},
+    lambda root: {"url": "file:reviewed", "dir_info": {}},
+    lambda root: {"dir_info": {}},
+    lambda root: [root.as_uri(), "dir_info"],
+    lambda root: "{not json",
+    lambda root: None,
+    lambda root: NO_DIST,
+], ids=["archive", "vcs", "remote-host", "not-url", "relative", "no-url", "list", "bad-json", "no-direct-url", "no-distribution"])
+def test_full_skill_falls_back_without_local_directory_install(monkeypatch, tmp_path, direct_url):
+    root = checkout(tmp_path / "reviewed")
+    monkeypatch.chdir(tmp_path)
+    installed(monkeypatch, tmp_path, direct_url(root))
+    block = runtime_block(tmp_path)
+    assert f"\n\n{UNKNOWN}\n\nThe paths are local to this OS user." in block
+    assert "Source checkout" not in block and str(root) not in block
+
+
+@pytest.mark.parametrize("change", ["other-project", "no-skill", "no-factory", "no-pyproject", "bad-pyproject", "no-project-table", "absent"])
+def test_full_skill_rejects_non_atm_directory(monkeypatch, tmp_path, change):
+    root = checkout(tmp_path / "other", "other-project" if change == "other-project" else "agent-tool-maker-local")
+    {"no-skill": lambda: (root / "SKILL.md").unlink(),
+     "no-factory": lambda: (root / "scripts/build_tripo_studio.py").unlink(),
+     "no-pyproject": lambda: (root / "pyproject.toml").unlink(),
+     "bad-pyproject": lambda: (root / "pyproject.toml").write_text("[project\n"),
+     "no-project-table": lambda: (root / "pyproject.toml").write_text('name = "agent-tool-maker-local"\n'),
+     "absent": lambda: shutil.rmtree(root)}.get(change, lambda: None)()
+    installed(monkeypatch, tmp_path, {"url": root.as_uri(), "dir_info": {}})
+    block = runtime_block(tmp_path)
+    assert UNKNOWN in block and "Source checkout" not in block
+
+
+@pytest.mark.parametrize("name", ["bad\nrepo", "bad\rrepo"])
+@pytest.mark.parametrize("where", ["direct-url", "in-source"])
+def test_full_skill_control_character_checkout_falls_back(monkeypatch, tmp_path, name, where):
+    root = checkout(tmp_path / name)
+    if where == "direct-url":
+        installed(monkeypatch, tmp_path, {"url": root.as_uri(), "dir_info": {}})
+    else:
+        installed(monkeypatch, tmp_path, NO_DIST, root / "src/agent_tool_maker")
+    block = runtime_block(tmp_path)
+    assert UNKNOWN in block and "Source checkout" not in block and name not in block
+
+
+def test_full_skill_prefers_the_imported_src_checkout_over_pep610(monkeypatch, tmp_path):
+    # data/SKILL.md and the code are loaded from the imported tree, so it names that tree.
+    recorded = checkout(tmp_path / "recorded")
+    imported = checkout(tmp_path / "imported")
+    installed(monkeypatch, tmp_path, {"url": recorded.as_uri(), "dir_info": {"editable": True}}, imported / "src/agent_tool_maker")
+    block = runtime_block(tmp_path)
+    assert f"Source checkout: `{imported.resolve()}`." in block and str(recorded) not in block
+
+
+def test_full_skill_requires_this_revision_of_the_skill(monkeypatch, tmp_path):
+    root = checkout(tmp_path / "reviewed")
+    (root / "SKILL.md").write_bytes(PACKAGED_SKILL + b"\nedited after install\n")
+    installed(monkeypatch, tmp_path, {"url": root.as_uri(), "dir_info": {}})
+    assert UNKNOWN in runtime_block(tmp_path)
+
+
+@pytest.mark.parametrize("name", ["tick`repo", "sep\u2028repo", "tab\trepo", "ff\x0crepo"])
+def test_full_skill_never_renders_markdown_breaking_paths(monkeypatch, tmp_path, name):
+    root = checkout(tmp_path / name)
+    installed(monkeypatch, tmp_path, {"url": root.as_uri(), "dir_info": {}})
+    block = runtime_block(tmp_path)
+    assert UNKNOWN in block and "Source checkout" not in block and name not in block
+
+
+def test_full_skill_ignores_non_regular_pyproject(monkeypatch, tmp_path):
+    root = checkout(tmp_path / "reviewed")
+    (root / "pyproject.toml").unlink()
+    os.mkfifo(root / "pyproject.toml")  # a FIFO must not block setup
+    installed(monkeypatch, tmp_path, {"url": root.as_uri(), "dir_info": {}})
+    assert UNKNOWN in runtime_block(tmp_path)
+
+
+def test_full_skill_nul_url_falls_back(monkeypatch, tmp_path):
+    root = checkout(tmp_path / "reviewed")
+    installed(monkeypatch, tmp_path, {"url": root.as_uri() + "%00", "dir_info": {}})
+    assert UNKNOWN in runtime_block(tmp_path)
+
+
+def test_full_skill_names_in_source_checkout(monkeypatch, tmp_path):
+    root = checkout(tmp_path / "checkout")
+    installed(monkeypatch, tmp_path, NO_DIST, root / "src/agent_tool_maker")
+    assert f"Source checkout: `{root.resolve()}`. {RELATIVE}" in runtime_block(tmp_path)
+    monkeypatch.setattr(onboarding, "PACKAGE_DIR", root / "lib/agent_tool_maker")
+    assert UNKNOWN in runtime_block(tmp_path)
+    gone = checkout(tmp_path / "moved")
+    installed(monkeypatch, tmp_path / "again", {"url": gone.as_uri(), "dir_info": {}}, root / "src/agent_tool_maker")
+    shutil.rmtree(gone)
+    assert f"Source checkout: `{root.resolve()}`. {RELATIVE}" in runtime_block(tmp_path)
+
+
+def test_setup_installs_skill_naming_this_editable_checkout(router, tmp_path, monkeypatch):
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    # Uses the real PEP 610 record written for the contract environment's `pip install -e .`.
+    args = dict(agents=["claude", "codex"], executable=str(executable(tmp_path)), user_home=tmp_path / "user", apply=True)
+    for item in setup(router, **args)["skills"]:
+        text = Path(item["path"]).read_text()
+        assert f"Source checkout: `{ROOT}`. {RELATIVE}" in text and UNKNOWN not in text
+    assert all(x["action"] == "unchanged" for x in setup(router, **args)["skills"])
+    assert onboarding.source_checkout() == ROOT
 
 
 def test_doctor_headless_locked_vault_does_not_prompt(router, monkeypatch):
