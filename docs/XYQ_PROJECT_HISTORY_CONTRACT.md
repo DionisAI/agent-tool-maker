@@ -35,7 +35,8 @@ all_records=false、task_count=null。其它菜单、重复关联、错页/错�
 
 ## 实现与隔离验收
 
-编译默认18个媒体包，目录generated/xyq-web-history-stage/；新增1个定义，
+编译默认18个媒体包，目录generated/xyq-web-history-stage/（本机构建输出，未提交到仓库；
+当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建）；新增1个定义，
 原17个定义的完整摘要/路由与各源码闭包保持。
 history闭包8文件，pin为ef9de8acd17f8c999d5367440cadbfeb6e9f0f87be39863b0597bbd087d23ac5。
 新增reviewed project-history-state-bound注册，loader SHA为
