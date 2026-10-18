@@ -138,6 +138,27 @@ def test_non_atm_cli_printing_the_same_refusal_stays_cli_failed_uncertain(router
     assert error.value.code == "cli_failed" and error.value.uncertain and calls.read_text() == "x"
 
 
+@pytest.mark.parametrize("stdout", [b"{not json", b"[" * 200000], ids=["invalid", "nested"])
+def test_exit0_nested_json_is_terminal_like_invalid_json_and_key_reuse(router, studio, workspace, stdout):
+    calls = studio(stdout, 0)
+    job = router.run("tripo.server.account", {}, workspace, request_key="exit0-deep", grants=["execute_code"])
+    assert job["status"] == "submission_unknown" and job["data"]["error"]["code"] == "cli_protocol"
+    assert job["data"]["error"]["outcome_uncertain"] is True
+    again = router.run("tripo.server.account", {}, workspace, request_key="exit0-deep", grants=["execute_code"])
+    assert again["id"] == job["id"] and again["status"] == "submission_unknown" and calls.read_text() == "x"
+    assert router.refresh(job["id"])["status"] == "submission_unknown" and calls.read_text() == "x"
+
+
+def test_exit0_parseable_json_nested_past_the_recursion_limit_is_terminal(router, studio, workspace):
+    # 3.11 refuses this depth while parsing (cli_protocol); 3.12+ parses it and redaction then recurses too deep.
+    calls = studio(b"[" * 5000 + b"]" * 5000, 0)
+    job = router.run("tripo.server.account", {}, workspace, request_key="exit0-parsed", grants=["execute_code"])
+    assert job["status"] == "submission_unknown" and job["data"]["error"]["outcome_uncertain"] is True
+    assert job["data"]["error"]["code"] in {"cli_protocol", "execution_interrupted"}
+    again = router.run("tripo.server.account", {}, workspace, request_key="exit0-parsed", grants=["execute_code"])
+    assert again["id"] == job["id"] and calls.read_text() == "x"
+
+
 @pytest.fixture
 def source_atm(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "isolated-home"))

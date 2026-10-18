@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import json
+import httpx
 import pytest
 from agent_tool_maker.catalog import add_browser_tool
 from agent_tool_maker.errors import RouterError
@@ -50,6 +51,35 @@ def test_concurrent_job_claim_is_unique(router,workspace):
     with ThreadPoolExecutor(max_workers=8) as pool: results=list(pool.map(claim,range(16)))
     assert sum(new for job,new in results)==1
     assert len({job['id'] for job,new in results})==1
+
+
+@pytest.mark.parametrize('body',[b'{not json',b'['*200000],ids=['invalid','nested'])
+def test_nested_submission_json_is_unknown_like_invalid_json(router,workspace,fixture_provider,body):
+    def handler(request):
+        fixture_provider.calls.append((request.method,str(request.url)))
+        return httpx.Response(200,content=body)
+    router.net.client.close();router.net.client=httpx.Client(transport=httpx.MockTransport(handler),trust_env=False)
+    p={'endpoint':'fal-ai/flux/schnell','arguments':{'prompt':'deep'}}
+    job=router.run('fal.generate',p,workspace,allow_paid=True,request_key='deep')
+    assert job['status']=='submission_unknown' and job['data']['error']['code']=='upstream_schema'
+    assert job['data']['error']['outcome_uncertain'] is True
+    again=router.run('fal.generate',p,workspace,allow_paid=True,request_key='deep')
+    assert again['id']==job['id'] and len(fixture_provider.calls)==1
+
+
+@pytest.mark.parametrize('status,result',[(b'{not json',None),(b'['*200000,None),(None,b'{"images":'+b'['*5000+b']'*5000+b'}')],
+                         ids=['invalid','nested','parsed'])
+def test_nested_status_json_keeps_the_job_without_resubmitting(router,workspace,fixture_provider,status,result):
+    job=router.run('fal.generate',{'endpoint':'fal-ai/flux/schnell','arguments':{'prompt':'poll'}},workspace,allow_paid=True,request_key='poll')
+    assert job['status']=='queued'
+    def handler(request):
+        polling=request.url.path.endswith('/status')
+        if polling and status or not polling and result: return httpx.Response(200,content=status if polling else result)
+        return fixture_provider(request)
+    router.net.client.close();router.net.client=httpx.Client(transport=httpx.MockTransport(handler),trust_env=False)
+    polled=router.refresh(job['id'])
+    assert polled['status']=='queued' and polled['data']['last_error']['code']=='upstream_schema'
+    assert len([x for x in fixture_provider.calls if x[0]=='POST'])==1
 
 
 def test_restart_can_poll_without_resubmitting(router,workspace,fixture_provider):

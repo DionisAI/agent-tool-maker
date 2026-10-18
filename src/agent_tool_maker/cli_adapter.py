@@ -88,5 +88,5 @@ def execute_cli(state: State,name: str,args: list[str],workspace: Path,timeout=6
             parsed=json.loads(data)
             if not isinstance(parsed,(dict,list)): raise ValueError()
             return parsed
-        except (ValueError,UnicodeDecodeError):
+        except (ValueError,UnicodeDecodeError,RecursionError):
             raise RouterError("cli_protocol","CLI did not return a JSON object; upstream outcome may be unknown.",uncertain=True) from None
