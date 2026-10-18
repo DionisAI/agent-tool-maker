@@ -2,12 +2,17 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
 import shlex
 import shutil
 import sys
+import tomllib
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 import uuid
+from importlib.metadata import distribution
 from importlib.resources import files
 
 from . import __version__
@@ -17,6 +22,9 @@ from .storage import atomic_write
 
 CLIENTS = {"codex": ".agents/skills", "claude": ".claude/skills"}
 MAX_SKILL_BYTES = 256 * 1024
+DISTRIBUTION = "agent-tool-maker-local"
+PACKAGE_DIR = Path(__file__).resolve().parent
+UNSAFE_CHARS = "\r\n\x00"
 
 
 def executable_path(value: str | None = None) -> Path:
@@ -25,7 +33,7 @@ def executable_path(value: str | None = None) -> Path:
     path = Path(candidate).expanduser().absolute()
     if not path.is_file() or not os.access(path, os.X_OK):
         raise RouterError("atm_not_installed", "Install ATM as a user application, or pass --atm-executable with its absolute executable path.")
-    if any(c in str(path) for c in "\r\n\x00"):
+    if any(c in str(path) for c in UNSAFE_CHARS):
         raise RouterError("unsafe_path", "Executable path contains control characters.")
     return path
 
@@ -37,6 +45,43 @@ def safe_target(path: Path) -> None:
             raise RouterError("unsafe_path", "Skill destination contains a symbolic link; choose a direct user directory.")
     if path.exists() and (not path.is_file() or path.stat().st_size > MAX_SKILL_BYTES):
         raise RouterError("unsafe_path", "Expected a bounded regular Skill file.")
+
+
+def small_file(path: Path, limit: int) -> bytes | None:
+    return path.read_bytes() if path.is_file() and path.stat().st_size <= limit else None
+
+
+def checkout_root(candidate: Path) -> Path | None:
+    """Accept only an ATM source tree at this package's revision; missing or corrupt data is not an error."""
+    try:
+        root = candidate.resolve()
+        # The path is shown inside a Markdown code span: no backticks or invisible/line-breaking characters.
+        if not candidate.is_absolute() or not all(c.isprintable() and c != "`" for c in str(root)):
+            return None
+        skill = small_file(root / "SKILL.md", MAX_SKILL_BYTES)
+        pyproject = small_file(root / "pyproject.toml", 64 * 1024)
+        if skill is not None and skill == files("agent_tool_maker.data").joinpath("SKILL.md").read_bytes() \
+                and pyproject is not None and (root / "scripts/build_tripo_studio.py").is_file() \
+                and tomllib.loads(pyproject.decode("utf-8"))["project"]["name"] == DISTRIBUTION:
+            return root
+    except Exception:
+        pass
+    return None
+
+
+def source_checkout() -> Path | None:
+    """This package's own src/ checkout first, then a PEP 610 local-directory install."""
+    candidates = []
+    if PACKAGE_DIR.parent.name == "src":
+        candidates.append(PACKAGE_DIR.parent.parent)
+    try:
+        info = json.loads(distribution(DISTRIBUTION).read_text("direct_url.json"))
+        url = urlsplit(info["url"])
+        if "dir_info" in info and url.scheme == "file" and url.netloc in ("", "localhost"):
+            candidates.append(Path(url2pathname(url.path)))
+    except Exception:
+        pass
+    return next(filter(None, map(checkout_root, candidates)), None)
 
 
 def render_skill(executable: Path, state_home: Path, *, client: str | None = None) -> bytes:
@@ -58,7 +103,7 @@ def render_skill(executable: Path, state_home: Path, *, client: str | None = Non
                 "The owner starts the broker once for the lease. New sessions reuse it. Same-user processes are not adversarially isolated.\n"
                 "Workflows, MCP and handoffs are not supported through this v0.5 scoped broker. Do not pretend they ran.\n").encode()
     paths = [str(executable), str(state_home.expanduser().absolute())]
-    if any(c in "".join(paths) for c in "\r\n\x00"):
+    if any(c in "".join(paths) for c in UNSAFE_CHARS):
         raise RouterError("unsafe_path", "Runtime paths contain control characters.")
     if os.name == "nt":
         quote = lambda s: "'" + s.replace("'", "''") + "'"
@@ -68,10 +113,16 @@ def render_skill(executable: Path, state_home: Path, *, client: str | None = Non
         prefix = shlex.join([paths[0], "--home", paths[1]])
         language = "sh"
     content = files("agent_tool_maker.data").joinpath("SKILL.md").read_text(encoding="utf-8")
+    root = source_checkout()
+    source = (f"Source checkout: `{root}`. docs/, scripts/, examples/ and deploy/ paths in this Skill are relative to it; "
+              "the installed package does not include them." if root else
+              "docs/, scripts/, examples/ and deploy/ paths in this Skill refer to a reviewed checkout of this repository, "
+              "which the installed package does not include. Ask the owner for its location; do not download another copy.")
     return (content + f"\n## Registered local runtime — ATM {__version__}\n\n"
             f"Command prefix: `{prefix}`. Use it from every project before start/use. "
             "Do not create another vault or depend on the project's virtualenv.\n\n"
             f"```{language}\n{prefix} start --workspace /absolute/project --key exact.slot\n```\n\n"
+            f"{source}\n\n"
             "The paths are local to this OS user. They do not connect a cloud session to this machine.\n").encode("utf-8")
 
 
