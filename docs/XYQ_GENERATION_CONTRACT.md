@@ -10,6 +10,7 @@ Strategy 为 UI_SELECTOR；固定首页表单、报价和原生提交控件来�
 当前生产安装使用独立 `xyq-media` 命名空间的20包
 `generated/xyq-media-runtime-stage-r2/`，含本页两项；完整源码 pin、绑定、
 LOCAL 调度修复与分层验收见[媒体运行时合同](XYQ_MEDIA_RUNTIME_CONTRACT.md)。
+两个目录都是本机构建输出，未提交到仓库；当前生产包按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
 
 `generate` 只提交已准备的完整草稿；没有自动填词、上传或重建项目。
 调用绑定 expected_draft_sha256、quote_sha256、稳定 request_key，以及明确的

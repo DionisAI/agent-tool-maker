@@ -10,7 +10,8 @@
 此前538 Node/63相关Python与LOCAL原夹具查询通过；独立音频项目 origin_mismatch 仍保留，
 此次首页绑定与只读通过不代替项目页验收。
 [单次生成合同](XYQ_GENERATION_CONTRACT.md)仍区分提交、真实task与下载验收。
-较早阶段的数量、pin 和目录作为历史证据保留。
+较早阶段的数量、pin 和目录作为历史证据保留。文中 `generated/xyq-*` 阶段目录都是本机构建输出，
+未提交到仓库，下文逐处标注；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
 
 最新[会话图片结果查询](XYQ_RESULT_CONTRACT.md)：三个新只读工具已追加到生产ATM和
 独立OpenCLI加载器，真实生成CLI→ATM→App→获准已有会话验收通过。结果资源ID不等于
@@ -128,7 +129,7 @@ Pippit CLI 的功能清单仅作对照，接入它并不构成网页完整覆盖
 
 真源：`examples/opencli/xyq-web/{core.mjs,inspect.js}`。
 编译：`scripts/build_xyq_web.py`。
-生成包：`generated/xyq-web-foundation/{account,surface,form_inspect,form_options}`。
+生成包：`generated/xyq-web-foundation/{account,surface,form_inspect,form_options}`（本机构建输出，未提交）。
 每个包有 manifest、标准库 `tool.py`、输入示例、README、bundle-lock；没有登录数据。
 适配器源摘要：`94fd1bdfffa400c0276c3ae30f19fb9cfe38a4a26077cd3c29813ec930d823d3`。
 工具仍以 `atm` 为调用入口，未另装供应商命令。
@@ -154,7 +155,7 @@ Pippit CLI 的功能清单仅作对照，接入它并不构成网页完整覆盖
 ## 第二批：表单准备与真实测试画布
 
 2026-10-07。前一节保留首批历史证据，当前使用
-`generated/xyq-web-form-canvas-stage/` 八个包。
+`generated/xyq-web-form-canvas-stage/`（本机构建输出，未提交）八个包。
 旧 foundation/form-stage 包保持原状；源已变化，旧 pin 会报 `definition_changed`，不继续使用旧定义。
 
 新增工具：
@@ -215,7 +216,7 @@ Pippit CLI 的功能清单仅作对照，接入它并不构成网页完整覆盖
 范围/操作链路真源为 XYQ_MEDIA_CONTRACT.md；复杂工作区从本期完成门槛移出，源码与旧包保留。
 AGENTS、README、根/包内 SKILL 及编译器默认范围已对应调整，未重装用户级 Skill 或操作 vault。
 
-当前包：`generated/xyq-web-media-stage/`，七个媒体基础包均 `validate_bundle.valid=true`，
+当前包：`generated/xyq-web-media-stage/`（本机构建输出，未提交），七个媒体基础包均 `validate_bundle.valid=true`，
 查询和表单 source pin 与第二批一致，仍未安装。
 编译默认不包含画布；显式 `--include-canvas` 保留实验导出能力，测试验证两种输出范围。
 没有把基础表单准备标成已完成生成、音色选择或上传。
@@ -249,7 +250,7 @@ FileList 重置后的参考卡片仍被读取；音频节点卡片最多3个、�
 草稿摘要与 preservation checks 增加实际附件 rail；带卡片的空 FileList 停止模式切换。
 旧表单 pin 保留但过期，新包不覆写旧目录。
 
-当前生成包：`generated/xyq-web-audio-reference-stage-r2/`，默认 **11个**，未安装；首轮目录保留。
+当前生成包：`generated/xyq-web-audio-reference-stage-r2/`（本机构建输出，未提交），默认 **11个**，未安装；首轮目录保留。
 最新 pin：form `20c454a89e6912b1f2982ed1853c61bf5e8edc06b887b584ca0c589fb055802b`；
 mode `1f43dd755ba88f1a0ec220e0377d28f70e8589eb58828c8248178ef8c09710c9`；
 audio `b90b0a150403016741e29f8034723ea4fa58db2aa64eff227e6a6fa9c5760250`。
@@ -267,7 +268,7 @@ audio `b90b0a150403016741e29f8034723ea4fa58db2aa64eff227e6a6fa9c5760250`。
 ## 最新阶段：结构化音频引用与真正 CLI 只读启动
 
 新增 `audio_prompt_prepare`，默认包数12；`--include-canvas` 为15。
-当前包 `generated/xyq-web-audio-prompt-stage/`，12个 `validate_bundle.valid=true`，
+当前包 `generated/xyq-web-audio-prompt-stage/`（本机构建输出，未提交），12个 `validate_bundle.valid=true`，
 未安装到真实 ATM；11包旧目录保留。prompt 源码 pin：
 `094f2a8475c4e60ea2ffbfec5a52ab4f6068898017fbd09f02d9f38feb8fa8b6`。
 其它 source pin 未变；根/包内 SKILL 与合同同步。
@@ -294,7 +295,7 @@ Node **99 passed**；Python **84 passed**，其中非浏览器34、原生隔离5
 ## 最新阶段：音频 footer 动态参数及遮挡修复
 
 新增 audio_choices / audio_prepare，默认14包，显式包含暂缓画布为17包。
-当前 `generated/xyq-web-audio-settings-stage-r2/` 的14包全部有效，未安装到真实 ATM。
+当前 `generated/xyq-web-audio-settings-stage-r2/`（本机构建输出，未提交）的14包全部有效，未安装到真实 ATM。
 参数 pin 为 `357d3a6ed5a0795145fa1a9e5e24ed829a37c046aeb17ba826f60912d644b5d6`。
 12包及初轮14包目录保留，其它旧 source pin 未变。详见音频合同的动态 ID/菜单关联/草稿保护。
 
@@ -331,7 +332,7 @@ Node **115 passed / 0 skipped**；Python **111 passed / 0 skipped**，
 `/private/tmp/atm-xyq-mode-modal-all-20261007.xml`、
 `/private/tmp/atm-xyq-mode-modal-all-node-20261007.txt`。
 
-最新默认14包：`generated/xyq-web-mode-modal-stage-r2/`，均完整性有效，未安装到真实 ATM。
+最新默认14包：`generated/xyq-web-mode-modal-stage-r2/`（本机构建输出，未提交），均完整性有效，未安装到真实 ATM。
 共享 core 更新使依赖它的所有 pin 更新；各旧目录和已安装独立旧只读源码保持原状。
 
 | 最新 source pin | SHA256 |
@@ -366,7 +367,7 @@ Seed Audio 1.0 / 44.1kHz、WAV 卡片和结构化引用保持，截图积分6396
 最终 mode-600 回执 `/private/tmp/atm-xyq-audio-quote-cua-receipt-20261007-r2.json`，
 截图 `/private/tmp/atm-xyq-audio-quote-readonly-final-20261007.jpg`。
 
-当前15包：`generated/xyq-web-audio-quote-stage-r2/`，全部 validate_bundle 有效，尚未安装。
+当前15包：`generated/xyq-web-audio-quote-stage-r2/`（本机构建输出，未提交），全部 validate_bundle 有效，尚未安装。
 新增 quote pin：`cf5ba2c6e35ff6e4213dc7e014bfcffb2d8f7697490e8199593832adb7667bbb`。
 原14个工具的 source pin 与模式菜单修复阶段一致；初轮 quote stage 和所有旧包保留。
 初轮报价 Node130通过；最终增加严格 ready 信封验证后 Node **131 passed / 0 skipped**。
@@ -400,7 +401,7 @@ Python **124 passed / 0 skipped**，42非浏览器、82隔离原生。新增报�
 `/private/tmp/atm-xyq-audio-append-all-node-20261007-r2.txt`、
 `/private/tmp/atm-xyq-audio-append-all-20261007-r2.xml`。初轮全回归和生成目录保留。
 
-当前15包 `generated/xyq-web-audio-append-stage-r2/` 全部有效、未安装到实际 ATM。
+当前15包 `generated/xyq-web-audio-append-stage-r2/`（本机构建输出，未提交）全部有效、未安装到实际 ATM。
 查询/表单/模式 pin 不变；共享 audio 更新带动下列依赖 pin 更新：
 
 | 当前音频 source pin | SHA256 |
@@ -474,7 +475,7 @@ App面板人工 handoff、全账户任务元数据范围确认仍待就绪，没
 回执 /private/tmp/atm-xyq-expanded-popover-all-node-20261007-r3.txt，
 /private/tmp/atm-xyq-expanded-popover-all-20261007-r3.xml；初轮及r2回执保留。
 
-当前15包 generated/xyq-web-expanded-popover-stage-r3/ 全部有效，未安装到真实 ATM。
+当前15包 generated/xyq-web-expanded-popover-stage-r3/（本机构建输出，未提交）全部有效，未安装到真实 ATM。
 共享 core 变更带动依赖 pin 更新；已安装独立旧只读入口及所有旧目录保留。
 
 | 当前 source pin | SHA256 |
@@ -520,7 +521,7 @@ r2两项通过。失败回执保留，没有放松页面范围检查。
 最终全回归 Node **149 passed /0 skipped**；Python **156 passed /0 skipped**（47非浏览器、109原生隔离）。
 回执 /private/tmp/atm-xyq-bound-all-node-20261007.txt、/private/tmp/atm-xyq-bound-all-20261007.xml。
 
-当前16包 generated/xyq-web-bound-read-stage/ 全部有效；只有新读取包在隔离ATM安装，
+当前16包 generated/xyq-web-bound-read-stage/（本机构建输出，未提交）全部有效；只有新读取包在隔离ATM安装，
 未安装到生产ATM。所有旧包保留，原15工具source pin未变。
 新增bound pin b1a9df91e506bfb6b2c8a715752b00365730f2e3729efb033228abbc9918288f；
 definition SHA dd1f09a7db3afd0e2ca5da4d74cedccd47624daa9fd4c0a11ebdb1eda178b3ec。
@@ -545,7 +546,7 @@ definition SHA dd1f09a7db3afd0e2ca5da4d74cedccd47624daa9fd4c0a11ebdb1eda178b3ec�
 新增12项Node/18项Python（6非浏览器、12原生隔离）；原全回归及失败/跳过快照保留。
 初次pytest收集未用源码PYTHONPATH，明确失败；初轮native缺ATM_CHROMIUM显式跳过。
 最终使用仓库源码及已核对Chrome路径，所有第三方请求拦截，未移除断言或改浏览器策略。
-当前16包 generated/xyq-web-home-bound-stage-r3/；bound pin
+当前16包 generated/xyq-web-home-bound-stage-r3/（本机构建输出，未提交）；bound pin
 c6cb485f03a7d28fb348d3c06dd620529dfe1a75a3b3202d4405ed73777e1d42。
 安装前三次源码快照与包目录保留，生产 ATM 未安装。首页实际完整CLI验收仍待继续，
 不把生成包/隔离测试/正确URL/明确失败报告作为参数读取成功或完整生成交付。
@@ -605,7 +606,7 @@ cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf；
 回执 /private/tmp/atm-xyq-bound-prepare-all-node-20261007.txt、
 /private/tmp/atm-xyq-bound-prepare-all-20261007.xml。
 
-新16包 generated/xyq-web-home-prepare-stage/，source pin
+新16包 generated/xyq-web-home-prepare-stage/（本机构建输出，未提交），source pin
 7d009002f133eac8addcd459b227d0b4cfee2709c972231bad20d33658bea09b；
 仅五个首页定义变化，其它11个与r3保持。新入口未加载、未安装生产ATM。
 实际App仍原四入口c6cb485f...快照、两个audio read loader和第三方软件保持。
@@ -649,7 +650,7 @@ cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf、参考0、文
 可与 `--bound-home` 组合；无失败后换后端、重绑定、导航、菜单/文字输入、上传或付费。
 原 quote/audio-bound/home 源码闭包和两个音频read、五个首页入口/第三方App保持。
 新10文件pin 8c9ca1dbac5ed34d71afd5b2413c90e3c2c3fbb0b6c8ad2d827cb1c6579a499b，
-新包 generated/xyq-web-audio-quote-bound-stage/；相对上轮仅费率定义变化。
+新包 generated/xyq-web-audio-quote-bound-stage/（本机构建输出，未提交）；相对上轮仅费率定义变化。
 
 生成CLI→新隔离ATM（仅2只读定义）→已安装App→原绑定ATM-XYQ-CLI-test：
 before、quote、after三个job completed；quote同请求键复用同job，不重新取价。
@@ -686,7 +687,7 @@ Node176、Python201（60非浏览器/141原生隔离），全通过、零跳过�
 
 三条注册已审阅加载，原八条注册/各闭包、第三方App、生产ATM/vault保持。
 source pin 5540b133586aa08216298e57f959397e6493a0b2e2615a143a4737b5468a4567，
-新包 generated/xyq-web-audio-edit-bound-stage/，相对费率阶段其它13定义保持。
+新包 generated/xyq-web-audio-edit-bound-stage/（本机构建输出，未提交），相对费率阶段其它13定义保持。
 Node186 / Python231（69非浏览器、162原生隔离），全部通过、零跳过；新增10Node、9非浏览器、
 21原生隔离，覆盖参数/字面文字/多行/结构化引用、已有引用零输入及错误/遮挡/选区/菜单保护。
 全套fixture拦截供应商请求，同键假子进程执行一次，浏览器策略保持。
@@ -725,7 +726,7 @@ CDP诊断、初轮失败和第二轮测试位置错误的回执保留；第三�
 最终 `/private/tmp/atm-xyq-upload-bound-all-node-20261007-r2.txt`、
 `/private/tmp/atm-xyq-upload-bound-all-20261007-r2.xml`，source pin
 5b84f42acb11b641bd025875399c79e743570cc1b820d2229f3da0dcda1bd4d5。
-新包 `generated/xyq-web-audio-upload-bound-stage-r2/`相对准备阶段其它15条定义保持。
+新包 `generated/xyq-web-audio-upload-bound-stage-r2/`（本机构建输出，未提交）相对准备阶段其它15条定义保持。
 
 一条reviewed音频上传注册已加载，原11条/各闭包、App、生产ATM/vault和用户级Skill保持。
 生成CLI→新隔离ATM（2定义）→App→原绑定测试表单，before/预检/after三个completed job，
@@ -752,7 +753,7 @@ steps=[]、native_file_input_sent=false、upload_accepted=false、outcome_uncert
 缺失/忙态/未知分列，rate保持每秒精度；quoted_estimate仍只是显示预估，
 total_credits/output_duration_seconds保持null，预算硬上限/计费范围/最终账单验证false。
 源闭包pin4d14f22835161254af05445445c9f4ed0fd838c9d4ca27ba1868e6a0629832cc，
-17包 `generated/xyq-web-home-quote-stage/`；合同 [首页报价](XYQ_HOME_QUOTE_CONTRACT.md)。
+17包 `generated/xyq-web-home-quote-stage/`（本机构建输出，未提交）；合同 [首页报价](XYQ_HOME_QUOTE_CONTRACT.md)。
 
 先行CUA现场观察发现模式切换后价格异步消失，第一轮恢复比较只在成本观察上不同，
 原草稿SHA已一致；保留失败回执，等待价格实际出现后完整音频稿一致，没有重复生成。
@@ -785,7 +786,7 @@ f32d6942-7594-44f5-b9ee-c2c7b8c69761同键复用同job/result。
 
 ## 最新开发/实机阶段：精确项目生成历史视图
 
-新增xyq.web.project_history_state，默认18包generated/xyq-web-history-stage/。
+新增xyq.web.project_history_state，默认18包generated/xyq-web-history-stage/（本机构建输出，未提交）。
 原17条完整定义/各闭包保持；固定site:xyq-web/browser的公开evaluate-only路由，
 schema仅精确project_id/canvas_id，仅读当前视图，不开关层/切筛选/导航，不解析未知任务行。
 真实“生成历史”trigger/dialog、四media tabs/受控tabpanel及生成状态filter关联均核对。
@@ -833,7 +834,7 @@ PNG/JPEG/WebP执行verify后重新打开/load，PCM WAV遍历全部帧，MP3/MP4
 不会把仅probe成功说成完整媒体，也不会把条件负例说成有效交付。
 源pin7ea6f054a0568b17de0554e44ad35c1b2027c968dfda11218b04c5782b292efd，
 本机definition SHA3f5d83af53a1ffcb8a50654b0b9738e995ca1f0832e259f2e08c3cacd2c629a4，
-包generated/xyq-media-delivery-stage/artifact_inspect/。既有Pillow12.3.0/FFmpeg8.1.2未升级。
+包generated/xyq-media-delivery-stage/artifact_inspect/（本机构建输出，未提交）。既有Pillow12.3.0/FFmpeg8.1.2未升级。
 
 新增56本地/真实子进程测试；小云雀+CLI+quickstart扩展422通过、零失败/跳过，
 含原232原生隔离浏览器。既有Node源未变，原218通过回执与当前各闭包仍一致。
