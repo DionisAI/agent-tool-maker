@@ -159,13 +159,15 @@ def tools(router, *, query="", capability=None) -> dict:
 
 def recent_jobs(router) -> dict:
     """Do not expose prompts, vendor responses, signed URLs, or environment to UI."""
+    from .credits import refresh_job
     rows = []
     for job in router.state.jobs(limit=50):
         data = job["data"]
         rows.append({key: job[key] for key in ("id", "tool", "status", "created", "updated")})
         rows[-1].update(verification=data.get("verification"), cost_usd=data.get("cost_usd"),
                         cost_status=data.get("cost_status", "unknown"),
-                        artifact_count=len(data.get("artifacts", [])))
+                        # A credits refresh never exposes raw account output, even after a crash.
+                        artifact_count=0 if refresh_job(job) else len(data.get("artifacts", [])))
     return {"jobs": rows, "limit": 50, "details_omitted": "Inputs, payloads, paths and signed URLs are available only through the existing local CLI, not this UI."}
 
 

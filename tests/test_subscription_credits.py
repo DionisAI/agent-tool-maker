@@ -3,13 +3,17 @@ from datetime import date
 import importlib.util
 import json
 import math
+import os
 from pathlib import Path
 import re
+import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import threading
 import time
+import uuid
 
 import httpx
 import pytest
@@ -191,6 +195,15 @@ def test_amount_bound_is_inclusive():
     assert credits.higgsfield_credits({"credits": 10**15})["credits"] == 10**15
     assert credits.pippit_credits({"total_remain_amount": "9" * 15})["credits"] == int("9" * 15)
     assert credits.website_credits(xyq_row(1e15))["credits"] == 1e15
+
+
+@pytest.mark.parametrize("extract,value", [(credits.website_credits, tripo_row(-0.0)),
+                                           (credits.higgsfield_credits, {"credits": -0.0}),
+                                           (credits.pippit_credits, {"total_remain_amount": -0.0})])
+def test_negative_zero_is_a_plain_zero(extract, value):
+    result = extract(value)
+    assert result["credits"] == 0 and math.copysign(1, result["credits"]) == 1
+    assert "-0" not in json.dumps(result)
 
 
 def test_registry_is_fixed():
@@ -541,9 +554,9 @@ def test_concurrent_refresh_of_one_provider_is_refused(home, fakes):
     assert results[0]["credits"] == 5 and len(fakes.calls()) == 1
 
 
-def leftover(state, key, result):
+def leftover(state, key, result, tool="higgsfield.subscription.account"):
     """A job as a refresh that crashed before discarding its output would leave it."""
-    job, _ = state.create_job("higgsfield.subscription.account", {}, state.home.parent / "gone", key)
+    job, _ = state.create_job(tool, {}, state.home.parent / "gone", key)
     return state.update_job(job["id"], "completed", result=result, artifacts=[{"path": "out.json"}])
 
 
@@ -582,6 +595,104 @@ def test_leftover_raw_output_is_discarded_before_running(home, fakes):
     assert results[0]["credits"] == 5
 
 
+def test_only_refresh_jobs_are_leftovers(home, capsys):
+    # A refresh job is one of the fixed sources with credits-<provider>-<32 lowercase hex>; nothing else is touched.
+    kept = [leftover(home.state, key, {"note": "kept"}, tool) for tool, key in [
+        ("higgsfield.subscription.account", "credits-mytask"),
+        ("higgsfield.subscription.account", "credits-acme-" + "0" * 32),
+        ("higgsfield.subscription.account", "credits-higgsfield-" + "A" * 32),
+        ("higgsfield.subscription.account", "credits-higgsfield-" + "0" * 31),
+        ("higgsfield.subscription.account", "credits-higgsfield-" + "0" * 32 + "-x"),
+        ("fal.generate", "credits-higgsfield-" + "3" * 32)]]
+    done = leftover(home.state, "credits-higgsfield-" + "4" * 32, None)
+    home.state.update_job(done["id"], "completed", result=None, artifacts=[], raw_output_discarded=True)
+    before = home.state.job(done["id"])["updated"]
+    credits.payload(home)
+    for job in kept:
+        data = home.state.job(job["id"])["data"]
+        assert (data["result"], data["artifacts"], "raw_output_discarded" in data) == ({"note": "kept"}, [{"path": "out.json"}], False)
+    assert home.state.job(done["id"])["updated"] == before  # Already discarded: not rewritten.
+    code, listed = run_cli(capsys, home.state.home, "jobs", "list")
+    assert code == 0
+    assert sorted(j["id"] for j in listed["jobs"] if j["data"]["result"] == {"note": "kept"}) == sorted(j["id"] for j in kept)
+
+
+class Crash(BaseException):
+    """Stands in for the process dying: no except or finally block of the refresh runs after it."""
+
+
+def crash_after_completed_job(home, monkeypatch, name):
+    real = home.run
+    def run(*args, **kwargs):
+        real(*args, **kwargs)
+        raise Crash
+    with monkeypatch.context() as patch:
+        patch.setattr(home, "run", run)
+        patch.setattr(credits.shutil, "rmtree", lambda *args, **kwargs: None)
+        with pytest.raises(Crash):
+            credits.refresh(home, name)
+    return next(j for j in home.state.jobs() if j["request_key"].startswith(f"credits-{name}-"))
+
+
+def test_crash_after_a_completed_job_leaves_no_raw_output_files(home, fakes, monkeypatch, capsys):
+    install_tool(home, definitions(home.state.home)["higgsfield.subscription.account"])
+    fakes.bind(home, "higgsfield")
+    fakes.output("higgsfield", HIGGSFIELD)
+    job = crash_after_completed_job(home, monkeypatch, "higgsfield")
+    workspace, files = Path(job["workspace"]), [Path(a["path"]) for a in job["data"]["artifacts"]]
+    # The crash left the raw account output in the record and in its private temporary workspace ...
+    assert workspace.parent == Path(tempfile.gettempdir()).resolve() and workspace.name.startswith("atm-credits-")
+    assert files and all(f.is_relative_to(workspace) and EMAIL.encode() in f.read_bytes() for f in files)
+    assert job["data"]["result"]["email"] == EMAIL
+    # ... which no job reader returns, even before the cleanup has run.
+    code, listed = run_cli(capsys, home.state.home, "jobs", "list")
+    assert code == 0 and EMAIL not in json.dumps(listed)
+    assert (listed["jobs"][0]["data"]["result"], listed["jobs"][0]["data"]["artifacts"]) == (None, [])
+    assert mg.recent_jobs(home)["jobs"][0]["artifact_count"] == 0
+    assert EMAIL not in json.dumps(credits.payload(home))
+    assert not workspace.exists() and not any(f.exists() for f in files)
+    data = home.state.job(job["id"])["data"]
+    assert (data["result"], data["artifacts"], data["raw_output_discarded"], data["raw_output_files"]) == (
+        None, [], True, "removed")
+    code, got = run_cli(capsys, home.state.home, "jobs", "get", job["id"])
+    assert code == 0 and EMAIL not in json.dumps(got)
+    # A crash before the next refresh is cleaned by that refresh before it runs.
+    job = crash_after_completed_job(home, monkeypatch, "higgsfield")
+    assert Path(job["workspace"]).is_dir()
+    assert credits.refresh(home, "higgsfield")["credits"] == 1234
+    assert not Path(job["workspace"]).exists() and home.state.job(job["id"])["data"]["raw_output_files"] == "removed"
+    with home.state.db() as db:
+        assert EMAIL not in json.dumps([tuple(r) for r in db.execute("SELECT * FROM jobs").fetchall()])
+
+
+@pytest.mark.parametrize("where", ["elsewhere", "symlink", "other_name", "other_owner"])
+def test_crash_cleanup_leaves_files_it_cannot_verify(home, tmp_path, monkeypatch, where):
+    temporary = Path(tempfile.gettempdir()).resolve()
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    (victim / "keep.json").write_text(EMAIL)
+    workspace = {"elsewhere": tmp_path / "atm-credits-elsewhere", "symlink": temporary / f"atm-credits-{uuid.uuid4().hex}",
+                 "other_name": temporary / f"user-{uuid.uuid4().hex}", "other_owner": temporary / f"atm-credits-{uuid.uuid4().hex}"}[where]
+    if where == "symlink":
+        workspace.symlink_to(victim, target_is_directory=True)
+    else:
+        workspace.mkdir()
+        (workspace / "keep.json").write_text(EMAIL)
+    try:
+        job, _ = home.state.create_job("higgsfield.subscription.account", {}, workspace, "credits-higgsfield-" + "5" * 32)
+        home.state.update_job(job["id"], "completed", result=HIGGSFIELD, artifacts=[{"path": str(workspace / "keep.json")}])
+        with monkeypatch.context() as patch:
+            if where == "other_owner":
+                patch.setattr(credits.os, "getuid", lambda real=os.getuid(): real + 1)
+            assert EMAIL not in json.dumps(credits.payload(home))
+        assert (workspace / "keep.json").read_text() == EMAIL and (victim / "keep.json").read_text() == EMAIL
+        data = home.state.job(job["id"])["data"]
+        assert (data["result"], data["artifacts"], data["raw_output_discarded"], data["raw_output_files"]) == (
+            None, [], True, "left_in_place")
+    finally:
+        workspace.unlink() if workspace.is_symlink() else shutil.rmtree(workspace, ignore_errors=True)
+
+
 HOLDER = """
 import fcntl, os, sys
 os.makedirs(os.path.dirname(sys.argv[1]), mode=0o755, exist_ok=True)
@@ -615,6 +726,25 @@ def test_refresh_lease_is_held_across_processes(home, fakes):
         holder.wait(10)
     assert credits.refresh(home, "xyq")["credits"] == 5
     assert stat.S_IMODE(lock.stat().st_mode) == 0o600 and stat.S_IMODE(lock.parent.stat().st_mode) == 0o700
+
+
+@pytest.mark.parametrize("kind", ["symlink", "hardlink", "fifo"])
+def test_refresh_lock_must_be_a_private_regular_file(home, fakes, tmp_path, kind):
+    install_tool(home, definitions(home.state.home)["pippit.cli.credit_balance"])
+    fakes.bind(home, "xyq")
+    fakes.output("xyq", {"total_remain_amount": "5"})
+    victim = tmp_path / "victim.txt"
+    victim.write_text("owner file")
+    victim.chmod(0o644)
+    lock = home.state.home / "locks" / "credits-xyq.lock"
+    lock.parent.mkdir(mode=0o700, exist_ok=True)
+    {"symlink": lambda: lock.symlink_to(victim), "hardlink": lambda: os.link(victim, lock),
+     "fifo": lambda: os.mkfifo(lock)}[kind]()
+    with pytest.raises(RouterError) as error:
+        credits.refresh(home, "xyq")
+    assert error.value.code == "unsafe_path"
+    assert stat.S_IMODE(victim.stat().st_mode) == 0o644 and victim.read_text() == "owner file"
+    assert fakes.calls() == [] and home.state.jobs() == [] and home.state.setting("credits:xyq") is None
 
 
 # --- CLI ---------------------------------------------------------------------------
@@ -653,6 +783,33 @@ def test_cli_lists_refreshes_and_sets_cycle_with_exit_codes(home, fakes, capsys)
     with pytest.raises(SystemExit):
         main(["--home", str(directory), "credits", "cycle", "xyq"])
     capsys.readouterr()
+
+
+def test_cli_refresh_reports_a_busy_provider_and_continues(home, fakes, capsys):
+    tools = definitions(home.state.home)
+    install_tool(home, tools["pippit.cli.credit_balance"])
+    install_tool(home, tools["higgsfield.subscription.account"])
+    fakes.bind(home, "xyq")
+    fakes.bind(home, "higgsfield")
+    fakes.output("xyq", {"total_remain_amount": "5"})
+    fakes.output("higgsfield", HIGGSFIELD)
+    lock = home.state.home / "locks" / "credits-xyq.lock"
+    holder = subprocess.Popen([sys.executable, "-I", "-c", HOLDER, str(lock)], stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE, text=True)
+    try:
+        assert holder.stdout.readline().strip() == "held"
+        code, result = run_cli(capsys, home.state.home, "credits", "refresh", "xyq", "higgsfield", "tripo_studio")
+    finally:
+        holder.stdin.close()
+        holder.wait(10)
+    assert code == 2 and result["status"] == "failed"
+    assert [(r["provider"], r["refresh"]) for r in result["providers"]] == [
+        ("xyq", "error"), ("higgsfield", "ok"), ("tripo_studio", "not_installed")]
+    busy = result["providers"][0]
+    assert busy["error"]["code"] == "refresh_in_progress" and busy["credits"] is None
+    assert result["providers"][1]["credits"] == 1234
+    assert [c["exe"] for c in fakes.calls()] == ["higgsfield"]
+    assert home.state.setting("credits:xyq") is None  # Nothing is stored for the provider that did not run.
 
 
 def test_extension_manifest_validates_installs_and_binds(tmp_path, capsys):

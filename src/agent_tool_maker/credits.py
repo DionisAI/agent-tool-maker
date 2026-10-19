@@ -60,7 +60,7 @@ def _amount(value):
     except OverflowError:
         readable = False
     if readable:
-        return value
+        return abs(value)  # Only changes -0.0, which is a plain 0.0 balance.
     raise _unreadable()
 
 
@@ -142,6 +142,16 @@ def provider(name):
     if not isinstance(name, str) or name not in PROVIDERS:
         raise RouterError("unknown_provider", "Unknown subscription credits provider; run atm credits to list them.")
     return PROVIDERS[name]
+
+
+# The request key only a refresh uses: credits-<provider>-<uuid4 hex>.
+REFRESH_KEY = re.compile("credits-(?:" + "|".join(map(re.escape, PROVIDERS)) + ")-[0-9a-f]{32}")
+
+
+def refresh_job(job):
+    """A job a credits refresh created. Job readers never show its result or artifacts."""
+    key = job.get("request_key")
+    return job.get("tool") in SOURCES and isinstance(key, str) and REFRESH_KEY.fullmatch(key) is not None
 
 
 def reviewed(tool, home):
@@ -232,14 +242,40 @@ def _forget_raw_output(router, job):
         router.state.update_job(job["id"], job["status"], result=None, artifacts=[], raw_output_discarded=True)
 
 
+def _remove_files(workspace, artifacts):
+    """The files a crashed refresh left: its temporary workspace, which holds the artifact files it lists.
+
+    Deleted only when it is a real directory named atm-credits-* directly under this process's
+    temporary directory and owned by this user; anything else is left in place, and the record says so."""
+    folder = Path(workspace)
+    try:
+        info = os.lstat(folder)
+    except FileNotFoundError:
+        info = None
+    except OSError:
+        return "left_in_place"
+    if (info is not None and stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()
+            and folder.name.startswith("atm-credits-") and folder.parent == Path(tempfile.gettempdir()).resolve()):
+        shutil.rmtree(folder, ignore_errors=True)
+    listed = [Path(a["path"]) for a in artifacts if isinstance(a, dict) and isinstance(a.get("path"), str)]
+    left = os.path.lexists(folder) or any(p.is_absolute() and os.path.lexists(p) for p in listed)
+    return "left_in_place" if left else "removed"
+
+
 def _discard_leftovers(state):
-    """Crash-window cleanup: a refresh that died before discarding its job output leaves none behind."""
+    """Crash-window cleanup: a refresh that died before discarding its output leaves none behind,
+    neither in its job record nor in its temporary workspace."""
+    marks = ",".join("?" * len(SOURCES))
     with state.db() as db:
         db.execute("BEGIN IMMEDIATE")
-        for job_id, text in db.execute("SELECT id, data FROM jobs WHERE substr(request_key, 1, 8) = 'credits-'").fetchall():
+        rows = db.execute(f"SELECT id, tool, request_key, workspace, data FROM jobs WHERE tool IN ({marks}) "  # noqa: S608
+                          "AND substr(request_key, 1, 8) = 'credits-' "
+                          "AND json_extract(data, '$.raw_output_discarded') IS NOT 1", tuple(SOURCES)).fetchall()
+        for job_id, tool, key, workspace, text in rows:
             data = json.loads(text)
-            if ("result" in data or data.get("artifacts")) and not data.get("raw_output_discarded"):
-                data.update(result=None, artifacts=[], raw_output_discarded=True)
+            if refresh_job({"tool": tool, "request_key": key}) and ("result" in data or data.get("artifacts")):
+                files = _remove_files(workspace, data.get("artifacts") or [])
+                data.update(result=None, artifacts=[], raw_output_discarded=True, raw_output_files=files)
                 db.execute("UPDATE jobs SET data=?, updated=? WHERE id=?", (canonical(data), time.time(), job_id))
 
 
@@ -248,11 +284,14 @@ def _lease(state, name):
     """One refresh per provider and ATM home, across threads and CLI / console processes."""
     folder = private_dir(state.home / "locks")
     try:
-        fd = os.open(folder / f"credits-{name}.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        # Never follow a symbolic link; a FIFO does not block the open.
+        fd = os.open(folder / f"credits-{name}.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
     except OSError:
         raise RouterError("unsafe_path", "The credits refresh lock must be a private regular file.") from None
     try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
+        info = os.fstat(fd)
+        # A hard link would let fchmod change another file's mode.
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
             raise RouterError("unsafe_path", "The credits refresh lock must be a private regular file.")
         os.fchmod(fd, 0o600)
         try:
@@ -273,6 +312,8 @@ def _read(router, name, tool):
     try:
         job = router.run(tool["id"], inputs, folder, request_key=f"credits-{name}-{uuid.uuid4().hex}",
                          allow_paid=False, grants=["execute_code"], expect_definition=digest(tool))
+        # Files first: a crash before the record is cleaned leaves a record the next view or refresh cleans.
+        shutil.rmtree(folder, ignore_errors=True)
         _forget_raw_output(router, job)
         if job["status"] != "completed":
             return _failure(job["data"].get("error") or {"code": "refresh_" + job["status"]})
@@ -349,5 +390,10 @@ def dispatch(args, router):
     names = list(dict.fromkeys(args.provider or PROVIDERS))
     for name in names:
         provider(name)  # Reject a typo before any tool runs.
-    results = [refresh(router, name) for name in names]
+    results = []
+    for name in names:
+        try:
+            results.append(refresh(router, name))
+        except RouterError as error:  # Such as refresh_in_progress: report this provider, refresh the rest.
+            results.append({**row(router, name), "refresh": "error", **_failure(error.as_dict())})
     return {"status": "failed" if any(r["refresh"] == "error" for r in results) else "ok", "providers": results}

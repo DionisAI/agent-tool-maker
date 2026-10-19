@@ -45,18 +45,28 @@
 - 每个提供方一个跨进程租约：`<ATM home>/locks/credits-<provider>.lock`（目录 0700、文件 0600）上的
   `flock(LOCK_EX|LOCK_NB)`。被其他线程或进程（另一个 CLI、管理台）持有时立即返回 `refresh_in_progress`
   （网页为 HTTP 409，与其他状态冲突相同），不运行工具；持有进程退出即释放。
+  锁文件以 `O_NOFOLLOW|O_NONBLOCK` 打开，必须是只有一个链接的普通文件（`S_ISREG` 且 `st_nlink == 1`）才会 `fchmod`；
+  符号链接、硬链接与 FIFO 一律 `unsafe_path`，不改动其他文件的权限，也不运行工具。
 - 网页把所有额度刷新放进同一个队列逐个执行（网站来源共用已登录的浏览器），包括“全部刷新”和单张卡片的“刷新”。
 - CLI 退出码：所有请求的刷新成功或为 `not_installed` 时为 0，任一失败为 2；未知提供方在运行任何工具前报错。
+  `atm credits refresh A B C` 逐个刷新：某个提供方的错误（包括 `refresh_in_progress`）记为该行
+  `refresh:"error"` 与 `error.code`，其余提供方照常刷新，最后以 2 退出。
 
 ## 保存什么，不保存什么
 
 - 本机设置 `credits:<provider>`：`provider`、`status`（`ok`/`error`）、`credits`、`plan`、`unit:"credits"`、`source`、`checked_at`、`last_ok_at`、`error:{code,message}|null`。
   失败时保留上次成功的 `credits`/`plan`/`last_ok_at`，只更新 `status`、`error`、`checked_at`。
 - 读不出数字（缺字段、非数字、负数、NaN/Infinity、布尔值、超过 10^15）记为 `credits_unreadable`，绝不当作 0；
-  整数先比较范围再做任何浮点运算，400 位的整数不会溢出。Pippit 的 `"0"` 是真实的 0。
+  整数先比较范围再做任何浮点运算，400 位的整数不会溢出。Pippit 的 `"0"` 是真实的 0；`-0.0` 记为 `0.0`。
 - 不保存邮箱、用户 ID 或原始输出：刷新 job 完成后清空 `result` 与 `artifacts`（`raw_output_discarded`），临时目录删除。错误信息只含 ATM 自己的代码与说明。
-- 崩溃窗口清理：每次刷新运行前与构建 payload（含查看）时，request key 以 `credits-` 开头、仍带 `result`/`artifacts`
-  而没有 `raw_output_discarded` 的 job 一律清空。
+- 刷新 job：工具是上表固定来源之一，且 request key 为 `credits-<provider>-<32 位小写十六进制>`。任何 job 读取方
+  （`atm jobs list/get`、`public_job`、管理台任务视图）都不返回刷新 job 的 `result` 与 `artifacts`（管理台 `artifact_count` 为 0），
+  崩溃遗留的也一样。用户自己的 job（如 `credits-mytask`）不受影响。
+- 崩溃窗口清理：每次刷新运行前与构建 payload（含查看）时，仍带 `result`/`artifacts`、尚未 `raw_output_discarded`
+  的刷新 job（已清理的行在 SQL 中跳过）清空记录，并删除其工作区，前提是它是 `tempfile.gettempdir()` 下直接一层、
+  名为 `atm-credits-*`、属于本用户的真实目录（`lstat`，不是符号链接）；其中的 artifact 文件随之删除。否则文件保留原处，
+  记录写明 `raw_output_files:"left_in_place"`（删除成功为 `"removed"`）。正常刷新先删工作区再清记录，
+  因此两步之间崩溃留下的记录会在下次查看或刷新时清理。
 - 这些设置不是 `sync:*` 记录，不进入加密同步包。
 
 ## 续期日由 owner 设置
@@ -87,7 +97,9 @@
 
 - `tests/test_subscription_credits.py`：提取器（Higgsfield 邮箱丢弃、Pippit 字符串与 `"0"`、缺失/非数字/负数/布尔/超大值）、续期日期计算、
   可用来源规则（付费、写入、凭证、同 id 不同别名、argv、pin、bundle、output 或 timeout 均拒绝且不运行；两个 XYQ pin 与 Tripo pin 的契约重算）、`next_source`/`bound`、经 Router 与假子进程刷新三家提供方、
-  新 request key、失败保留上次值、崩溃遗留输出清理、另一进程持有租约、CLI 与退出码、严格客户端拒绝、网页鉴权/Origin/409、不阻塞管理台、同步排除、扩展安装。
+  新 request key、失败保留上次值、崩溃遗留输出清理（job 完成后崩溃：记录、工作区与 artifact 文件都清理，job 列表不含结果；
+  无法确认的工作区保留并记录；只认刷新 job 的 key）、另一进程持有租约、锁路径为符号链接/硬链接/FIFO 时拒绝、
+  `-0.0`、CLI 与退出码（某个提供方租约被占时继续其余并以 2 退出）、严格客户端拒绝、网页鉴权/Origin/409、不阻塞管理台、同步排除、扩展安装。
 - `tests/test_credits_browser.py`（browser）：原生 Chromium 渲染面板、刷新忙碌状态与焦点保留、所有刷新串行、错误短标签与说明、
   未安装的紧凑卡片、未绑定提示、对话框内校验续期日、设置与清除续期日。
 - 均为隔离状态与假程序；真实账户、真实已登录浏览器与供应商输出未验收。
