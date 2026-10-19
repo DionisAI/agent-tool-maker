@@ -1,0 +1,17 @@
+{
+  "id": "pippit.cli.credit_balance",
+  "provider": "xyq",
+  "title": "小云雀 / Pippit CLI — subscription credit balance (read-only)",
+  "capabilities": ["subscription", "account"],
+  "adapter": "command",
+  "executable": "pippit-tool-cli",
+  "paid": false,
+  "permissions": ["execute_code"],
+  "schema": {"type": "object", "properties": {}, "additionalProperties": false},
+  "example": {},
+  "command": {"argv": ["get-credit-balance"], "output": "json", "timeout": 60},
+  "sources": ["https://github.com/Pippit-dev/cli"],
+  "checked_on": "2026-10-19",
+  "notes": "Official pippit-tool-cli with its own login; no ATM API Key or vault unlock. Returns only total_remain_amount, a string: \"0\" is a real zero and a missing field is a failure. No generation, upload or purchase. The CLI exposes no renewal date.",
+  "completion": "Credit balance returned; no generation submitted."
+}

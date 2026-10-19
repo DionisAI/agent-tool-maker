@@ -1,0 +1,259 @@
+"""Owner-refreshed subscription credits from fixed, reviewed read-only account tools.
+
+Viewing reads cached local settings only. A refresh is an explicit owner action:
+it runs the first usable source once, with a fresh request key, and keeps only
+{credits, plan}. E-mail, identity and raw tool output are never stored. No
+provider exposes a renewal date today, so the renewal day is owner-set.
+Subscription credits are separate from developer API balances.
+"""
+from __future__ import annotations
+
+import calendar
+import copy
+import json
+import math
+from pathlib import Path
+import re
+import shutil
+import tempfile
+import threading
+import time
+import uuid
+from datetime import date
+
+from .errors import RouterError
+from .storage import canonical
+
+# Fixed registry; owners cannot add providers or sources.
+PROVIDERS = {
+    "tripo_studio": {"label": "Tripo Studio", "brand": "tripo", "billing": "website subscription",
+                     "sources": ("tripo.studio.account", "tripo.server.account")},
+    # Prefer the official CLI: it does not drive the browser.
+    "xyq": {"label": "小云雀 / Pippit", "brand": "xyq", "billing": "website / CLI subscription",
+            "sources": ("pippit.cli.credit_balance", "xyq.web.account")},
+    "higgsfield": {"label": "Higgsfield", "brand": "higgsfield", "billing": "CLI subscription",
+                   "sources": ("higgsfield.subscription.account",)},
+}
+SAFE_PERMISSIONS = {"execute_code"}
+_BUSY: set[str] = set()
+_BUSY_LOCK = threading.Lock()
+
+
+def _unreadable():
+    return RouterError("credits_unreadable", "The account tool returned no readable credit balance; nothing was assumed.")
+
+
+def _amount(value):
+    # bool is not a number here; neither is NaN, infinity or a negative balance.
+    if type(value) in (int, float) and math.isfinite(value) and value >= 0:
+        return value
+    raise _unreadable()
+
+
+def _row(result):
+    """OpenCLI adapters print one row; XYQ wraps its row in {"result": ...}."""
+    if isinstance(result, list) and len(result) == 1:
+        result = result[0]
+    if isinstance(result, dict) and set(result) == {"result"}:
+        result = result["result"]
+    if not isinstance(result, dict):
+        raise _unreadable()
+    return result
+
+
+def website_credits(result):
+    row = _row(result)
+    if row.get("status") != "ready" or row.get("logged_in") is False:
+        raise _unreadable()
+    return {"credits": _amount(row.get("credits")), "plan": None}
+
+
+def pippit_credits(result):
+    # pippit-tool-cli prints {"total_remain_amount": "123"}; "0" is a real zero, absence is not.
+    value = _row(result).get("total_remain_amount")
+    if isinstance(value, str) and re.fullmatch(r"[0-9]{1,15}(?:\.[0-9]{1,6})?", value):
+        value = float(value) if "." in value else int(value)
+    return {"credits": _amount(value), "plan": None}
+
+
+def higgsfield_credits(result):
+    # Only credits and the plan name are read; e-mail and identity fields are ignored.
+    row = _row(result)
+    plan = row.get("subscription_plan_type")
+    plan = plan if isinstance(plan, str) and re.fullmatch(r"[A-Za-z0-9 _.-]{1,40}", plan) else None
+    return {"credits": _amount(row.get("credits")), "plan": plan}
+
+
+# tool id -> (kind shown to the owner, pure extractor from the job result)
+SOURCES = {
+    "tripo.studio.account": ("website", website_credits),
+    "tripo.server.account": ("website", website_credits),
+    "xyq.web.account": ("website", website_credits),
+    "pippit.cli.credit_balance": ("cli", pippit_credits),
+    "higgsfield.subscription.account": ("cli", higgsfield_credits),
+}
+
+
+def provider(name):
+    if not isinstance(name, str) or name not in PROVIDERS:
+        raise RouterError("unknown_provider", "Unknown subscription credits provider; run atm credits to list them.")
+    return PROVIDERS[name]
+
+
+def usable_source(router, name):
+    """First installed, enabled, unpaid source needing at most execute_code."""
+    from .management import enabled
+    for tool_id in provider(name)["sources"]:
+        tool = router.catalog.tools.get(tool_id)
+        # Defense in depth: a swapped definition that could spend or write is never run.
+        if (tool and enabled(router.state, tool_id) and tool.get("adapter") == "command"
+                and tool.get("paid") is False and set(tool.get("permissions", [])) <= SAFE_PERMISSIONS):
+            return tool
+    return None
+
+
+def next_cycle(day, today):
+    """Next date on or after today with this day of month, clamped to the month end."""
+    def on(year, month):
+        return date(year, month, min(day, calendar.monthrange(year, month)[1]))
+    current = on(today.year, today.month)
+    if current >= today:
+        return current
+    return on(today.year + 1, 1) if today.month == 12 else on(today.year, today.month + 1)
+
+
+def cycle_day(state, name):
+    value = state.setting("credits_cycle:" + name)
+    day = value.get("day") if isinstance(value, dict) else None
+    return day if type(day) is int and 1 <= day <= 31 else None
+
+
+def row(router, name, *, today=None):
+    spec = provider(name)
+    tool = usable_source(router, name)
+    record = router.state.setting("credits:" + name)
+    record = record if isinstance(record, dict) else {}
+    source = record.get("source") if record.get("source") in SOURCES else tool["id"] if tool else None
+    status = record.get("status") if record.get("status") in {"ok", "error"} else "not_read" if tool else "not_installed"
+    day = cycle_day(router.state, name)
+    renewal = {"date": next_cycle(day, today or date.today()).isoformat(), "source": "owner"} if day else None
+    return {"provider": name, "label": spec["label"], "brand": spec["brand"], "billing": spec["billing"],
+            "sources": list(spec["sources"]), "installed": tool is not None,
+            "source": source, "source_kind": SOURCES[source][0] if source else None,
+            "status": status, "credits": record.get("credits"), "plan": record.get("plan"), "unit": "credits",
+            "checked_at": record.get("checked_at"), "last_ok_at": record.get("last_ok_at"),
+            "error": record.get("error"), "next_cycle": renewal, "cycle_day": day}
+
+
+def payload(router):
+    """Cached state only; never runs a tool."""
+    return {"providers": [row(router, name) for name in PROVIDERS]}
+
+
+def _failure(error):
+    code = error.get("code") if isinstance(error, dict) else None
+    message = error.get("message") if isinstance(error, dict) else None
+    code = code if isinstance(code, str) and re.fullmatch(r"[a-z0-9_]{1,64}", code) else "refresh_failed"
+    message = message if isinstance(message, str) else "The account tool did not finish; no balance was read."
+    return {"error": {"code": code, "message": re.sub(r"[\x00-\x1f]", " ", message)[:300]}}
+
+
+def _forget_raw_output(router, job):
+    # The job stays as an execution record, without account metadata such as e-mail.
+    if "result" in job["data"] or job["data"].get("artifacts"):
+        router.state.update_job(job["id"], job["status"], result=None, artifacts=[], raw_output_discarded=True)
+
+
+def _read(router, name, tool):
+    from .maker import digest
+    inputs = copy.deepcopy(tool.get("example") or {}) if tool["schema"].get("required") else {}
+    # Private 0700 directory outside the ATM home: the server runtime refuses
+    # workspaces inside its state, and raw output files are deleted afterwards.
+    folder = Path(tempfile.mkdtemp(prefix="atm-credits-"))
+    try:
+        job = router.run(tool["id"], inputs, folder, request_key=f"credits-{name}-{uuid.uuid4().hex}",
+                         allow_paid=False, grants=["execute_code"], expect_definition=digest(tool))
+        _forget_raw_output(router, job)
+        if job["status"] != "completed":
+            return _failure(job["data"].get("error") or {"code": "refresh_" + job["status"]})
+        return SOURCES[tool["id"]][1](job["data"].get("result"))
+    except RouterError as error:
+        return _failure(error.as_dict())
+    except (OSError, ValueError, TypeError, KeyError):
+        return _failure(None)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def _store(state, name, source, outcome, now):
+    setting = "credits:" + name
+    with state.db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        found = db.execute("SELECT value FROM settings WHERE name=?", (setting,)).fetchone()
+        previous = json.loads(found[0]) if found else {}
+        previous = previous if isinstance(previous, dict) else {}
+        # An error keeps the last good balance visible, marked by status and error.
+        record = {"provider": name, "unit": "credits", "source": source, "checked_at": now,
+                  "credits": previous.get("credits"), "plan": previous.get("plan"),
+                  "last_ok_at": previous.get("last_ok_at")}
+        if "error" in outcome:
+            record.update(status="error", error=outcome["error"])
+        else:
+            record.update(status="ok", error=None, last_ok_at=now, credits=outcome["credits"], plan=outcome["plan"])
+        db.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (setting, canonical(record)))
+    return record
+
+
+def refresh(router, name, *, clock=time.time):
+    """Owner action. Website sources drive the owner's logged-in browser."""
+    provider(name)
+    tool = usable_source(router, name)
+    if tool is None:
+        return {**row(router, name), "refresh": "not_installed"}
+    with _BUSY_LOCK:
+        if name in _BUSY:
+            raise RouterError("refresh_in_progress", "This provider is already being refreshed; wait for that result.")
+        _BUSY.add(name)
+    try:
+        outcome = _read(router, name, tool)
+        record = _store(router.state, name, tool["id"], outcome, int(clock()))
+    finally:
+        with _BUSY_LOCK:
+            _BUSY.discard(name)
+    return {**row(router, name), "refresh": record["status"]}
+
+
+def set_cycle(router, name, day):
+    provider(name)
+    if day is not None and not (type(day) is int and 1 <= day <= 31):
+        raise RouterError("invalid_cycle_day", "Renewal day must be a whole number from 1 to 31, or cleared.")
+    if day is None:
+        with router.state.db() as db:
+            db.execute("DELETE FROM settings WHERE name=?", ("credits_cycle:" + name,))
+    else:
+        router.state.set_setting("credits_cycle:" + name, {"day": day})
+    return row(router, name)
+
+
+def add_commands(sub):
+    root = sub.add_parser("credits", help="Cached subscription credits; refresh runs reviewed read-only account tools")
+    ops = root.add_subparsers(dest="operation")
+    run = ops.add_parser("refresh", help="Owner action: read balances now; website sources drive the logged-in browser")
+    run.add_argument("provider", nargs="*", help="Default: every provider")
+    cycle = ops.add_parser("cycle", help="Set or clear the owner-known renewal day of month")
+    cycle.add_argument("provider")
+    choice = cycle.add_mutually_exclusive_group(required=True)
+    choice.add_argument("--day", type=int)
+    choice.add_argument("--clear", action="store_true")
+
+
+def dispatch(args, router):
+    if args.operation is None:
+        return payload(router)
+    if args.operation == "cycle":
+        return set_cycle(router, args.provider, None if args.clear else args.day)
+    names = list(dict.fromkeys(args.provider or PROVIDERS))
+    for name in names:
+        provider(name)  # Reject a typo before any tool runs.
+    results = [refresh(router, name) for name in names]
+    return {"status": "failed" if any(r["refresh"] == "error" for r in results) else "ok", "providers": results}

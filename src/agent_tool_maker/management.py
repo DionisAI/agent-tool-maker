@@ -170,12 +170,14 @@ def recent_jobs(router) -> dict:
 
 
 def overview(router, *, user_home=None) -> dict:
+    from .credits import payload as credits_payload
     rows = list(router.catalog.tools.values())
     return {"version": __version__, "home": str(router.state.home),
             "counts": {"tools": len(rows), "enabled": sum(enabled(router.state,t["id"]) for t in rows),
                        "connections": len(router.state.secret_names()), "recent_jobs": len(router.state.jobs())},
             "agents": agents(router, user_home=user_home)["agents"],
             "vault": vault_health(router.vault), "network_calls": 0,
+            "credits": credits_payload(router),  # Cached only; avoids another bootstrap request.
             "note": "Configured is not live-verified. No provider requests are made when viewing this console."}
 
 
