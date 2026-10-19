@@ -26,10 +26,16 @@ textarea {width:100%;padding:12px;border:1px solid #d7d9d2;border-radius:8px;fon
 @media(max-width:780px){.brand-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.brand-tile{padding:13px 10px;column-gap:9px}.tool-collection .section-head{align-items:flex-start;gap:8px}.tool-collection .section-head .plain{padding:4px 0;font-size:11px}.provider-copy h3{font-size:14px}.provider-identity{gap:10px}}
 
 /* Subscription credits: cached values; the owner refreshes explicitly. */
-.credits{margin-bottom:30px}.credits .section-head small{display:block;margin-top:7px;font-size:11px}.credits>.quiet{margin:-6px 0 14px}
-.credits-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:15px}
-.credit-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0}
-.credit-card.busy{border-color:#9cbcb0}.credit-card .card-actions{margin-top:auto;padding-top:4px}
-.credit-amount{font-size:30px;font-weight:650;letter-spacing:-.5px;overflow-wrap:anywhere}.credit-amount small{font-size:11px;font-weight:500;color:var(--muted)}
-.credit-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.credit-meta small,.credit-cycle{font-size:11px;color:var(--muted)}
-.credit-card .quiet{margin:0}
+.credits{margin-bottom:30px}.credits .section-head{gap:12px}.credits .section-head small{display:block;margin-top:7px;font-size:11px}.credits>.quiet{margin:-6px 0 14px}
+.credits-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:15px}
+.credit-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0;container-type:inline-size}
+.credit-card.busy{border-color:#9cbcb0}.credit-card .card-actions{margin-top:auto;padding-top:4px;flex-wrap:wrap;align-items:center}.credit-card .card-actions>.plain:first-child{padding-left:0}
+.credit-card .provider-copy>small{overflow-wrap:anywhere}
+.credit-amount{font-size:30px;font-size:clamp(20px,12cqi,30px);font-weight:650;letter-spacing:-.5px;overflow-wrap:anywhere}.credit-amount.long{font-size:24px;font-size:clamp(16px,8cqi,24px)}
+.credit-amount small{font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap}
+.credit-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.credit-meta small,.credit-cycle,.credit-next{font-size:11px;color:var(--muted)}
+.credit-meta .badge{white-space:normal;overflow-wrap:anywhere;max-width:100%}
+.credit-card .quiet{margin:0}.credit-card code{font-size:11px;overflow-wrap:anywhere}
+.credits button[aria-disabled=true]{cursor:not-allowed;opacity:.45}
+.form-error{color:var(--red);font-size:12px;margin:10px 0 0}
+@media(max-width:780px){.credits .section-head{align-items:flex-start;gap:8px}}

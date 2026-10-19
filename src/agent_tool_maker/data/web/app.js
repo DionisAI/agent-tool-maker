@@ -91,8 +91,13 @@ function heading(title,subtitle,button) {
   return el('section',{class:'page-title'},el('div',{},el('p',{class:'eyebrow'},'AGENT TOOL MAKER / YOUR LOCAL WORKSHOP'),el('h1',{},title),el('p',{},subtitle)),button);
 }
 function section(title,meta='') {return el('div',{class:'section-head'},el('h2',{},title),el('small',{},meta));}
-function openModal(title,...content) {$('#modal-title').textContent=title;$('#modal-body').replaceChildren(...content.flat().filter(c=>c!==null&&c!==undefined));if(!$('#modal').open)$('#modal').showModal();}
-function closeModal() {$('#modal').close();$('#modal-body').replaceChildren();}
+// The control that opened a dialog. action() disables (and so blurs) the clicked button, hence lastFocus.
+let modalReturn=null, lastFocus=null;
+document.addEventListener('focusin',e=>{if(!$('#modal').contains(e.target))lastFocus=e.target;});
+function openModal(title,...content) {$('#modal-title').textContent=title;$('#modal-body').replaceChildren(...content.flat().filter(c=>c!==null&&c!==undefined));if(!$('#modal').open){modalReturn=document.activeElement===document.body?lastFocus:document.activeElement;$('#modal').showModal();}}
+// Focus returns to the control that opened the dialog, or to its re-rendered credits counterpart.
+function restoreFocus() {const node=modalReturn;modalReturn=null;if(node?.isConnected)node.focus();else focusCredit(creditFocus(node));}
+function closeModal() {$('#modal').close();$('#modal-body').replaceChildren();restoreFocus();}
 function agentCard(a) {
   const registered=a.state==='registered_not_host_verified';
   return el('article',{class:'card'},
@@ -133,7 +138,11 @@ function render() {
 }
 // Subscription credits: cached values only; a tool runs only when the owner clicks 刷新.
 const creditsBusy=new Set();
+let creditsQueue=Promise.resolve(); // Every refresh runs one at a time: website sources share the logged-in browser.
 const creditNumber=value=>new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(value);
+const creditErrors={cli_not_configured:'CLI 未绑定',login_required:'需要登录',refresh_in_progress:'正在读取',
+  credits_unreadable:'无法读取额度',runtime_unavailable:'服务未运行',cli_failed:'读取失败'};
+const sourceKind=kind=>kind==='cli'?'CLI':'网站';
 function relativeTime(epoch) {
   const s=Math.max(0,Math.round(Date.now()/1000-epoch));
   return s<60?'刚刚':s<3600?Math.floor(s/60)+' 分钟前':s<86400?Math.floor(s/3600)+' 小时前':Math.floor(s/86400)+' 天前';
@@ -142,52 +151,92 @@ function updateCredit(record) {
   const list=data?.overview?.credits?.providers, i=list?list.findIndex(p=>p.provider===record.provider):-1;
   if(i>=0)list[i]=record;
 }
-function drawCredits() {const old=$('#credits-panel');if(old&&data)old.replaceWith(creditsPanel());}
-async function refreshCredits(names) {
-  names=names.filter(name=>!creditsBusy.has(name));
-  if(!names.length)return;
-  names.forEach(name=>creditsBusy.add(name));drawCredits();
-  const failed=[];
-  for(const name of names) { // One at a time: website sources share the logged-in browser.
-    try{const r=await api('/api/credits/refresh',{provider:name});updateCredit(r);if(r.refresh==='error')failed.push(r.label+' · '+r.error.code);}
-    catch(e){failed.push(name+' · '+e.message);}
-    finally{creditsBusy.delete(name);drawCredits();}
-  }
-  if(failed.length)toast('额度读取失败：'+failed.join('；'),true);else toast('订阅额度已更新。');
+// Keyboard focus survives a re-render: the same provider + action button is focused in the new panel.
+function creditFocus(node) {
+  const action=node?.dataset?.creditAction;
+  return action?{action,provider:node.closest('[data-provider]')?.dataset.provider}:null;
 }
-function creditsButton(text,names,type) {
-  const busy=names.some(name=>creditsBusy.has(name));
-  return el('button',{class:type,disabled:busy||!names.length,ariaBusy:String(busy),onclick:()=>refreshCredits(names)},busy?'刷新中…':text);
+function focusCredit(key) {
+  if(!key)return;
+  const scope=key.provider?$('#credits-panel .credit-card[data-provider="'+key.provider+'"]'):$('#credits-panel');
+  scope?.querySelector('[data-credit-action="'+key.action+'"]')?.focus();
+}
+function drawCredits() {
+  const old=$('#credits-panel');if(!old||!data)return;
+  const key=old.contains(document.activeElement)?creditFocus(document.activeElement):null;
+  old.replaceWith(creditsPanel());focusCredit(key);
+}
+function refreshCredits(names) {
+  names=names.filter(name=>!creditsBusy.has(name));
+  if(!names.length)return creditsQueue;
+  names.forEach(name=>creditsBusy.add(name));drawCredits();
+  const run=async()=>{
+    const failed=[];
+    for(const name of names) {
+      try{const r=await api('/api/credits/refresh',{provider:name});updateCredit(r);if(r.refresh==='error')failed.push(r.label+' · '+r.error.code);}
+      catch(e){failed.push(name+' · '+e.message);}
+      finally{creditsBusy.delete(name);drawCredits();}
+    }
+    if(failed.length)toast('额度读取失败：'+failed.join('；'),true);else toast('订阅额度已更新。');
+  };
+  creditsQueue=creditsQueue.then(run).catch(e=>toast(e.message||'额度刷新未完成。',true));
+  return creditsQueue;
+}
+function creditsButton(text,names,type,kind) {
+  // Busy only when every listed provider is; a busy button stays focusable (aria-disabled) across re-renders.
+  const busy=names.length>0&&names.every(name=>creditsBusy.has(name));
+  return el('button',{class:type,disabled:!names.length,ariaDisabled:String(busy),ariaBusy:String(busy),'data-credit-action':kind,onclick:()=>refreshCredits(names)},busy?'刷新中…':text);
 }
 function cycleDialog(p) {
   const input=el('input',{type:'number',min:1,max:31,step:1,value:p.cycle_day??'',ariaLabel:'每月续期日'});
-  const save=async day=>{const r=await api('/api/credits/cycle',{provider:p.provider,day});updateCredit(r);closeModal();drawCredits();toast(day===null?'已清除续期日。':'续期日已保存。');};
+  const problem=el('p',{class:'form-error',role:'alert',hidden:true});
+  const save=async day=>{
+    try{const r=await api('/api/credits/cycle',{provider:p.provider,day});updateCredit(r);}
+    catch(e){problem.textContent=e.message;problem.hidden=false;return;} // In the dialog, not behind its backdrop.
+    closeModal();drawCredits();toast(day===null?'已清除续期日。':'续期日已保存。');
+  };
+  const submit=btn('保存',async()=>{
+    const day=Number(input.value);
+    input.setCustomValidity(input.value!==''&&Number.isInteger(day)&&day>=1&&day<=31?'':'请输入 1–31 的整数。');
+    if(input.reportValidity())await save(day);
+  },'primary');
+  input.addEventListener('input',()=>input.setCustomValidity(''));
+  input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit.click();}});
   openModal('设置续期日 · '+p.label,el('p',{class:'quiet'},'供应商目前不提供续期日期。填写账单上的每月续期日（1–31），短月份按月末计算；只保存在本机。'),
-    el('label',{},'每月续期日',input),
-    el('div',{class:'dialog-actions'},btn('清除',()=>save(null),'plain'),btn('保存',async()=>{
-      const day=Number(input.value);
-      if(!Number.isInteger(day)||day<1||day>31)throw new Error('请输入 1–31 的整数。');
-      await save(day);
-    },'primary')));
+    el('label',{},'每月续期日',input),problem,
+    el('div',{class:'dialog-actions'},btn('清除',()=>save(null),'plain'),submit));
+}
+function creditError(error) {
+  const node=badge(creditErrors[error.code]||'读取失败 · '+error.code,'bad');
+  node.title=error.message||'';
+  return node;
 }
 function creditCard(p) {
-  const kind=p.source_kind==='cli'?'CLI':'网站';
+  const cycle=el('small',{class:'credit-cycle'},p.next_cycle?'下次续期 '+p.next_cycle.date+'（你设置的）':'未设置续期日');
+  const cycleButton=el('button',{class:'plain','data-credit-action':'cycle',onclick:action(()=>cycleDialog(p))},'设置续期日');
+  if(!p.installed) // Compact: which tool to install or enable, and the owner-set renewal day.
+    return el('article',{class:'credit-card','data-provider':p.provider},
+      el('div',{class:'card-head'},brandIdentity(p.brand,[el('h3',{},p.label)],p.source||'')),
+      el('p',{class:'quiet'},'安装或启用 '+p.sources.join(' / ')+' 后可读取。'),cycle,el('div',{class:'card-actions'},cycleButton));
   const stale=p.last_ok_at&&Date.now()/1000-p.last_ok_at>86400;
+  const amount=typeof p.credits==='number'?creditNumber(p.credits):'—';
   return el('article',{class:'credit-card'+(creditsBusy.has(p.provider)?' busy':''),'data-provider':p.provider},
-    el('div',{class:'card-head'},brandIdentity(p.brand,[el('h3',{},p.label),el('small',{},p.source?kind+' · '+p.source:'未安装读取工具')],p.source||''),p.plan?badge(p.plan):null),
-    el('strong',{class:'credit-amount'},typeof p.credits==='number'?creditNumber(p.credits):'—',el('small',{},' 积分')),
-    el('div',{class:'credit-meta'},el('small',{},p.last_ok_at?'上次读取 '+relativeTime(p.last_ok_at):'尚未读取'),
+    el('div',{class:'card-head'},brandIdentity(p.brand,[el('h3',{},p.label),el('small',{},sourceKind(p.source_kind)+' · '+p.source)],p.source||'')),
+    el('strong',{class:'credit-amount'+(amount.length>12?' long':'')},amount,el('small',{},' 积分')),
+    el('div',{class:'credit-meta'},p.plan?badge(p.plan):null,el('small',{},p.last_ok_at?'上次读取 '+relativeTime(p.last_ok_at):'尚未读取'),
       stale?badge('超过 24 小时，可能已变化','warn'):null,
-      p.status==='error'&&p.error?badge('读取失败 · '+p.error.code,'bad'):null),
-    el('small',{class:'credit-cycle'},p.next_cycle?'下次续期 '+p.next_cycle.date+'（你设置的）':'未设置续期日'),
-    p.installed?null:el('p',{class:'quiet'},'安装或启用 '+p.sources.join(' / ')+' 后可读取。'),
-    el('div',{class:'card-actions'},p.installed?creditsButton('刷新',[p.provider],'secondary'):null,btn('设置续期日',()=>cycleDialog(p),'plain')));
+      p.status==='error'&&p.error?creditError(p.error):null),
+    p.bound?null:el('p',{class:'quiet'},'先运行 ',el('code',{},'atm cli bind '+p.next_executable+' <path>'),' 绑定 CLI'),
+    cycle,
+    el('div',{class:'card-actions'},p.bound?creditsButton('刷新',[p.provider],'secondary','refresh'):null,
+      p.bound&&p.next_source!==p.source?el('small',{class:'credit-next',title:p.next_source},'下次刷新读取'+(p.next_source_kind==='cli'?' CLI':'网站')):null,
+      cycleButton));
 }
 function creditsPanel() {
   const providers=data.overview.credits?.providers;
   if(!providers)return null;
   return el('section',{class:'credits',id:'credits-panel'},
-    el('div',{class:'section-head'},el('div',{},el('h2',{},'订阅额度'),el('small',{},'只在你点击刷新时读取 · 打开本页不运行工具')),creditsButton('全部刷新',providers.filter(p=>p.installed).map(p=>p.provider),'secondary')),
+    el('div',{class:'section-head'},el('div',{},el('h2',{},'订阅额度'),el('small',{},'只在你点击刷新时读取 · 打开本页不运行工具')),creditsButton('全部刷新',providers.filter(p=>p.installed&&p.bound).map(p=>p.provider),'secondary','all')),
     el('p',{class:'quiet'},'这些是网站 / CLI 的订阅积分，与开发者 API 余额分开计费。网站来源会读取本机已登录的浏览器。'),
     el('div',{class:'credits-grid'},...providers.map(creditCard)));
 }
@@ -392,6 +441,7 @@ openModal('创建有范围的 Agent 授权',el('label',{},'客户端',agent),el(
 document.querySelectorAll('[data-nav]').forEach(n=>n.onclick=()=>{active=n.dataset.nav;render();});
 $('#modal-close').onclick=closeModal;
 $('#modal').addEventListener('cancel',()=>$('#modal-body').replaceChildren());
+$('#modal').addEventListener('close',restoreFocus);
 $('#refresh').onclick=action(refresh);
 $('#lock').onclick=()=>{token='';data=null;closeModal();$('#main').replaceChildren();$('#gate').hidden=false;};
 $('#session-form').onsubmit=action(async e=>{e.preventDefault();token=$('#session-token').value;$('#session-token').value='';await refresh();});
