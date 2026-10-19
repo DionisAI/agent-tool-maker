@@ -195,8 +195,8 @@ function creditsButton(text,names,type,kind) {
   return el('button',{class:type,disabled:!names.length,ariaDisabled:String(busy),ariaBusy:String(busy),'data-credit-action':kind,onclick:()=>refreshCredits(names)},label);
 }
 function cycleDialog(p) {
-  const input=el('input',{type:'number',min:1,max:31,step:1,value:p.cycle_day??'',ariaLabel:'每月续期日'});
-  const problem=el('p',{class:'form-error',role:'alert',hidden:true});
+  const problem=el('p',{class:'form-error',role:'alert',hidden:true,id:'credit-cycle-problem'});
+  const input=el('input',{type:'number',min:1,max:31,step:1,value:p.cycle_day??'',ariaLabel:'每月续期日','aria-describedby':problem.id});
   // Messages stay in the dialog's alert line, not behind its backdrop; an invalid day also marks the input.
   const report=(message,invalid=false)=>{
     problem.textContent=message;problem.hidden=!message;
@@ -210,8 +210,9 @@ function cycleDialog(p) {
   const submit=btn('保存',async()=>{
     const day=Number(input.value);
     const message=input.value!==''&&Number.isInteger(day)&&day>=1&&day<=31?'':'请输入 1–31 的整数。';
+    // The inline alert is the only message; the browser's own validation bubble would repeat it.
     input.setCustomValidity(message);report(message,Boolean(message));
-    if(input.reportValidity())await save(day);
+    if(!message)await save(day);else input.focus();
   },'primary');
   input.addEventListener('input',()=>{input.setCustomValidity('');report('');});
   input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit.click();}});

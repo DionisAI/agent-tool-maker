@@ -39,4 +39,5 @@ textarea {width:100%;padding:12px;border:1px solid #d7d9d2;border-radius:8px;fon
 /* Busy (queued or running): full contrast, the label says which; a strong ring when focused. */
 .credits button[aria-disabled=true]{cursor:progress;border-style:dashed}.credits button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .form-error{color:var(--red);font-size:12px;margin:10px 0 0}
+#modal input[aria-invalid=true]{border-color:var(--red);outline-color:var(--red)}
 @media(max-width:780px){.credits .section-head{align-items:flex-start;gap:8px}}

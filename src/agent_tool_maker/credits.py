@@ -262,9 +262,12 @@ def _remove_files(workspace, artifacts):
     return "left_in_place" if left else "removed"
 
 
-def _discard_leftovers(state):
+def _discard_leftovers(state, held=None):
     """Crash-window cleanup: a refresh that died before discarding its output leaves none behind,
-    neither in its job record nor in its temporary workspace."""
+    neither in its job record nor in its temporary workspace.
+
+    While a provider's lease is held (held=name) no refresh of it can be running in this home, so its
+    unfinished jobs count too: one that died after writing its result file but before completing."""
     marks = ",".join("?" * len(SOURCES))
     with state.db() as db:
         db.execute("BEGIN IMMEDIATE")
@@ -273,7 +276,8 @@ def _discard_leftovers(state):
                           "AND json_extract(data, '$.raw_output_discarded') IS NOT 1", tuple(SOURCES)).fetchall()
         for job_id, tool, key, workspace, text in rows:
             data = json.loads(text)
-            if refresh_job({"tool": tool, "request_key": key}) and ("result" in data or data.get("artifacts")):
+            unfinished = held is not None and key.startswith(f"credits-{held}-")
+            if refresh_job({"tool": tool, "request_key": key}) and ("result" in data or data.get("artifacts") or unfinished):
                 files = _remove_files(workspace, data.get("artifacts") or [])
                 data.update(result=None, artifacts=[], raw_output_discarded=True, raw_output_files=files)
                 db.execute("UPDATE jobs SET data=?, updated=? WHERE id=?", (canonical(data), time.time(), job_id))
@@ -352,7 +356,7 @@ def refresh(router, name, *, clock=time.time):
     if tool is None:
         return {**row(router, name), "refresh": "not_installed"}
     with _lease(router.state, name):
-        _discard_leftovers(router.state)
+        _discard_leftovers(router.state, held=name)
         outcome = _read(router, name, tool)
         record = _store(router.state, name, tool["id"], outcome, int(clock()))
     return {**row(router, name), "refresh": record["status"]}

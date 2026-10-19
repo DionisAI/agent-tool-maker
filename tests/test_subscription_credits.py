@@ -665,6 +665,67 @@ def test_crash_after_a_completed_job_leaves_no_raw_output_files(home, fakes, mon
         assert EMAIL not in json.dumps([tuple(r) for r in db.execute("SELECT * FROM jobs").fetchall()])
 
 
+def test_unfinished_refresh_job_files_are_removed_under_the_lease(home, fakes):
+    # A refresh that died after writing its result file but before completing: no result, no artifacts.
+    install_tool(home, definitions(home.state.home)["higgsfield.subscription.account"])
+    fakes.bind(home, "higgsfield")
+    fakes.output("higgsfield", HIGGSFIELD)
+    workspace = Path(tempfile.mkdtemp(prefix="atm-credits-"))
+    out = workspace / ".atm/artifacts/crashed/command-result.json"
+    out.parent.mkdir(parents=True)
+    out.write_text(json.dumps(HIGGSFIELD))
+    job, _ = home.state.create_job("higgsfield.subscription.account", {}, workspace, "credits-higgsfield-" + "2" * 32)
+    # Viewing leaves it: without the lease another process might still be running that refresh.
+    credits.payload(home)
+    assert out.exists() and not home.state.job(job["id"])["data"].get("raw_output_discarded")
+    # A refresh holds the provider lease, so the unfinished job is a leftover and its files go.
+    assert credits.refresh(home, "higgsfield")["credits"] == 1234
+    assert not workspace.exists()
+    data = home.state.job(job["id"])["data"]
+    assert (data["raw_output_discarded"], data["raw_output_files"]) == (True, "removed")
+
+
+CRASH_AFTER_RECORD = """
+import os, sys
+from pathlib import Path
+from agent_tool_maker import credits
+from agent_tool_maker.engine import Router
+router = Router(Path(sys.argv[1]))
+real = credits._forget_raw_output
+def forget(r, job):
+    print(job["workspace"], flush=True)
+    real(r, job)
+    os._exit(0)  # The process dies right after the record is cleaned.
+credits._forget_raw_output = forget
+credits.refresh(router, "higgsfield")
+"""
+
+
+def test_files_are_removed_before_the_record_is_cleaned(home, fakes):
+    # If the record were cleaned first, a crash in between would hide the files from every later cleanup.
+    install_tool(home, definitions(home.state.home)["higgsfield.subscription.account"])
+    fakes.bind(home, "higgsfield")
+    fakes.output("higgsfield", HIGGSFIELD)
+    child = subprocess.run([sys.executable, "-c", CRASH_AFTER_RECORD, str(home.state.home)],
+                           capture_output=True, text=True, timeout=60)
+    assert child.returncode == 0, child.stderr
+    workspace = Path(child.stdout.strip())
+    assert workspace.name.startswith("atm-credits-") and not workspace.exists()
+    credits.payload(home)
+    job = next(j for j in home.state.jobs() if j["request_key"].startswith("credits-higgsfield-"))
+    assert job["data"]["raw_output_discarded"] is True and EMAIL not in json.dumps(job)
+
+
+def test_discarded_output_leaves_no_stale_bytes_in_the_database(home, fakes):
+    # Large raw output spills into overflow pages; discarding it must not leave the e-mail in freed pages.
+    install_tool(home, definitions(home.state.home)["higgsfield.subscription.account"])
+    fakes.bind(home, "higgsfield")
+    fakes.output("higgsfield", {**HIGGSFIELD, "history": [EMAIL + " " + "x" * 200] * 40})
+    assert credits.refresh(home, "higgsfield")["credits"] == 1234
+    database = home.state.path
+    assert database.exists() and EMAIL.encode() not in database.read_bytes()
+
+
 @pytest.mark.parametrize("where", ["elsewhere", "symlink", "other_name", "other_owner"])
 def test_crash_cleanup_leaves_files_it_cannot_verify(home, tmp_path, monkeypatch, where):
     temporary = Path(tempfile.gettempdir()).resolve()
