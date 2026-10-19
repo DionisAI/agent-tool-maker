@@ -3,6 +3,8 @@ from datetime import date
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import threading
 import time
 from urllib.parse import urlsplit
@@ -13,12 +15,21 @@ from agent_tool_maker import credits
 from agent_tool_maker.engine import Router
 from agent_tool_maker.storage import State
 from agent_tool_maker.webapp import Console
-from test_subscription_credits import Fakes, HIGGSFIELD, definitions, install_tool
+from test_subscription_credits import Fakes, HIGGSFIELD, HOLDER, definitions, install_tool
 
 # The number's text node lays out on one line: large numbers shrink rather than break.
 ONE_LINE = "e => { const r = document.createRange(); r.selectNodeContents(e.firstChild); return r.getClientRects().length === 1; }"
 # The last card ends at the grid's right edge: the cards fill the row.
 FILLS_ROW = "g => Math.abs(g.lastElementChild.getBoundingClientRect().right - g.getBoundingClientRect().right) < 2"
+# Each text node lays out on one line: a tool id wraps only at its <wbr> after a dot.
+TEXT_UNBROKEN = ("e => [...e.childNodes].filter(n => n.nodeType === 3).every(n => {"
+                 " const r = document.createRange(); r.selectNodeContents(n); return r.getClientRects().length === 1; })")
+# Every card starts on the same line: one row of cards.
+ONE_ROW = "g => new Set([...g.children].map(c => Math.round(c.getBoundingClientRect().top))).size === 1"
+# Busy buttons keep full contrast; a focused one has a strong focus ring.
+NO_OPACITY = "b => getComputedStyle(b).opacity === '1'"
+FOCUS_RING = ("b => { const s = getComputedStyle(b); return b.matches(':focus-visible') && s.outlineStyle === 'solid'"
+              " && parseFloat(s.outlineWidth) >= 2; }")
 
 
 def chromium():
@@ -29,7 +40,7 @@ def chromium():
 
 
 @pytest.mark.browser
-@pytest.mark.parametrize("width", [1440, 390], ids=["desktop", "mobile"])
+@pytest.mark.parametrize("width", [1440, 1024, 390], ids=["desktop", "laptop", "mobile"])
 def test_credits_panel_refresh_busy_state_and_renewal_day(tmp_path, width):
     from playwright.sync_api import sync_playwright, expect
     chrome = chromium()
@@ -88,6 +99,8 @@ def test_credits_panel_refresh_busy_state_and_renewal_day(tmp_path, width):
             assert higgsfield.locator(".credit-next").count() == 0  # The next refresh runs the stored source.
             assert higgsfield.locator("[data-brand=higgsfield] img").count() == 1
             assert page.locator(".credits-grid").evaluate(FILLS_ROW)
+            assert page.locator(".credits-grid").evaluate(ONE_ROW) is (width >= 1024)  # Three cards fit from 1024.
+            assert higgsfield.locator(".provider-copy small").evaluate(TEXT_UNBROKEN)
             # Not installed: a compact card with the tool to install and the renewal day only.
             tripo = page.locator(".credit-card[data-provider=tripo_studio]")
             expect(tripo).to_contain_text("tripo.studio.account / tripo.server.account")
@@ -100,6 +113,9 @@ def test_credits_panel_refresh_busy_state_and_renewal_day(tmp_path, width):
             xyq = page.locator(".credit-card[data-provider=xyq]")
             expect(xyq).to_contain_text("尚未读取")
             expect(xyq).to_contain_text("CLI · pippit.cli.credit_balance")
+            for card in (xyq, tripo):  # After the refresh button, and alone.
+                assert card.locator(".card-actions > .plain").evaluate(
+                    "b => getComputedStyle(b).paddingLeft === '0px' && getComputedStyle(b).paddingRight === '0px'")
 
             gate = fakes.root / "xyq.gate"
             gate.write_text("hold")
@@ -127,18 +143,27 @@ def test_credits_panel_refresh_busy_state_and_renewal_day(tmp_path, width):
             cycle = page.locator(".credit-card[data-provider=xyq] [data-credit-action=cycle]")
             cycle.click()
             expect(page.locator("#modal-body")).to_contain_text("供应商目前不提供续期日期")
+            expect(page.get_by_label("每月续期日")).to_be_focused()
             page.keyboard.press("Escape")
             expect(page.locator("#modal")).to_be_hidden()
             expect(cycle).to_be_focused()  # Focus returns to the control that opened the dialog.
             cycle.click()
             day = page.get_by_label("每月续期日")
+            expect(day).to_be_focused()
+            alert = page.locator("#modal [role=alert]")
             # Validation stays inside the dialog: no toast behind the backdrop and no request.
             for value in ["0", "32", "2.5", ""]:
                 day.fill(value)
                 page.locator("#modal").get_by_role("button", name="保存", exact=True).click()
                 expect(page.locator("#modal")).to_be_visible()
                 assert day.evaluate("e => e.validationMessage") == "请输入 1–31 的整数。"
+                expect(alert).to_have_text("请输入 1–31 的整数。")
+                expect(day).to_have_attribute("aria-invalid", "true")
             expect(page.locator("#toast")).not_to_contain_text("1–31")
+            day.fill("3")  # Typing clears the message.
+            expect(alert).to_be_hidden()
+            expect(alert).to_have_text("")
+            assert day.get_attribute("aria-invalid") is None
             day.fill("31")
             day.press("Enter")  # Enter in the input submits.
             expected = credits.next_cycle(31, date.today()).isoformat()
@@ -198,6 +223,10 @@ def test_credits_refreshes_are_serialized_and_keep_focus(tmp_path, width):
         "provider": "higgsfield", "status": "error", "credits": 5, "plan": "pro", "unit": "credits",
         "source": "higgsfield.subscription.account", "checked_at": now - 60, "last_ok_at": now - 120,
         "error": {"code": "login_required", "message": "Fixture: log in to the CLI first."}})
+    router.state.set_setting("credits:tripo_studio", {
+        "provider": "tripo_studio", "status": "error", "credits": 7, "plan": "toString", "unit": "credits",
+        "source": "tripo.studio.account", "checked_at": now - 60, "last_ok_at": now - 120,
+        "error": {"code": "constructor", "message": "Fixture: a code named like an Object.prototype key."}})
     router.close()
     server = Console(tmp_path / "state", localhost=True, user_home=tmp_path / "user")
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -227,6 +256,8 @@ def test_credits_refreshes_are_serialized_and_keep_focus(tmp_path, width):
             expect(xyq.locator(".badge.bad")).to_have_attribute("title", "Fixture message for an unlisted code.")
             expect(higgsfield.locator(".badge.bad")).to_have_text("需要登录")
             expect(higgsfield.locator(".badge.bad")).to_have_attribute("title", "Fixture: log in to the CLI first.")
+            expect(tripo.locator(".badge.bad")).to_have_text("读取失败 · constructor")  # Own keys only.
+            expect(tripo.locator(".credit-meta .badge").first).to_have_text("toString")
             expect(xyq).to_contain_text("网站 · xyq.web.account")
             expect(xyq.locator(".credit-next")).to_have_text("下次刷新读取 CLI")
             expect(xyq.locator(".credit-next")).to_have_attribute("title", "pippit.cli.credit_balance")
@@ -245,19 +276,28 @@ def test_credits_refreshes_are_serialized_and_keep_focus(tmp_path, width):
             expect(xyq_refresh).to_have_text("刷新中…")
             expect(xyq_refresh).to_be_disabled()
             expect(xyq_refresh).to_be_focused()  # Kept across the re-render.
+            assert xyq_refresh.evaluate(NO_OPACITY) and xyq_refresh.evaluate(FOCUS_RING)
             expect(refresh_all).to_have_text("全部刷新")  # Higgsfield is not busy yet.
             deadline = time.time() + 15
             while not (fakes.root / "xyq.started").exists() and time.time() < deadline:
                 time.sleep(0.02)
+            higgsfield_gate = fakes.root / "higgsfield.gate"
+            higgsfield_gate.write_text("hold")
             higgsfield_refresh.click()
-            expect(higgsfield_refresh).to_have_text("刷新中…")
+            expect(higgsfield_refresh).to_have_text("排队中…")  # Waits behind XYQ.
+            expect(higgsfield_refresh).to_be_disabled()
+            expect(xyq_refresh).to_have_text("刷新中…")
             expect(refresh_all).to_have_text("刷新中…")  # Every refreshable provider is busy now.
             expect(refresh_all).to_be_disabled()
+            assert higgsfield_refresh.evaluate(NO_OPACITY) and refresh_all.evaluate(NO_OPACITY)
             page.wait_for_timeout(500)
             # Serialized: the queued Higgsfield refresh waits for XYQ, even though the server would allow it.
             assert [c["exe"] for c in fakes.calls()] == ["xyq"]
             assert [urlsplit(url).path for method, url in requests if method == "POST"] == ["/api/credits/refresh"]
             gate.unlink()
+            expect(higgsfield_refresh).to_have_text("刷新中…")  # Its turn now.
+            expect(xyq_refresh).to_have_text("刷新")
+            higgsfield_gate.unlink()
             expect(higgsfield.locator(".credit-amount")).to_contain_text("1,234")
             expect(xyq.locator(".credit-amount")).to_contain_text("4,321")
             expect(higgsfield_refresh).to_have_text("刷新")
@@ -281,11 +321,27 @@ def test_credits_refreshes_are_serialized_and_keep_focus(tmp_path, width):
             expect(page.locator("#modal")).to_be_hidden()
             expect(xyq.locator("[data-credit-action=cycle]")).to_be_focused()
 
+            fakes.output("higgsfield", {"subscription_plan_type": "pro"})
+            higgsfield_refresh.click()
+            expect(page.locator("#toast")).to_have_text("额度读取失败：Higgsfield · 无法读取额度")
+            expect(higgsfield.locator(".badge.bad")).to_have_text("无法读取额度")
+            lock = Path(server.home) / "locks" / "credits-xyq.lock"
+            holder = subprocess.Popen([sys.executable, "-I", "-c", HOLDER, str(lock)], stdin=subprocess.PIPE,
+                                      stdout=subprocess.PIPE, text=True)
+            try:
+                assert holder.stdout.readline().strip() == "held"
+                xyq_refresh.click()
+                expect(page.locator("#toast")).to_have_text("额度读取失败：小云雀 / Pippit · 正在读取")
+            finally:
+                holder.stdin.close()
+                holder.wait(10)
+
             assert page.evaluate("document.documentElement.scrollWidth") <= width
-            assert len(fakes.calls()) == 3
-            assert [urlsplit(url).path for method, url in requests if method == "POST"] == ["/api/credits/refresh"] * 3
+            assert len(fakes.calls()) == 4
+            assert [urlsplit(url).path for method, url in requests if method == "POST"] == ["/api/credits/refresh"] * 5
             assert not errors, errors
-            assert not console_errors, console_errors
+            # Only Chromium's own log line for the deliberately refused (409) request.
+            assert console_errors == ["Failed to load resource: the server responded with a status of 409 (Conflict)"], console_errors
             browser.close()
     finally:
         server.shutdown()

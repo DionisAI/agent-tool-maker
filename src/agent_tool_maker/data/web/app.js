@@ -74,7 +74,7 @@ async function api(path, body) {
   const r=await fetch(path,opts); const value=await r.json();
   if (!r.ok) {
     if(r.status===401) {token=''; $('#gate').hidden=false;}
-    throw new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成'));
+    throw Object.assign(new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成')),{code:value.error?.code});
   }
   return value;
 }
@@ -137,12 +137,16 @@ function render() {
   else if(active==='access') renderAccess(main);
 }
 // Subscription credits: cached values only; a tool runs only when the owner clicks 刷新.
-const creditsBusy=new Set();
-let creditsQueue=Promise.resolve(); // Every refresh runs one at a time: website sources share the logged-in browser.
+const creditsBusy=new Set(); // Queued or running.
+let creditsRunning=null, creditsQueue=Promise.resolve(); // Every refresh runs one at a time: website sources share the logged-in browser.
 const creditNumber=value=>new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(value);
 const creditErrors={cli_not_configured:'CLI 未绑定',login_required:'需要登录',refresh_in_progress:'正在读取',
   credits_unreadable:'无法读取额度',runtime_unavailable:'服务未运行',cli_failed:'读取失败'};
+// Short label for an error code; own keys only, so a code such as "constructor" is not a prototype member.
+const creditLabel=code=>Object.hasOwn(creditErrors,code)?creditErrors[code]:'读取失败 · '+code;
 const sourceKind=kind=>kind==='cli'?'CLI':'网站';
+// A tool id may wrap after each dot (<wbr>), never inside a word; the text stays the same.
+const breakable=id=>String(id).split(/(?<=\.)/).flatMap((part,i)=>i?[el('wbr'),part]:[part]);
 function relativeTime(epoch) {
   const s=Math.max(0,Math.round(Date.now()/1000-epoch));
   return s<60?'刚刚':s<3600?Math.floor(s/60)+' 分钟前':s<86400?Math.floor(s/3600)+' 小时前':Math.floor(s/86400)+' 天前';
@@ -173,9 +177,11 @@ function refreshCredits(names) {
   const run=async()=>{
     const failed=[];
     for(const name of names) {
-      try{const r=await api('/api/credits/refresh',{provider:name});updateCredit(r);if(r.refresh==='error')failed.push(r.label+' · '+r.error.code);}
-      catch(e){failed.push(name+' · '+e.message);}
-      finally{creditsBusy.delete(name);drawCredits();}
+      creditsRunning=name;drawCredits();
+      const label=data?.overview?.credits?.providers?.find(p=>p.provider===name)?.label||name;
+      try{const r=await api('/api/credits/refresh',{provider:name});updateCredit(r);if(r.refresh==='error')failed.push(r.label+' · '+creditLabel(r.error.code));}
+      catch(e){failed.push(label+' · '+(e.code?creditLabel(e.code):e.message));}
+      finally{creditsRunning=null;creditsBusy.delete(name);drawCredits();}
     }
     if(failed.length)toast('额度读取失败：'+failed.join('；'),true);else toast('订阅额度已更新。');
   };
@@ -185,29 +191,37 @@ function refreshCredits(names) {
 function creditsButton(text,names,type,kind) {
   // Busy only when every listed provider is; a busy button stays focusable (aria-disabled) across re-renders.
   const busy=names.length>0&&names.every(name=>creditsBusy.has(name));
-  return el('button',{class:type,disabled:!names.length,ariaDisabled:String(busy),ariaBusy:String(busy),'data-credit-action':kind,onclick:()=>refreshCredits(names)},busy?'刷新中…':text);
+  const label=!busy?text:names.length===1&&names[0]!==creditsRunning?'排队中…':'刷新中…';
+  return el('button',{class:type,disabled:!names.length,ariaDisabled:String(busy),ariaBusy:String(busy),'data-credit-action':kind,onclick:()=>refreshCredits(names)},label);
 }
 function cycleDialog(p) {
   const input=el('input',{type:'number',min:1,max:31,step:1,value:p.cycle_day??'',ariaLabel:'每月续期日'});
   const problem=el('p',{class:'form-error',role:'alert',hidden:true});
+  // Messages stay in the dialog's alert line, not behind its backdrop; an invalid day also marks the input.
+  const report=(message,invalid=false)=>{
+    problem.textContent=message;problem.hidden=!message;
+    if(invalid)input.setAttribute('aria-invalid','true');else input.removeAttribute('aria-invalid');
+  };
   const save=async day=>{
     try{const r=await api('/api/credits/cycle',{provider:p.provider,day});updateCredit(r);}
-    catch(e){problem.textContent=e.message;problem.hidden=false;return;} // In the dialog, not behind its backdrop.
+    catch(e){report(e.message);return;}
     closeModal();drawCredits();toast(day===null?'已清除续期日。':'续期日已保存。');
   };
   const submit=btn('保存',async()=>{
     const day=Number(input.value);
-    input.setCustomValidity(input.value!==''&&Number.isInteger(day)&&day>=1&&day<=31?'':'请输入 1–31 的整数。');
+    const message=input.value!==''&&Number.isInteger(day)&&day>=1&&day<=31?'':'请输入 1–31 的整数。';
+    input.setCustomValidity(message);report(message,Boolean(message));
     if(input.reportValidity())await save(day);
   },'primary');
-  input.addEventListener('input',()=>input.setCustomValidity(''));
+  input.addEventListener('input',()=>{input.setCustomValidity('');report('');});
   input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit.click();}});
   openModal('设置续期日 · '+p.label,el('p',{class:'quiet'},'供应商目前不提供续期日期。填写账单上的每月续期日（1–31），短月份按月末计算；只保存在本机。'),
     el('label',{},'每月续期日',input),problem,
     el('div',{class:'dialog-actions'},btn('清除',()=>save(null),'plain'),submit));
+  input.focus();
 }
 function creditError(error) {
-  const node=badge(creditErrors[error.code]||'读取失败 · '+error.code,'bad');
+  const node=badge(creditLabel(error.code),'bad');
   node.title=error.message||'';
   return node;
 }
@@ -221,9 +235,9 @@ function creditCard(p) {
   const stale=p.last_ok_at&&Date.now()/1000-p.last_ok_at>86400;
   const amount=typeof p.credits==='number'?creditNumber(p.credits):'—';
   return el('article',{class:'credit-card'+(creditsBusy.has(p.provider)?' busy':''),'data-provider':p.provider},
-    el('div',{class:'card-head'},brandIdentity(p.brand,[el('h3',{},p.label),el('small',{},sourceKind(p.source_kind)+' · '+p.source)],p.source||'')),
+    el('div',{class:'card-head'},brandIdentity(p.brand,[el('h3',{},p.label),el('small',{},sourceKind(p.source_kind)+' · ',breakable(p.source))],p.source||'')),
     el('strong',{class:'credit-amount'+(amount.length>12?' long':'')},amount,el('small',{},' 积分')),
-    el('div',{class:'credit-meta'},p.plan?badge(p.plan):null,el('small',{},p.last_ok_at?'上次读取 '+relativeTime(p.last_ok_at):'尚未读取'),
+    el('div',{class:'credit-meta'},p.plan?el('span',{class:'badge'},p.plan):null,el('small',{},p.last_ok_at?'上次读取 '+relativeTime(p.last_ok_at):'尚未读取'),
       stale?badge('超过 24 小时，可能已变化','warn'):null,
       p.status==='error'&&p.error?creditError(p.error):null),
     p.bound?null:el('p',{class:'quiet'},'先运行 ',el('code',{},'atm cli bind '+p.next_executable+' <path>'),' 绑定 CLI'),
