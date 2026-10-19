@@ -38,6 +38,8 @@ def load(name):
 
 TRIPO = load("build_tripo_studio")
 XYQ = load("build_xyq_web")
+sys.path.insert(0, str(ROOT / "scripts"))  # build_xyq_runtime imports build_xyq_web by name.
+RUNTIME = load("build_xyq_runtime")
 
 
 def definitions(home):
@@ -319,6 +321,19 @@ def replaced(tool, old, new):
     ("tripo.server.account", lambda tool, home: replaced(tool, str(home), str(home.parent / "other"))),
     ("tripo.server.account", lambda tool, home: replaced(tool, "adapter", "login")),
     ("tripo.server.account", lambda tool, home: {"executable": "opencliapp"}),
+    # Well-formed but not the reviewed pin, bundle or namespace pair.
+    ("tripo.studio.account", lambda tool, home: replaced(tool, tool["command"]["argv"][4], "a" * 64)),
+    ("tripo.server.account", lambda tool, home: replaced(tool, tool["command"]["argv"][8], "a" * 64)),
+    ("tripo.server.account", lambda tool, home: replaced(tool, tool["command"]["argv"][5], "b" * 64)),
+    ("xyq.web.account", lambda tool, home: replaced(tool, tool["command"]["argv"][4], "c" * 64)),
+    ("xyq.web.account", lambda tool, home: replaced(tool, tool["command"]["argv"][4], credits.XYQ_ACCOUNT_PINS["xyq-media"])),
+    ("xyq.web.account", lambda tool, home: replaced(tool, "xyq-web", "xyq-media")),
+    # Output mode, timeout and extra command fields are part of the reviewed command too.
+    ("xyq.web.account", lambda tool, home: {"command": {**tool["command"], "output": "text"}}),
+    ("pippit.cli.credit_balance", lambda tool, home: {"command": {**tool["command"], "output": "text"}}),
+    ("higgsfield.subscription.account", lambda tool, home: {"command": {**tool["command"], "timeout": 900}}),
+    ("tripo.studio.account", lambda tool, home: {"command": {k: v for k, v in tool["command"].items() if k != "timeout"}}),
+    ("tripo.server.account", lambda tool, home: {"command": {**tool["command"], "outputs": ["account.json"]}}),
 ])
 def test_same_id_with_another_executable_or_argv_is_refused(home, fakes, tool_id, change):
     tool = definitions(home.state.home)[tool_id]
@@ -332,6 +347,37 @@ def test_same_id_with_another_executable_or_argv_is_refused(home, fakes, tool_id
     assert credits.usable_source(home, name) is None
     assert credits.refresh(home, name)["refresh"] == "not_installed"
     assert fakes.calls() == [] and home.state.jobs() == []
+
+
+def test_reviewed_xyq_account_pins_match_both_builds(tmp_path):
+    # Recomputed from the adapter sources: drift fails here until the new pins are reviewed in credits.py.
+    assert credits.XYQ_ACCOUNT_PINS == {"xyq-web": XYQ.bundle_digest(),
+                                        "xyq-media": RUNTIME.bundle_digest(RUNTIME.MEDIA_RUNTIME_FILES)}
+    web, media = XYQ.manifest("account"), RUNTIME.runtime_manifest("account")
+    assert web["id"] == media["id"] == "xyq.web.account"
+    assert (web["command"]["argv"][1], media["command"]["argv"][1]) == ("xyq-web", "xyq-media")
+    assert credits.reviewed(web, tmp_path) and credits.reviewed(media, tmp_path)
+
+
+def test_reviewed_tripo_account_pin_comes_from_the_packaged_server_index(tmp_path):
+    from agent_tool_maker.studio_cli import manifests
+    from agent_tool_maker.studio_runtime import bundle_digest, index
+    packaged = index()["account"]["command"]
+    assert TRIPO.manifest("account")["command"] == packaged  # The local adapter build pins the same sources.
+    server = next(t for t in manifests(tmp_path) if t["id"] == "tripo.server.account")
+    assert server["command"]["argv"][4:6] == ["--bundle", bundle_digest()]
+    assert server["command"]["argv"][7:9] == ["--pin", packaged["argv"][4]]
+    assert credits.reviewed(TRIPO.manifest("account"), tmp_path) and credits.reviewed(server, tmp_path)
+    assert not credits.reviewed(server, tmp_path / "other-home")
+
+
+def test_xyq_media_runtime_account_refreshes(home, fakes):
+    install_tool(home, RUNTIME.runtime_manifest("account"))
+    fakes.bind(home, "opencliapp")
+    fakes.output("opencliapp", xyq_row(55))
+    assert credits.refresh(home, "xyq")["credits"] == 55
+    assert fakes.calls()[0]["argv"] == ["__opencli_shim", "xyq-media", "account", "--pin",
+                                        credits.XYQ_ACCOUNT_PINS["xyq-media"], "-f", "json"]
 
 
 def test_rows_show_the_next_source_and_whether_it_is_bound(home, fakes):

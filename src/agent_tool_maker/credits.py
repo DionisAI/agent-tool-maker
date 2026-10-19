@@ -40,8 +40,11 @@ PROVIDERS = {
 }
 SAFE_PERMISSIONS = {"execute_code"}
 MAX_CREDITS = 10**15
-# Argument slots of a reviewed argv: the adapter pin / server bundle digest, and this ATM home.
-DIGEST, HOME = object(), object()
+# Reviewed pins of the XYQ website account adapter, one per namespace that emits xyq.web.account:
+# scripts/build_xyq_web.py (xyq-web) and scripts/build_xyq_runtime.py (xyq-media). A contract test
+# recomputes both from the adapter sources, so drift fails CI until the new pins are reviewed here.
+XYQ_ACCOUNT_PINS = {"xyq-web": "4183404ea6c890635af1a17d96050d6e8d4d7f8253e2ef2fe9a02cde80236f1f",
+                    "xyq-media": "06d6591e8239ed0efa216b242dac86a0900bc6d40df2392fc70809837111fd23"}
 
 
 def _unreadable():
@@ -95,18 +98,43 @@ def higgsfield_credits(result):
     return {"credits": _amount(row.get("credits")), "plan": plan}
 
 
-# tool id -> (kind shown to the owner, pure extractor from the job result,
-#             reviewed executable alias, reviewed read-only argv)
+def _json_command(argv):
+    return {"argv": list(argv), "output": "json", "timeout": 60}
+
+
+def _tripo_account():
+    # The packaged Tripo Studio account adapter and its reviewed pin; the server runtime serves the same operation.
+    from .studio_runtime import index
+    return index()["account"]["command"]
+
+
+def _tripo_server_account(home):
+    # The argv studio_cli.manifests installs: this ATM home, the reviewed server bundle, the same account pin.
+    from .studio_runtime import bundle_digest
+    try:
+        bundle = bundle_digest()
+    except RouterError:
+        return []  # A server bundle that is not regular reviewed files is not the reviewed one.
+    command = _tripo_account()
+    return [{**command, "argv": ["--home", str(home), "studio", "adapter", "--bundle", bundle, "account",
+                                 *command["argv"][3:]]}]
+
+
+def _xyq_account(home):
+    return [_json_command(["__opencli_shim", namespace, "account", "--pin", pin, "-f", "json"])
+            for namespace, pin in XYQ_ACCOUNT_PINS.items()]
+
+
+# tool id -> (kind shown to the owner, pure extractor from the job result, reviewed executable alias,
+#             the exact reviewed command objects (argv with pins, output, timeout) for an ATM home)
 SOURCES = {
-    "tripo.studio.account": ("website", website_credits, "opencliapp",
-                             ("__opencli_shim", "tripo-studio", "account", "--pin", DIGEST, "-f", "json")),
-    "tripo.server.account": ("website", website_credits, "atm",
-                             ("--home", HOME, "studio", "adapter", "--bundle", DIGEST, "account", "--pin", DIGEST, "-f", "json")),
-    "xyq.web.account": ("website", website_credits, "opencliapp",
-                        ("__opencli_shim", "xyq-web", "account", "--pin", DIGEST, "-f", "json")),
+    "tripo.studio.account": ("website", website_credits, "opencliapp", lambda home: [_tripo_account()]),
+    "tripo.server.account": ("website", website_credits, "atm", _tripo_server_account),
+    "xyq.web.account": ("website", website_credits, "opencliapp", _xyq_account),
     # The existing reviewed binding of pippit-tool-cli, shared with the built-in xyq.image / xyq.video.
-    "pippit.cli.credit_balance": ("cli", pippit_credits, "xyq", ("get-credit-balance",)),
-    "higgsfield.subscription.account": ("cli", higgsfield_credits, "higgsfield", ("account", "status", "--json")),
+    "pippit.cli.credit_balance": ("cli", pippit_credits, "xyq", lambda home: [_json_command(["get-credit-balance"])]),
+    "higgsfield.subscription.account": ("cli", higgsfield_credits, "higgsfield",
+                                        lambda home: [_json_command(["account", "status", "--json"])]),
 }
 
 
@@ -116,22 +144,16 @@ def provider(name):
     return PROVIDERS[name]
 
 
-def _argument(expected, actual, home):
-    if expected is DIGEST:
-        return isinstance(actual, str) and re.fullmatch(r"[0-9a-f]{64}", actual) is not None
-    return actual == (str(home) if expected is HOME else expected)
-
-
 def reviewed(tool, home):
-    """The same id is not enough: the definition must keep its reviewed read-only shape."""
-    _, _, executable, shape = SOURCES[tool["id"]]
+    """The same id is not enough: the definition must keep its exact reviewed read-only command."""
+    _, _, executable, commands = SOURCES[tool["id"]]
     command = tool.get("command") if isinstance(tool.get("command"), dict) else {}
-    argv = command.get("argv")
     return (tool.get("adapter") == "command" and tool.get("paid") is False
             and set(tool.get("permissions", [])) <= SAFE_PERMISSIONS
             and not tool.get("credential") and not command.get("credential_env")
-            and tool.get("executable") == executable and isinstance(argv, list) and len(argv) == len(shape)
-            and all(_argument(want, got, home) for want, got in zip(shape, argv)))
+            and tool.get("executable") == executable
+            # Last: the server source hashes its reviewed bundle. Pins, output mode and timeout must all match.
+            and command in commands(home))
 
 
 def usable_source(router, name):

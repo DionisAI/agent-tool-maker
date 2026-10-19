@@ -13,15 +13,20 @@
 | `higgsfield` · Higgsfield | `higgsfield.subscription.account`（官方 CLI） | `credits`、`subscription_plan_type` |
 
 - 可用 = 已安装、已启用、command adapter、`paid:false`、权限只含 `execute_code`、没有凭证
-  （`credential` 与 `command.credential_env` 为空），并保持下表审查过的形状：固定的可执行别名与只读 argv。
-  argv 中只允许审查过的定义自带的 pin / bundle 摘要（64 位小写十六进制）与本 ATM home；其余一律拒绝，
-  同 id 的被替换定义不能借刷新消费、写入、读取凭证或运行别的命令。没有可用来源时报告 `not_installed`，不算失败。
+  （`credential` 与 `command.credential_env` 为空），并保持下表审查过的命令：固定的可执行别名，以及完全相同的
+  `command`（只读 argv 含审查过的 pin / bundle 摘要、`output:"json"`、`timeout:60`，没有其他字段）。
+  格式正确但不是审查值的 pin、bundle 或命名空间组合一律拒绝，同 id 的被替换定义不能借刷新消费、写入、
+  读取凭证或运行别的命令。没有可用来源时报告 `not_installed`，不算失败。
+- 审查值从哪里来：Tripo 的账户 pin 取自随包发布的 `src/agent_tool_maker/data/tripo_server/index.json`（`account` 项
+  的 argv），服务器来源另要求 `--bundle` 等于 `studio_runtime.bundle_digest()`；`xyq.web.account` 只接受两个会生成它
+  的命名空间的 pin（`scripts/build_xyq_web.py` 的 `xyq-web` 与 `scripts/build_xyq_runtime.py` 的 `xyq-media`），
+  作为常量保存在 `credits.py`，契约测试从适配器源文件重新计算，漂移即在 CI 失败。
 
 | 来源 | 可执行别名 | 只读 argv |
 |---|---|---|
-| `tripo.studio.account` | `opencliapp` | `__opencli_shim tripo-studio account --pin <摘要> -f json` |
-| `tripo.server.account` | `atm` | `--home <本 ATM home> studio adapter --bundle <摘要> account --pin <摘要> -f json` |
-| `xyq.web.account` | `opencliapp` | `__opencli_shim xyq-web account --pin <摘要> -f json` |
+| `tripo.studio.account` | `opencliapp` | `__opencli_shim tripo-studio account --pin <index.json 账户 pin> -f json` |
+| `tripo.server.account` | `atm` | `--home <本 ATM home> studio adapter --bundle <bundle_digest()> account --pin <index.json 账户 pin> -f json` |
+| `xyq.web.account` | `opencliapp` | `__opencli_shim xyq-web account --pin <xyq-web pin> -f json` 或 `__opencli_shim xyq-media account --pin <xyq-media pin> -f json` |
 | `pippit.cli.credit_balance` | `xyq` | `get-credit-balance` |
 | `higgsfield.subscription.account` | `higgsfield` | `account status --json` |
 
@@ -81,7 +86,7 @@
 ## 测试
 
 - `tests/test_subscription_credits.py`：提取器（Higgsfield 邮箱丢弃、Pippit 字符串与 `"0"`、缺失/非数字/负数/布尔/超大值）、续期日期计算、
-  可用来源规则（付费、写入、凭证、同 id 不同别名或 argv 均拒绝且不运行）、`next_source`/`bound`、经 Router 与假子进程刷新三家提供方、
+  可用来源规则（付费、写入、凭证、同 id 不同别名、argv、pin、bundle、output 或 timeout 均拒绝且不运行；两个 XYQ pin 与 Tripo pin 的契约重算）、`next_source`/`bound`、经 Router 与假子进程刷新三家提供方、
   新 request key、失败保留上次值、崩溃遗留输出清理、另一进程持有租约、CLI 与退出码、严格客户端拒绝、网页鉴权/Origin/409、不阻塞管理台、同步排除、扩展安装。
 - `tests/test_credits_browser.py`（browser）：原生 Chromium 渲染面板、刷新忙碌状态与焦点保留、所有刷新串行、错误短标签与说明、
   未安装的紧凑卡片、未绑定提示、对话框内校验续期日、设置与清除续期日。
