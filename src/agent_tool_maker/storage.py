@@ -80,6 +80,8 @@ class State:
     def db(self):
         c = sqlite3.connect(self.path, timeout=10)
         c.row_factory = sqlite3.Row
+        # Overwrite freed pages, so discarded data (raw tool output, removed rows) is not left as stale bytes.
+        c.execute("PRAGMA secure_delete=ON")
         try:
             yield c
             c.commit()

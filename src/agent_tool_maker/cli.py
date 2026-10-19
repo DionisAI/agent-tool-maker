@@ -110,6 +110,8 @@ def parser():
     media_commands(sub)
     from .website_download import add_commands as delivery_commands
     delivery_commands(sub)
+    from .credits import add_commands as credits_commands
+    credits_commands(sub)
     return p
 
 
@@ -133,6 +135,9 @@ def dispatch(args,router):
     if cmd == "oauth":
         from .oauth_cli import dispatch as oauth_dispatch
         return oauth_dispatch(args, router)
+    if cmd == "credits":
+        from .credits import dispatch as credits_dispatch
+        return credits_dispatch(args, router)
     if cmd in {"keys", "exec", "lock", "session"} or cmd == "access" and args.operation == "permit-exec":
         from .secrets_cli import dispatch as secrets_dispatch
         return secrets_dispatch(args, router)
