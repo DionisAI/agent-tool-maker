@@ -27,7 +27,8 @@
 
 ## 刷新只由 owner 发起
 
-- 查看（`GET /api/credits`、总览、`atm credits`）只读本机缓存，不运行工具、不访问供应商；没有后台轮询，打开页面不刷新。
+- 查看（`GET /api/credits`、总览、`atm credits`）只读本机缓存（并清理崩溃遗留的原始输出，见下文），不运行工具、不访问供应商；
+  没有后台轮询，打开页面不刷新。
 - `atm credits refresh [PROVIDER ...]`（默认全部提供方）与网页“刷新 / 全部刷新”运行来源一次：
   每次新的 request key `credits-<provider>-<uuid4>`、`grants=["execute_code"]`、不允许付费，并绑定已检查的定义摘要。
   网站来源会驱动 owner 已登录的浏览器，所以 Agent 只在 owner 要求时刷新。
@@ -64,10 +65,10 @@
 - CLI：`atm credits`、`atm credits refresh [PROVIDER ...]`、`atm credits cycle PROVIDER --day N | --clear`；仅输出 JSON，不含秘密。
 - HTTP：`GET /api/credits` → `{providers:[{provider,label,brand,billing,sources,installed,source,source_kind,status,credits,plan,unit,checked_at,last_ok_at,error,next_cycle,cycle_day,next_source,next_source_kind,next_executable,bound}]}`；
   `POST /api/credits/refresh {provider}`、`POST /api/credits/cycle {provider, day|null}` 返回更新后的记录。
+  写入与其他 POST 一样经过 bearer、精确 Host/Origin、JSON 与长度检查。`/api/overview` 内含同一 `credits`，不增加启动请求。
 - `source`/`source_kind` 是已存值的来源；新增的 `next_source`/`next_source_kind`/`next_executable` 是下一次刷新会运行的来源
   及其可执行别名（没有则为 `null`），`bound` 表示该别名是否已用 `atm cli bind` 绑定。未绑定时刷新会得到 `cli_not_configured`，
   网页不显示“刷新”，只提示 `atm cli bind <别名> <path>`。
-  写入与其他 POST 一样经过 bearer、精确 Host/Origin、JSON 与长度检查。`/api/overview` 内含同一 `credits`，不增加启动请求。
 - `status` 在没有记录时为 `not_read`（有来源）或 `not_installed`；刷新结果另带 `refresh: ok|error|not_installed`。
 
 ## Pippit 扩展
