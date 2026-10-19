@@ -3,9 +3,12 @@
 Static assets are public shell only. Every data request requires a per-process
 bearer, exact Host, same-origin writes, bounded JSON, and a whitelisted endpoint.
 No arbitrary file read, shell, generation, deployment or job-refresh endpoint.
+The one owner-triggered tool run is the subscription credits refresh: fixed,
+reviewed, unpaid read-only account tools, outside the console-wide lock.
 """
 from __future__ import annotations
 
+import contextlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 import hmac
@@ -206,12 +209,14 @@ class Handler(BaseHTTPRequestHandler):
                 body = strict_json(raw, limit=limit)
                 if not isinstance(body, dict):
                     raise RouterError("invalid_request", "Expected a JSON object.")
-            with self.server.lock:
+            # A credits refresh waits on an account tool; it must not block the console.
+            unlocked = write and self.path == "/api/credits/refresh"
+            with contextlib.nullcontext() if unlocked else self.server.lock:
                 router = self.server.open_router(text(body, "passphrase"))
                 result = self.mutate(router, body) if write else self.read(router)
             self.respond(200, result)
         except RouterError as error:
-            status = 401 if error.code == "unauthorized" else 403 if error.code == "forbidden_request" else 404 if error.code == "not_found" else 409 if error.code in {"setup_changed", "state_changed", "setup_conflict", "registration_changed"} else 400
+            status = 401 if error.code == "unauthorized" else 403 if error.code == "forbidden_request" else 404 if error.code == "not_found" else 409 if error.code in {"setup_changed", "state_changed", "setup_conflict", "registration_changed", "refresh_in_progress"} else 400
             self.respond(status, {"error": error.as_dict()})
         except (ValueError, TypeError, KeyError, OSError, RecursionError):
             self.respond(400, {"error": {"code": "invalid_request", "message": "Invalid local input or state. No provider execution was requested."}})
@@ -231,6 +236,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/extensions":
             from .extensions_web import inventory
             return inventory(router)
+        if self.path == "/api/credits":
+            from .credits import payload
+            return payload(router)  # Cached state only; no tool runs on GET.
         if self.path in {"/api/sync", "/api/access"}:
             from .multidevice_web import read
             return read(router,self.path)
@@ -319,6 +327,14 @@ class Handler(BaseHTTPRequestHandler):
             if self.server.secret_session_thread:
                 self.server.secret_session_thread.join(2)
             return result
+        if path == "/api/credits/refresh":
+            fields(body, ("provider",))
+            from .credits import refresh
+            return refresh(router, text(body, "provider", limit=64))
+        if path == "/api/credits/cycle":
+            fields(body, ("provider", "day"))
+            from .credits import set_cycle
+            return set_cycle(router, text(body, "provider", limit=64), body["day"])
         if path.startswith(("/api/extensions/", "/api/credentials/")):
             from .extensions_web import mutate
             return mutate(router,path,body)

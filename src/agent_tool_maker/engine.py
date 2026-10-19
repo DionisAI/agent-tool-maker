@@ -337,6 +337,10 @@ class Router:
         # No raw API credentials; temporary signed media URLs are private state, not chat output.
         result=json.loads(canonical(job))
         result["data"].pop("media_urls",None)
+        from .credits import refresh_job
+        if refresh_job(result):
+            # Subscription credits keep only {credits, plan}; never raw account output, even after a crash.
+            result["data"].update(result=None,artifacts=[])
         return self.vault.redact(result)
 
 
