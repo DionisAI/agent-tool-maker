@@ -1,6 +1,7 @@
 """Owner-refreshed subscription credits from fixed, reviewed read-only account tools.
 
-Viewing reads cached local settings only. A refresh is an explicit owner action:
+Viewing reads cached local settings only (and discards raw output a crashed
+refresh left behind). A refresh is an explicit owner action:
 it runs the first usable source once, with a fresh request key, and keeps only
 {credits, plan}. E-mail, identity and raw tool output are never stored. No
 provider exposes a renewal date today, so the renewal day is owner-set.
@@ -9,20 +10,23 @@ Subscription credits are separate from developer API balances.
 from __future__ import annotations
 
 import calendar
+import contextlib
 import copy
+import fcntl
 import json
 import math
+import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import tempfile
-import threading
 import time
 import uuid
 from datetime import date
 
 from .errors import RouterError
-from .storage import canonical
+from .storage import canonical, private_dir
 
 # Fixed registry; owners cannot add providers or sources.
 PROVIDERS = {
@@ -35,8 +39,9 @@ PROVIDERS = {
                    "sources": ("higgsfield.subscription.account",)},
 }
 SAFE_PERMISSIONS = {"execute_code"}
-_BUSY: set[str] = set()
-_BUSY_LOCK = threading.Lock()
+MAX_CREDITS = 10**15
+# Argument slots of a reviewed argv: the adapter pin / server bundle digest, and this ATM home.
+DIGEST, HOME = object(), object()
 
 
 def _unreadable():
@@ -44,8 +49,14 @@ def _unreadable():
 
 
 def _amount(value):
-    # bool is not a number here; neither is NaN, infinity or a negative balance.
-    if type(value) in (int, float) and math.isfinite(value) and value >= 0:
+    # bool is not a number here; neither is NaN, infinity, a negative or an absurd balance.
+    # Integers are bounded before any float math, so a 400-digit value cannot overflow.
+    try:
+        readable = (type(value) is int and 0 <= value <= MAX_CREDITS
+                    or type(value) is float and math.isfinite(value) and 0 <= value <= MAX_CREDITS)
+    except OverflowError:
+        readable = False
+    if readable:
         return value
     raise _unreadable()
 
@@ -69,7 +80,7 @@ def website_credits(result):
 
 
 def pippit_credits(result):
-    # pippit-tool-cli prints {"total_remain_amount": "123"}; "0" is a real zero, absence is not.
+    # pippit-tool-cli (bound as xyq) prints {"total_remain_amount": "123"}; "0" is a real zero, absence is not.
     value = _row(result).get("total_remain_amount")
     if isinstance(value, str) and re.fullmatch(r"[0-9]{1,15}(?:\.[0-9]{1,6})?", value):
         value = float(value) if "." in value else int(value)
@@ -84,13 +95,18 @@ def higgsfield_credits(result):
     return {"credits": _amount(row.get("credits")), "plan": plan}
 
 
-# tool id -> (kind shown to the owner, pure extractor from the job result)
+# tool id -> (kind shown to the owner, pure extractor from the job result,
+#             reviewed executable alias, reviewed read-only argv)
 SOURCES = {
-    "tripo.studio.account": ("website", website_credits),
-    "tripo.server.account": ("website", website_credits),
-    "xyq.web.account": ("website", website_credits),
-    "pippit.cli.credit_balance": ("cli", pippit_credits),
-    "higgsfield.subscription.account": ("cli", higgsfield_credits),
+    "tripo.studio.account": ("website", website_credits, "opencliapp",
+                             ("__opencli_shim", "tripo-studio", "account", "--pin", DIGEST, "-f", "json")),
+    "tripo.server.account": ("website", website_credits, "atm",
+                             ("--home", HOME, "studio", "adapter", "--bundle", DIGEST, "account", "--pin", DIGEST, "-f", "json")),
+    "xyq.web.account": ("website", website_credits, "opencliapp",
+                        ("__opencli_shim", "xyq-web", "account", "--pin", DIGEST, "-f", "json")),
+    # The existing reviewed binding of pippit-tool-cli, shared with the built-in xyq.image / xyq.video.
+    "pippit.cli.credit_balance": ("cli", pippit_credits, "xyq", ("get-credit-balance",)),
+    "higgsfield.subscription.account": ("cli", higgsfield_credits, "higgsfield", ("account", "status", "--json")),
 }
 
 
@@ -100,16 +116,40 @@ def provider(name):
     return PROVIDERS[name]
 
 
+def _argument(expected, actual, home):
+    if expected is DIGEST:
+        return isinstance(actual, str) and re.fullmatch(r"[0-9a-f]{64}", actual) is not None
+    return actual == (str(home) if expected is HOME else expected)
+
+
+def reviewed(tool, home):
+    """The same id is not enough: the definition must keep its reviewed read-only shape."""
+    _, _, executable, shape = SOURCES[tool["id"]]
+    command = tool.get("command") if isinstance(tool.get("command"), dict) else {}
+    argv = command.get("argv")
+    return (tool.get("adapter") == "command" and tool.get("paid") is False
+            and set(tool.get("permissions", [])) <= SAFE_PERMISSIONS
+            and not tool.get("credential") and not command.get("credential_env")
+            and tool.get("executable") == executable and isinstance(argv, list) and len(argv) == len(shape)
+            and all(_argument(want, got, home) for want, got in zip(shape, argv)))
+
+
 def usable_source(router, name):
-    """First installed, enabled, unpaid source needing at most execute_code."""
+    """First installed, enabled source that keeps its reviewed unpaid, credential-free, read-only shape."""
     from .management import enabled
     for tool_id in provider(name)["sources"]:
         tool = router.catalog.tools.get(tool_id)
-        # Defense in depth: a swapped definition that could spend or write is never run.
-        if (tool and enabled(router.state, tool_id) and tool.get("adapter") == "command"
-                and tool.get("paid") is False and set(tool.get("permissions", [])) <= SAFE_PERMISSIONS):
+        # Defense in depth: a swapped definition that could spend, write, read a credential
+        # or run another command is never run.
+        if tool and enabled(router.state, tool_id) and reviewed(tool, router.state.home):
             return tool
     return None
+
+
+def bound(state, alias):
+    """Whether atm cli bind has an executable for this alias; refresh fails with cli_not_configured otherwise."""
+    path = state.setting("cli:" + alias)
+    return isinstance(path, str) and Path(path).is_file()
 
 
 def next_cycle(day, today):
@@ -142,11 +182,17 @@ def row(router, name, *, today=None):
             "source": source, "source_kind": SOURCES[source][0] if source else None,
             "status": status, "credits": record.get("credits"), "plan": record.get("plan"), "unit": "credits",
             "checked_at": record.get("checked_at"), "last_ok_at": record.get("last_ok_at"),
-            "error": record.get("error"), "next_cycle": renewal, "cycle_day": day}
+            "error": record.get("error"), "next_cycle": renewal, "cycle_day": day,
+            # What the next refresh runs, which may differ from the source of the stored value.
+            "next_source": tool["id"] if tool else None,
+            "next_source_kind": SOURCES[tool["id"]][0] if tool else None,
+            "next_executable": tool["executable"] if tool else None,
+            "bound": tool is not None and bound(router.state, tool["executable"])}
 
 
 def payload(router):
-    """Cached state only; never runs a tool."""
+    """Cached state only; never runs a tool. Raw output a crashed refresh left behind is discarded."""
+    _discard_leftovers(router.state)
     return {"providers": [row(router, name) for name in PROVIDERS]}
 
 
@@ -162,6 +208,38 @@ def _forget_raw_output(router, job):
     # The job stays as an execution record, without account metadata such as e-mail.
     if "result" in job["data"] or job["data"].get("artifacts"):
         router.state.update_job(job["id"], job["status"], result=None, artifacts=[], raw_output_discarded=True)
+
+
+def _discard_leftovers(state):
+    """Crash-window cleanup: a refresh that died before discarding its job output leaves none behind."""
+    with state.db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        for job_id, text in db.execute("SELECT id, data FROM jobs WHERE substr(request_key, 1, 8) = 'credits-'").fetchall():
+            data = json.loads(text)
+            if ("result" in data or data.get("artifacts")) and not data.get("raw_output_discarded"):
+                data.update(result=None, artifacts=[], raw_output_discarded=True)
+                db.execute("UPDATE jobs SET data=?, updated=? WHERE id=?", (canonical(data), time.time(), job_id))
+
+
+@contextlib.contextmanager
+def _lease(state, name):
+    """One refresh per provider and ATM home, across threads and CLI / console processes."""
+    folder = private_dir(state.home / "locks")
+    try:
+        fd = os.open(folder / f"credits-{name}.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    except OSError:
+        raise RouterError("unsafe_path", "The credits refresh lock must be a private regular file.") from None
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise RouterError("unsafe_path", "The credits refresh lock must be a private regular file.")
+        os.fchmod(fd, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RouterError("refresh_in_progress", "This provider is already being refreshed; wait for that result.") from None
+        yield
+    finally:
+        os.close(fd)  # Releases the lease; the kernel also releases it if this process dies.
 
 
 def _read(router, name, tool):
@@ -210,16 +288,10 @@ def refresh(router, name, *, clock=time.time):
     tool = usable_source(router, name)
     if tool is None:
         return {**row(router, name), "refresh": "not_installed"}
-    with _BUSY_LOCK:
-        if name in _BUSY:
-            raise RouterError("refresh_in_progress", "This provider is already being refreshed; wait for that result.")
-        _BUSY.add(name)
-    try:
+    with _lease(router.state, name):
+        _discard_leftovers(router.state)
         outcome = _read(router, name, tool)
         record = _store(router.state, name, tool["id"], outcome, int(clock()))
-    finally:
-        with _BUSY_LOCK:
-            _BUSY.discard(name)
     return {**row(router, name), "refresh": record["status"]}
 
 

@@ -5,6 +5,8 @@ import json
 import math
 from pathlib import Path
 import re
+import stat
+import subprocess
 import sys
 import threading
 import time
@@ -168,11 +170,25 @@ def test_higgsfield_keeps_plan_and_drops_email_and_identity():
     (credits.website_credits, tripo_row() + tripo_row()),
     (credits.website_credits, "6396"),
     (credits.website_credits, None),
+    # Absurd magnitudes are unreadable, never an OverflowError or a float approximation.
+    (credits.website_credits, tripo_row(10**400)),
+    (credits.higgsfield_credits, {"credits": 10**400}),
+    (credits.higgsfield_credits, {"credits": 10**15 + 1}),
+    (credits.higgsfield_credits, {"credits": 1e300}),
+    (credits.pippit_credits, {"total_remain_amount": 10**400}),
+    (credits.pippit_credits, {"total_remain_amount": "9" * 400}),
+    (credits.pippit_credits, {"total_remain_amount": "1" * 16}),
 ])
 def test_unreadable_values_are_never_zero(extract, value):
     with pytest.raises(RouterError) as error:
         extract(value)
     assert error.value.code == "credits_unreadable"
+
+
+def test_amount_bound_is_inclusive():
+    assert credits.higgsfield_credits({"credits": 10**15})["credits"] == 10**15
+    assert credits.pippit_credits({"total_remain_amount": "9" * 15})["credits"] == int("9" * 15)
+    assert credits.website_credits(xyq_row(1e15))["credits"] == 1e15
 
 
 def test_registry_is_fixed():
@@ -254,8 +270,8 @@ def test_preference_order_and_disabled_tool_skipped(home, tmp_path):
                                     {"permissions": ["execute_code", "production"]}])
 def test_swapped_definition_that_could_spend_or_write_is_refused(home, fakes, change):
     install_tool(home, {**json.loads(PIPPIT.read_text()), **change})
-    fakes.bind(home, "pippit-tool-cli")
-    fakes.output("pippit-tool-cli", {"total_remain_amount": "9"})
+    fakes.bind(home, "xyq")
+    fakes.output("xyq", {"total_remain_amount": "9"})
     assert credits.usable_source(home, "xyq") is None
     assert credits.refresh(home, "xyq")["refresh"] == "not_installed"
     assert fakes.calls() == [] and home.state.jobs() == []
@@ -266,6 +282,85 @@ def test_non_command_definition_is_refused(home):
     assert credits.usable_source(home, "xyq") is None
 
 
+@pytest.mark.parametrize("change", [
+    {"credential": "xyq.session"},
+    {"command": {"argv": ["get-credit-balance"], "output": "json", "timeout": 60,
+                 "credential_env": {"PIPPIT_TOKEN": "xyq.session"}}},
+])
+def test_swapped_definition_that_reads_a_credential_is_refused(home, fakes, change):
+    install_tool(home, {**json.loads(PIPPIT.read_text()), **change})
+    fakes.bind(home, "xyq")
+    fakes.output("xyq", {"total_remain_amount": "9"})
+    assert credits.usable_source(home, "xyq") is None
+    assert credits.refresh(home, "xyq")["refresh"] == "not_installed"
+    assert fakes.calls() == [] and home.state.jobs() == []
+
+
+def with_argv(tool, argv):
+    return {"command": {**tool["command"], "argv": argv}}
+
+
+def replaced(tool, old, new):
+    return with_argv(tool, [new if item == old else item for item in tool["command"]["argv"]])
+
+
+@pytest.mark.parametrize("tool_id,change", [
+    ("pippit.cli.credit_balance", lambda tool, home: {"executable": "pippit-tool-cli"}),
+    ("pippit.cli.credit_balance", lambda tool, home: {"executable": "higgsfield"}),
+    ("pippit.cli.credit_balance", lambda tool, home: with_argv(tool, ["get-credit-balance", "--all"])),
+    ("higgsfield.subscription.account", lambda tool, home: with_argv(tool, ["account", "status"])),
+    ("higgsfield.subscription.account", lambda tool, home: replaced(tool, "account", "generate")),
+    ("tripo.studio.account", lambda tool, home: replaced(tool, "account", "assets")),
+    ("tripo.studio.account", lambda tool, home: replaced(tool, tool["command"]["argv"][4], "0" * 63)),
+    ("tripo.studio.account", lambda tool, home: with_argv(tool, [*tool["command"]["argv"], "--confirm"])),
+    ("tripo.studio.account", lambda tool, home: {"executable": "atm"}),
+    ("xyq.web.account", lambda tool, home: replaced(tool, "xyq-web", "tripo-studio")),
+    ("xyq.web.account", lambda tool, home: replaced(tool, "json", "text")),
+    ("tripo.server.account", lambda tool, home: replaced(tool, str(home), str(home.parent / "other"))),
+    ("tripo.server.account", lambda tool, home: replaced(tool, "adapter", "login")),
+    ("tripo.server.account", lambda tool, home: {"executable": "opencliapp"}),
+])
+def test_same_id_with_another_executable_or_argv_is_refused(home, fakes, tool_id, change):
+    tool = definitions(home.state.home)[tool_id]
+    assert credits.reviewed(tool, home.state.home)  # The reviewed definition itself is accepted.
+    swapped = validate_manifest({**tool, **change(tool, home.state.home)})
+    assert not credits.reviewed(swapped, home.state.home)
+    install_tool(home, swapped)
+    fakes.bind(home, swapped["executable"])
+    fakes.output(swapped["executable"], {"credits": 5, "total_remain_amount": "5"})
+    name = next(p for p, spec in credits.PROVIDERS.items() if tool_id in spec["sources"])
+    assert credits.usable_source(home, name) is None
+    assert credits.refresh(home, name)["refresh"] == "not_installed"
+    assert fakes.calls() == [] and home.state.jobs() == []
+
+
+def test_rows_show_the_next_source_and_whether_it_is_bound(home, fakes):
+    rows = credits.payload(home)["providers"]
+    assert [(r["next_source"], r["next_source_kind"], r["next_executable"], r["bound"]) for r in rows] == [
+        (None, None, None, False)] * 3
+    tools = definitions(home.state.home)
+    install_tool(home, tools["pippit.cli.credit_balance"])
+    install_tool(home, tools["xyq.web.account"])
+    row = credits.row(home, "xyq")
+    assert (row["installed"], row["next_source"], row["next_source_kind"], row["next_executable"], row["bound"]) == (
+        True, "pippit.cli.credit_balance", "cli", "xyq", False)
+    fakes.bind(home, "xyq")
+    assert credits.row(home, "xyq")["bound"] is True
+    # The stored value came from the website; the next refresh runs the CLI again.
+    mg.set_enabled(home, "pippit.cli.credit_balance", False, apply=True)
+    fakes.bind(home, "opencliapp")
+    fakes.output("opencliapp", xyq_row(880))
+    website = credits.refresh(home, "xyq")
+    assert (website["source"], website["next_source"], website["next_source_kind"], website["next_executable"],
+            website["bound"]) == ("xyq.web.account", "xyq.web.account", "website", "opencliapp", True)
+    mg.set_enabled(home, "pippit.cli.credit_balance", True, apply=True)
+    row = credits.row(home, "xyq")
+    assert (row["source"], row["source_kind"], row["next_source"], row["next_source_kind"]) == (
+        "xyq.web.account", "website", "pippit.cli.credit_balance", "cli")
+    (fakes.root / "fake-xyq").unlink()
+    assert credits.row(home, "xyq")["bound"] is False
+
+
 # --- Refresh through the real Router and fake subprocesses ------------------------------
 
 def test_refresh_each_provider_with_fake_executables(home, fakes):
@@ -273,10 +368,10 @@ def test_refresh_each_provider_with_fake_executables(home, fakes):
     for tool_id in ["tripo.studio.account", "pippit.cli.credit_balance", "higgsfield.subscription.account"]:
         install_tool(home, tools[tool_id])
     fakes.bind(home, "opencliapp")
-    fakes.bind(home, "pippit-tool-cli")
+    fakes.bind(home, "xyq")
     fakes.bind(home, "higgsfield")
     fakes.output("opencliapp", tripo_row(6396))
-    fakes.output("pippit-tool-cli", {"total_remain_amount": "4321"})
+    fakes.output("xyq", {"total_remain_amount": "4321"})
     fakes.output("higgsfield", HIGGSFIELD)
     results = {name: credits.refresh(home, name, clock=lambda: 1000) for name in credits.PROVIDERS}
     assert {n: (r["refresh"], r["credits"], r["plan"]) for n, r in results.items()} == {
@@ -316,32 +411,41 @@ def test_no_email_or_raw_output_is_stored(home, fakes):
 
 def test_fresh_request_key_per_refresh_and_error_keeps_last_good_value(home, fakes, monkeypatch):
     install_tool(home, definitions(home.state.home)["pippit.cli.credit_balance"])
-    fakes.bind(home, "pippit-tool-cli")
+    fakes.bind(home, "xyq")
     seen = []
     real = home.run
     def spy(*args, **kwargs):
         seen.append(kwargs)
         return real(*args, **kwargs)
     monkeypatch.setattr(home, "run", spy)
-    fakes.output("pippit-tool-cli", {"total_remain_amount": "123"})
+    fakes.output("xyq", {"total_remain_amount": "123"})
     assert credits.refresh(home, "xyq", clock=lambda: 1000)["credits"] == 123
-    fakes.output("pippit-tool-cli", {"other": "1"})
+    fakes.output("xyq", {"other": "1"})
     failed = credits.refresh(home, "xyq", clock=lambda: 2000)
     assert failed["refresh"] == "error" and failed["status"] == "error"
     assert failed["error"]["code"] == "credits_unreadable"
     assert (failed["credits"], failed["checked_at"], failed["last_ok_at"]) == (123, 2000, 1000)
-    (fakes.root / "pippit-tool-cli.exit").write_text("4")
+    (fakes.root / "xyq.exit").write_text("4")
     crashed = credits.refresh(home, "xyq", clock=lambda: 3000)
     assert crashed["error"]["code"] == "cli_failed" and crashed["credits"] == 123 and crashed["last_ok_at"] == 1000
     assert "FAKE_STDERR_SECRET" not in json.dumps(crashed)
-    (fakes.root / "pippit-tool-cli.exit").unlink()
-    fakes.output("pippit-tool-cli", {"total_remain_amount": "0"})
+    (fakes.root / "xyq.exit").unlink()
+    fakes.output("xyq", {"total_remain_amount": "0"})
     recovered = credits.refresh(home, "xyq", clock=lambda: 4000)
     assert (recovered["status"], recovered["credits"], recovered["error"], recovered["last_ok_at"]) == ("ok", 0, None, 4000)
     assert len(fakes.calls()) == 4
     keys = [kw["request_key"] for kw in seen]
     assert len(set(keys)) == 4 and all(k.startswith("credits-xyq-") for k in keys)
     assert all(kw["grants"] == ["execute_code"] and kw["allow_paid"] is False for kw in seen)
+
+
+def test_absurd_balance_is_an_error_not_a_crash(home, fakes):
+    install_tool(home, definitions(home.state.home)["higgsfield.subscription.account"])
+    fakes.bind(home, "higgsfield")
+    fakes.output("higgsfield", {**HIGGSFIELD, "credits": 10**400})
+    result = credits.refresh(home, "higgsfield")
+    assert (result["refresh"], result["error"]["code"], result["credits"]) == ("error", "credits_unreadable", None)
+    assert len(fakes.calls()) == 1
 
 
 def test_changed_binary_is_an_error_not_a_run(home, fakes):
@@ -373,15 +477,15 @@ def test_xyq_website_and_tripo_server_sources(home, fakes):
 
 def test_concurrent_refresh_of_one_provider_is_refused(home, fakes):
     install_tool(home, definitions(home.state.home)["pippit.cli.credit_balance"])
-    fakes.bind(home, "pippit-tool-cli")
-    fakes.output("pippit-tool-cli", {"total_remain_amount": "5"})
-    gate = fakes.root / "pippit-tool-cli.gate"
+    fakes.bind(home, "xyq")
+    fakes.output("xyq", {"total_remain_amount": "5"})
+    gate = fakes.root / "xyq.gate"
     gate.write_text("hold")
     results = []
     worker = threading.Thread(target=lambda: results.append(credits.refresh(home, "xyq")))
     worker.start()
     deadline = time.time() + 15
-    while not (fakes.root / "pippit-tool-cli.started").exists() and time.time() < deadline:
+    while not (fakes.root / "xyq.started").exists() and time.time() < deadline:
         time.sleep(0.02)
     with pytest.raises(RouterError) as busy:
         credits.refresh(home, "xyq")
@@ -389,6 +493,82 @@ def test_concurrent_refresh_of_one_provider_is_refused(home, fakes):
     gate.unlink()
     worker.join(20)
     assert results[0]["credits"] == 5 and len(fakes.calls()) == 1
+
+
+def leftover(state, key, result):
+    """A job as a refresh that crashed before discarding its output would leave it."""
+    job, _ = state.create_job("higgsfield.subscription.account", {}, state.home.parent / "gone", key)
+    return state.update_job(job["id"], "completed", result=result, artifacts=[{"path": "out.json"}])
+
+
+def test_leftover_raw_output_is_discarded_when_viewing(home):
+    crashed = leftover(home.state, "credits-higgsfield-" + "0" * 32, HIGGSFIELD)
+    unrelated = leftover(home.state, "user-task-1", {"note": "kept"})
+    payload = credits.payload(home)
+    assert EMAIL not in json.dumps(payload)
+    data = home.state.job(crashed["id"])["data"]
+    assert (data["result"], data["artifacts"], data["raw_output_discarded"]) == (None, [], True)
+    assert home.state.job(unrelated["id"])["data"]["result"] == {"note": "kept"}  # Only credits jobs.
+    with home.state.db() as db:
+        assert EMAIL not in json.dumps([tuple(r) for r in db.execute("SELECT * FROM jobs").fetchall()])
+
+
+def test_leftover_raw_output_is_discarded_before_running(home, fakes):
+    install_tool(home, definitions(home.state.home)["pippit.cli.credit_balance"])
+    fakes.bind(home, "xyq")
+    fakes.output("xyq", {"total_remain_amount": "5"})
+    crashed = leftover(home.state, "credits-xyq-" + "1" * 32, HIGGSFIELD)
+    gate = fakes.root / "xyq.gate"
+    gate.write_text("hold")
+    results = []
+    worker = threading.Thread(target=lambda: results.append(credits.refresh(home, "xyq")))
+    worker.start()
+    deadline = time.time() + 15
+    while not (fakes.root / "xyq.started").exists() and time.time() < deadline:
+        time.sleep(0.02)
+    try:
+        assert (fakes.root / "xyq.started").exists()
+        data = home.state.job(crashed["id"])["data"]  # Already gone while the tool runs.
+        assert (data["result"], data["artifacts"], data["raw_output_discarded"]) == (None, [], True)
+    finally:
+        gate.unlink()
+        worker.join(20)
+    assert results[0]["credits"] == 5
+
+
+HOLDER = """
+import fcntl, os, sys
+os.makedirs(os.path.dirname(sys.argv[1]), mode=0o755, exist_ok=True)
+fd = os.open(sys.argv[1], os.O_CREAT | os.O_RDWR, 0o644)
+fcntl.flock(fd, fcntl.LOCK_EX)
+print("held", flush=True)
+sys.stdin.read()
+"""
+
+
+def test_refresh_lease_is_held_across_processes(home, fakes):
+    tools = definitions(home.state.home)
+    install_tool(home, tools["pippit.cli.credit_balance"])
+    install_tool(home, tools["higgsfield.subscription.account"])
+    fakes.bind(home, "xyq")
+    fakes.bind(home, "higgsfield")
+    fakes.output("xyq", {"total_remain_amount": "5"})
+    fakes.output("higgsfield", HIGGSFIELD)
+    lock = home.state.home / "locks" / "credits-xyq.lock"
+    holder = subprocess.Popen([sys.executable, "-I", "-c", HOLDER, str(lock)], stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE, text=True)
+    try:
+        assert holder.stdout.readline().strip() == "held"
+        with pytest.raises(RouterError) as busy:
+            credits.refresh(home, "xyq")
+        assert busy.value.code == "refresh_in_progress"
+        assert fakes.calls() == [] and home.state.jobs() == []
+        assert credits.refresh(home, "higgsfield")["credits"] == 1234  # The lease is per provider.
+    finally:
+        holder.stdin.close()
+        holder.wait(10)
+    assert credits.refresh(home, "xyq")["credits"] == 5
+    assert stat.S_IMODE(lock.stat().st_mode) == 0o600 and stat.S_IMODE(lock.parent.stat().st_mode) == 0o700
 
 
 # --- CLI ---------------------------------------------------------------------------
@@ -400,19 +580,19 @@ def run_cli(capsys, home_dir, *argv):
 
 def test_cli_lists_refreshes_and_sets_cycle_with_exit_codes(home, fakes, capsys):
     install_tool(home, definitions(home.state.home)["pippit.cli.credit_balance"])
-    fakes.bind(home, "pippit-tool-cli")
+    fakes.bind(home, "xyq")
     directory = home.state.home
     code, listed = run_cli(capsys, directory, "credits")
     assert code == 0 and [r["status"] for r in listed["providers"]] == ["not_installed", "not_read", "not_installed"]
     assert fakes.calls() == []  # Listing never runs a tool.
-    fakes.output("pippit-tool-cli", {"total_remain_amount": "77"})
+    fakes.output("xyq", {"total_remain_amount": "77"})
     code, refreshed = run_cli(capsys, directory, "credits", "refresh")
     assert code == 0 and refreshed["status"] == "ok"
     assert {r["provider"]: r["refresh"] for r in refreshed["providers"]} == {
         "tripo_studio": "not_installed", "xyq": "ok", "higgsfield": "not_installed"}
     code, only = run_cli(capsys, directory, "credits", "refresh", "higgsfield")
     assert code == 0 and [r["refresh"] for r in only["providers"]] == ["not_installed"]
-    fakes.output("pippit-tool-cli", {})
+    fakes.output("xyq", {})
     code, failed = run_cli(capsys, directory, "credits", "refresh", "xyq")
     assert code == 2 and failed["status"] == "failed" and failed["providers"][0]["credits"] == 77
     calls = len(fakes.calls())
@@ -431,7 +611,7 @@ def test_cli_lists_refreshes_and_sets_cycle_with_exit_codes(home, fakes, capsys)
 
 def test_extension_manifest_validates_installs_and_binds(tmp_path, capsys):
     tool = validate_manifest(read_manifest(PIPPIT))
-    assert (tool["id"], tool["provider"], tool["executable"]) == ("pippit.cli.credit_balance", "xyq", "pippit-tool-cli")
+    assert (tool["id"], tool["provider"], tool["executable"]) == ("pippit.cli.credit_balance", "xyq", "xyq")
     assert tool["paid"] is False and tool["permissions"] == ["execute_code"]
     assert tool["command"] == {"argv": ["get-credit-balance"], "output": "json", "timeout": 60}
     assert "credential" not in tool and "credential_env" not in tool["command"]
@@ -444,8 +624,16 @@ def test_extension_manifest_validates_installs_and_binds(tmp_path, capsys):
     fake = tmp_path / "pippit-tool-cli"
     fake.write_text("#!/bin/sh\nexit 0\n")
     fake.chmod(0o700)
-    code, bound = run_cli(capsys, directory, "cli", "bind", "pippit-tool-cli", str(fake))
-    assert code == 0 and bound["bound"] == "pippit-tool-cli"
+    code, bound = run_cli(capsys, directory, "cli", "bind", "xyq", str(fake))
+    assert code == 0 and bound["bound"] == "xyq"
+    router = Router(directory)
+    try:
+        # The same reviewed binding of pippit-tool-cli as the built-in XYQ tools.
+        tools = router.catalog.tools
+        assert tools["xyq.image"]["executable"] == tools["xyq.video"]["executable"] == tool["executable"]
+        assert credits.row(router, "xyq")["bound"] is True
+    finally:
+        router.close()
 
 
 def test_skill_and_docs_describe_cached_owner_refresh():
@@ -454,6 +642,18 @@ def test_skill_and_docs_describe_cached_owner_refresh():
     assert "atm credits" in skill and "only refresh when the owner asks" in skill
     doc = (ROOT / "docs/SUBSCRIPTION_CREDITS.md").read_text()
     assert "pippit.cli.credit_balance" in doc and "credits_cycle:" in doc
+    assert "atm cli bind xyq" in doc and "atm cli bind pippit-tool-cli" not in doc
+    assert "授予 `execute_code`" in doc and "严格客户端配置" in doc
+
+
+def test_strict_client_profile_cannot_refresh(home, fakes, capsys, tmp_path):
+    install_tool(home, definitions(home.state.home)["pippit.cli.credit_balance"])
+    fakes.bind(home, "xyq")
+    fakes.output("xyq", {"total_remain_amount": "5"})
+    for argv in [("credits", "refresh"), ("credits", "refresh", "xyq"), ("credits",)]:
+        code, denied = run_cli(capsys, home.state.home, "--client-profile", str(tmp_path / "client.json"), *argv)
+        assert code == 2 and denied["error"]["code"] == "operation_denied"
+    assert fakes.calls() == [] and home.state.jobs() == [] and home.state.setting("credits:xyq") is None
 
 
 # --- Sync stays local ----------------------------------------------------------------
@@ -489,8 +689,8 @@ def console(tmp_path, monkeypatch):
     router = Router(tmp_path / "state")
     fakes = Fakes(tmp_path)
     install_tool(router, definitions(router.state.home)["pippit.cli.credit_balance"])
-    fakes.bind(router, "pippit-tool-cli")
-    fakes.output("pippit-tool-cli", {"total_remain_amount": "4321"})
+    fakes.bind(router, "xyq")
+    fakes.output("xyq", {"total_remain_amount": "4321"})
     router.close()
     server = Console(tmp_path / "state", user_home=tmp_path / "user")
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -521,7 +721,9 @@ def test_web_get_is_cached_only_and_included_in_overview(console):
     xyq = rows[1]
     assert (xyq["installed"], xyq["source"], xyq["status"], xyq["next_cycle"]) == (True, "pippit.cli.credit_balance", "not_read", None)
     assert set(xyq) >= {"provider", "label", "brand", "installed", "source", "status", "credits", "plan",
-                        "checked_at", "last_ok_at", "error", "next_cycle", "cycle_day"}
+                        "checked_at", "last_ok_at", "error", "next_cycle", "cycle_day",
+                        "next_source", "next_source_kind", "next_executable", "bound"}
+    assert (xyq["next_source"], xyq["next_source_kind"], xyq["bound"]) == ("pippit.cli.credit_balance", "cli", True)
     assert get(console, "/api/overview").json()["credits"] == response.json()
     assert fakes.calls() == []
 
@@ -565,21 +767,21 @@ def test_web_writes_require_bearer_and_exact_origin(console, path, body):
 
 def test_web_refresh_does_not_block_the_console(console):
     server, client, fakes = console
-    gate = fakes.root / "pippit-tool-cli.gate"
+    gate = fakes.root / "xyq.gate"
     gate.write_text("hold")
     results = []
     worker = threading.Thread(target=lambda: results.append(post(console, "/api/credits/refresh", {"provider": "xyq"})))
     worker.start()
     deadline = time.time() + 15
-    while not (fakes.root / "pippit-tool-cli.started").exists() and time.time() < deadline:
+    while not (fakes.root / "xyq.started").exists() and time.time() < deadline:
         time.sleep(0.02)
-    assert (fakes.root / "pippit-tool-cli.started").exists()
+    assert (fakes.root / "xyq.started").exists()
     started = time.monotonic()
     assert get(console, "/api/overview").status_code == 200
     assert post(console, "/api/tools/toggle", {"tool": "fal.generate", "enabled": False, "expected_enabled": True}).status_code == 200
     assert time.monotonic() - started < 5
     busy = post(console, "/api/credits/refresh", {"provider": "xyq"})
-    assert busy.status_code == 400 and busy.json()["error"]["code"] == "refresh_in_progress"
+    assert busy.status_code == 409 and busy.json()["error"]["code"] == "refresh_in_progress"
     gate.unlink()
     worker.join(20)
     assert results[0].status_code == 200 and results[0].json()["credits"] == 4321

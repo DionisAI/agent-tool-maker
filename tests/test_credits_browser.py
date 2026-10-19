@@ -28,9 +28,9 @@ def test_credits_panel_refresh_busy_state_and_renewal_day(tmp_path, width):
     tools = definitions(router.state.home)
     for tool_id in ["pippit.cli.credit_balance", "higgsfield.subscription.account"]:
         install_tool(router, tools[tool_id])
-    fakes.bind(router, "pippit-tool-cli")
+    fakes.bind(router, "xyq")
     fakes.bind(router, "higgsfield")
-    fakes.output("pippit-tool-cli", {"total_remain_amount": "4321"})
+    fakes.output("xyq", {"total_remain_amount": "4321"})
     fakes.output("higgsfield", HIGGSFIELD)
     now = int(time.time())
     # Synthetic cached state: last good value kept after a failed refresh, older than 24h.
@@ -76,13 +76,13 @@ def test_credits_panel_refresh_busy_state_and_renewal_day(tmp_path, width):
             expect(xyq).to_contain_text("尚未读取")
             expect(xyq).to_contain_text("CLI · pippit.cli.credit_balance")
 
-            gate = fakes.root / "pippit-tool-cli.gate"
+            gate = fakes.root / "xyq.gate"
             gate.write_text("hold")
             xyq.get_by_role("button", name="刷新", exact=True).click()
             busy = page.locator(".credit-card[data-provider=xyq]").get_by_role("button", name="刷新中…", exact=True)
             expect(busy).to_be_disabled()
             deadline = time.time() + 15
-            while not (fakes.root / "pippit-tool-cli.started").exists() and time.time() < deadline:
+            while not (fakes.root / "xyq.started").exists() and time.time() < deadline:
                 time.sleep(0.02)
             # The rest of the console keeps working while the account tool runs.
             page.get_by_role("button", name="刷新状态 ↻", exact=True).click()

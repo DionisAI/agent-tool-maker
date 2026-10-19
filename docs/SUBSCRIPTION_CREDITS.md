@@ -12,8 +12,18 @@
 | `xyq` · 小云雀 / Pippit | `pippit.cli.credit_balance`（官方 CLI，不驱动浏览器）→ `xyq.web.account`（网站） | `total_remain_amount` 字符串 / 页头 `credits` |
 | `higgsfield` · Higgsfield | `higgsfield.subscription.account`（官方 CLI） | `credits`、`subscription_plan_type` |
 
-- 可用 = 已安装、已启用、command adapter、`paid:false`、权限只含 `execute_code`。其余一律拒绝，
-  被替换的定义也不能借刷新消费或写入。没有可用来源时报告 `not_installed`，不算失败。
+- 可用 = 已安装、已启用、command adapter、`paid:false`、权限只含 `execute_code`、没有凭证
+  （`credential` 与 `command.credential_env` 为空），并保持下表审查过的形状：固定的可执行别名与只读 argv。
+  argv 中只允许审查过的定义自带的 pin / bundle 摘要（64 位小写十六进制）与本 ATM home；其余一律拒绝，
+  同 id 的被替换定义不能借刷新消费、写入、读取凭证或运行别的命令。没有可用来源时报告 `not_installed`，不算失败。
+
+| 来源 | 可执行别名 | 只读 argv |
+|---|---|---|
+| `tripo.studio.account` | `opencliapp` | `__opencli_shim tripo-studio account --pin <摘要> -f json` |
+| `tripo.server.account` | `atm` | `--home <本 ATM home> studio adapter --bundle <摘要> account --pin <摘要> -f json` |
+| `xyq.web.account` | `opencliapp` | `__opencli_shim xyq-web account --pin <摘要> -f json` |
+| `pippit.cli.credit_balance` | `xyq` | `get-credit-balance` |
+| `higgsfield.subscription.account` | `higgsfield` | `account status --json` |
 
 ## 刷新只由 owner 发起
 
@@ -21,16 +31,26 @@
 - `atm credits refresh [PROVIDER ...]`（默认全部提供方）与网页“刷新 / 全部刷新”运行来源一次：
   每次新的 request key `credits-<provider>-<uuid4>`、`grants=["execute_code"]`、不允许付费，并绑定已检查的定义摘要。
   网站来源会驱动 owner 已登录的浏览器，所以 Agent 只在 owner 要求时刷新。
+- `atm credits refresh` 自行为这些固定只读来源授予 `execute_code`（无需 `--allow-code`）。因此便利模式下的 Agent
+  也能运行它；SKILL 要求 Agent 只在 owner 要求时刷新。严格客户端配置（`--client` / `--client-profile`）拒绝整个
+  `atm credits` 命令（`operation_denied`），不会退回直接执行。
 - 工作目录：每次新建 0700 私有临时目录，结束即删除。它不在 ATM home 内，因为 Tripo 服务器运行时拒绝位于其状态目录内的工作区。
-- 网页刷新在请求线程内同步运行（工具自身超时），不持有管理台全局锁；同一提供方并发刷新返回 `refresh_in_progress`；“全部刷新”逐个执行。
+- 网页刷新在请求线程内同步运行（工具自身超时），不持有管理台全局锁。
+- 每个提供方一个跨进程租约：`<ATM home>/locks/credits-<provider>.lock`（目录 0700、文件 0600）上的
+  `flock(LOCK_EX|LOCK_NB)`。被其他线程或进程（另一个 CLI、管理台）持有时立即返回 `refresh_in_progress`
+  （网页为 HTTP 409，与其他状态冲突相同），不运行工具；持有进程退出即释放。
+- 网页把所有额度刷新放进同一个队列逐个执行（网站来源共用已登录的浏览器），包括“全部刷新”和单张卡片的“刷新”。
 - CLI 退出码：所有请求的刷新成功或为 `not_installed` 时为 0，任一失败为 2；未知提供方在运行任何工具前报错。
 
 ## 保存什么，不保存什么
 
 - 本机设置 `credits:<provider>`：`provider`、`status`（`ok`/`error`）、`credits`、`plan`、`unit:"credits"`、`source`、`checked_at`、`last_ok_at`、`error:{code,message}|null`。
   失败时保留上次成功的 `credits`/`plan`/`last_ok_at`，只更新 `status`、`error`、`checked_at`。
-- 读不出数字（缺字段、非数字、负数、NaN/Infinity、布尔值）记为 `credits_unreadable`，绝不当作 0；Pippit 的 `"0"` 是真实的 0。
+- 读不出数字（缺字段、非数字、负数、NaN/Infinity、布尔值、超过 10^15）记为 `credits_unreadable`，绝不当作 0；
+  整数先比较范围再做任何浮点运算，400 位的整数不会溢出。Pippit 的 `"0"` 是真实的 0。
 - 不保存邮箱、用户 ID 或原始输出：刷新 job 完成后清空 `result` 与 `artifacts`（`raw_output_discarded`），临时目录删除。错误信息只含 ATM 自己的代码与说明。
+- 崩溃窗口清理：每次刷新运行前与构建 payload（含查看）时，request key 以 `credits-` 开头、仍带 `result`/`artifacts`
+  而没有 `raw_output_discarded` 的 job 一律清空。
 - 这些设置不是 `sync:*` 记录，不进入加密同步包。
 
 ## 续期日由 owner 设置
@@ -42,20 +62,26 @@
 ## 接口
 
 - CLI：`atm credits`、`atm credits refresh [PROVIDER ...]`、`atm credits cycle PROVIDER --day N | --clear`；仅输出 JSON，不含秘密。
-- HTTP：`GET /api/credits` → `{providers:[{provider,label,brand,billing,sources,installed,source,source_kind,status,credits,plan,unit,checked_at,last_ok_at,error,next_cycle,cycle_day}]}`；
+- HTTP：`GET /api/credits` → `{providers:[{provider,label,brand,billing,sources,installed,source,source_kind,status,credits,plan,unit,checked_at,last_ok_at,error,next_cycle,cycle_day,next_source,next_source_kind,next_executable,bound}]}`；
   `POST /api/credits/refresh {provider}`、`POST /api/credits/cycle {provider, day|null}` 返回更新后的记录。
+- `source`/`source_kind` 是已存值的来源；新增的 `next_source`/`next_source_kind`/`next_executable` 是下一次刷新会运行的来源
+  及其可执行别名（没有则为 `null`），`bound` 表示该别名是否已用 `atm cli bind` 绑定。未绑定时刷新会得到 `cli_not_configured`，
+  网页不显示“刷新”，只提示 `atm cli bind <别名> <path>`。
   写入与其他 POST 一样经过 bearer、精确 Host/Origin、JSON 与长度检查。`/api/overview` 内含同一 `credits`，不增加启动请求。
 - `status` 在没有记录时为 `not_read`（有来源）或 `not_installed`；刷新结果另带 `refresh: ok|error|not_installed`。
 
 ## Pippit 扩展
 
 `examples/extensions/pippit-cli-credit-balance.json`：`pippit-tool-cli get-credit-balance`，JSON 输出，`paid:false`，
-只需 `execute_code`，无凭证字段，使用 CLI 自己的登录。按常规 `atm make validate` → `atm make install --approve SHA`
-→ `atm cli bind pippit-tool-cli /absolute/path` 安装与绑定。
+只需 `execute_code`，无凭证字段，使用 CLI 自己的登录。可执行别名是 `xyq`：与内置 `xyq.image` / `xyq.video`
+相同的已审查 `pippit-tool-cli` 绑定，已绑定过就不必再绑。按常规 `atm make validate` → `atm make install --approve SHA`
+安装；尚未绑定时 `atm cli bind xyq /absolute/path/to/pippit-tool-cli`。
 
 ## 测试
 
-- `tests/test_subscription_credits.py`：提取器（Higgsfield 邮箱丢弃、Pippit 字符串与 `"0"`、缺失/非数字/负数/布尔）、续期日期计算、
-  可用来源规则、经 Router 与假子进程刷新三家提供方、新 request key、失败保留上次值、CLI 与退出码、网页鉴权/Origin、不阻塞管理台、同步排除、扩展安装。
-- `tests/test_credits_browser.py`（browser）：原生 Chromium 渲染面板、刷新忙碌状态、设置与清除续期日。
+- `tests/test_subscription_credits.py`：提取器（Higgsfield 邮箱丢弃、Pippit 字符串与 `"0"`、缺失/非数字/负数/布尔/超大值）、续期日期计算、
+  可用来源规则（付费、写入、凭证、同 id 不同别名或 argv 均拒绝且不运行）、`next_source`/`bound`、经 Router 与假子进程刷新三家提供方、
+  新 request key、失败保留上次值、崩溃遗留输出清理、另一进程持有租约、CLI 与退出码、严格客户端拒绝、网页鉴权/Origin/409、不阻塞管理台、同步排除、扩展安装。
+- `tests/test_credits_browser.py`（browser）：原生 Chromium 渲染面板、刷新忙碌状态与焦点保留、所有刷新串行、错误短标签与说明、
+  未安装的紧凑卡片、未绑定提示、对话框内校验续期日、设置与清除续期日。
 - 均为隔离状态与假程序；真实账户、真实已登录浏览器与供应商输出未验收。

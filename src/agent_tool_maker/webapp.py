@@ -216,7 +216,7 @@ class Handler(BaseHTTPRequestHandler):
                 result = self.mutate(router, body) if write else self.read(router)
             self.respond(200, result)
         except RouterError as error:
-            status = 401 if error.code == "unauthorized" else 403 if error.code == "forbidden_request" else 404 if error.code == "not_found" else 409 if error.code in {"setup_changed", "state_changed", "setup_conflict", "registration_changed"} else 400
+            status = 401 if error.code == "unauthorized" else 403 if error.code == "forbidden_request" else 404 if error.code == "not_found" else 409 if error.code in {"setup_changed", "state_changed", "setup_conflict", "registration_changed", "refresh_in_progress"} else 400
             self.respond(status, {"error": error.as_dict()})
         except (ValueError, TypeError, KeyError, OSError, RecursionError):
             self.respond(400, {"error": {"code": "invalid_request", "message": "Invalid local input or state. No provider execution was requested."}})
