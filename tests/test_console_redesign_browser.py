@@ -188,7 +188,10 @@ def test_owner_jobs_from_home_without_any_write(browser, tmp_path, monkeypatch):
         expect(grant).to_contain_text('项目 demo-video · 由授权窗口批准')
         expect(grant).to_contain_text('可用 Key：firecrawl、tripo')
         grant.get_by_role('button', name='撤销').click()
-        expect(page.locator('#modal-title')).to_have_text('撤销这份授权？')
+        # C3 names the grant it revokes: its title, Keys and id.
+        expect(page.locator('#modal-title')).to_have_text('撤销「项目 demo-video · 由授权窗口批准」？')
+        expect(page.locator('#modal-body')).to_contain_text('可用 Key：firecrawl、tripo')
+        expect(page.locator('#modal-body')).to_contain_text('授权 ID ' + info['grant'][:8])
         page.keyboard.press('Escape')
         # A-JOB-16: the 添加 Key picker preselects nothing.
         page.locator('[data-nav=settings]').click()
@@ -229,7 +232,9 @@ def test_saved_key_unlock_lock_and_save_in_one_dialog(browser, tmp_path, monkeyp
         expect(page.locator('#credential-session')).to_contain_text('已解锁')
         countdown = page.locator('#lease-countdown')
         expect(countdown).to_have_text(re.compile(r'^\d\d:\d\d$'))
-        first = countdown.inner_text(); page.wait_for_timeout(1300)
+        # The countdown ticks once a second from a fractional lease: allow up to 3 s for the next value.
+        first = countdown.inner_text()
+        expect(countdown).not_to_have_text(first, timeout=3000)
         assert countdown.inner_text() < first
         assert not page.locator('input[type=password]').evaluate_all('xs => xs.some(x => x.value)')
         # A-JOB-05: a saved Key never reads "needs unlock", locked or not.
@@ -296,6 +301,20 @@ def test_switches_bulk_changes_and_paid_tags(browser, tmp_path, monkeypatch):
         for node in page.locator('[role=switch]').all():
             assert node.get_attribute('aria-checked') in ('true', 'false')
             assert node.get_attribute('aria-label').startswith('允许 Agent 使用 ')
+        # S9 / C4: turning a group of paid tools back on says that, and how many may charge.
+        other = page.evaluate("[...model.tools.values()].find(v => v.serviceKey === 'tripo' && v.route === 'chrome' && v.paid && v.enabled && v.id !== 'tripo.studio.generate').id")
+        page.get_by_role('switch', name='允许 Agent 使用 ' + other, exact=True).click()
+        expect(page.get_by_role('switch', name='允许 Agent 使用 ' + other, exact=True)).to_have_attribute('aria-checked', 'false')
+        group = page.locator('.tool-group', has=page.locator('.group-head', has_text='你的 Chrome 登录'))
+        before = len(posts(log))
+        group.get_by_role('button', name='全部允许…').click()
+        expect(page.locator('#modal-title')).to_have_text('允许 你的 Chrome 登录 · Tripo Studio 的 2 个工具？')
+        expect(page.locator('#modal-body .tag.paid')).to_have_text('可能扣费')
+        k = page.evaluate("['tripo.studio.generate', '%s'].filter(id => model.tools.get(id).paid).length" % other)
+        assert k >= 1
+        expect(page.locator('#modal-body')).to_contain_text(f'其中 {k} 个可能扣费')
+        page.keyboard.press('Escape')
+        assert len(posts(log)) == before
         # A-SEC-11: every paid tool is tagged on the service page, in 按工具, in D4 and in D19.
         paid = page.evaluate("[...model.tools.values()].filter(v => v.paid && v.serviceKey === 'tripo').map(v => v.id)")
         assert paid
@@ -477,7 +496,7 @@ DIALOGS = [
     ('D20', 'settings/sync', lambda p: p.get_by_role('button', name='查看公开身份', exact=True), '本机公开身份（不含任何秘密）'),
     ('C1', 'agents', lambda p: p.locator('[data-agent=claude]').get_by_role('button', name='移除', exact=True), '从 Claude Code 移除 ATM？'),
     ('C2', 'settings/sync', lambda p: p.get_by_role('button', name='撤销信任', exact=True), '撤销对 build-server 的信任？'),
-    ('C3', 'agents', lambda p: p.locator('#grants').get_by_role('button', name='撤销', exact=True), '撤销这份授权？'),
+    ('C3', 'agents', lambda p: p.locator('#grants').get_by_role('button', name='撤销', exact=True), '撤销「项目 demo-video · 由授权窗口批准」？'),
     ('C4', 'services/xyq', lambda p: p.get_by_role('button', name='全部停用…').first, re.compile(r'^停用 .+ 的 \d+ 个工具？$')),
     ('C5', 'services/higgsfield', lambda p: p.get_by_role('button', name='停止自动续期', exact=True), '停止 Higgsfield 自动续期？'),
 ]
@@ -519,6 +538,9 @@ def test_every_dialog_opens_from_its_opener_and_returns_focus(browser, tmp_path,
         mock(page, '/api/connections', lambda b: b['oauth'][0].update(status='missing', keep_login=False))
         page.get_by_role('button', name='刷新状态').click()
         expect(page.locator('#announce')).to_have_text('已刷新')
+        page.get_by_role('button', name='解锁 30 分钟', exact=True).click()
+        expect(page.get_by_role('button', name='用 Passkey 解锁 30 分钟', exact=True)).to_be_focused()
+        page.keyboard.press('Escape')
         check_dialog(page, expect, 'D10', opener(page, 'settings/keys', lambda p: p.get_by_role('button', name='停用 1Password', exact=True)), '停用 1Password')
         check_dialog(page, expect, 'D11', opener(page, 'services/higgsfield', lambda p: p.locator('li.route[data-kind=oauth]').get_by_role('button', name='登录 Higgsfield', exact=True)),
                      '登录 Higgsfield（ATM 登录）')
@@ -549,6 +571,223 @@ def test_every_dialog_opens_from_its_opener_and_returns_focus(browser, tmp_path,
     with console(tmp_path, monkeypatch, sync=False, request=False) as (server, info):
         ctx, page, log = open_page(browser, server, info)
         check_dialog(page, expect, 'D15', opener(page, 'settings/sync', lambda p: p.get_by_role('button', name='生成本机身份', exact=True)), '生成本机同步身份')
+        ctx.close()
+
+
+# ---------------------------------------------------------------- aria-disabled approve controls (the JS guard is the only guard)
+
+APPLY_PATHS = {'/api/extensions/install', '/api/sync/resolve', '/api/connections/remove', '/api/setup/apply'}
+APPLY_FLAG = {'/api/access/grant', '/api/sync/trust', '/api/sync/import'}
+
+
+def applied(log):
+    """POSTs that would change state: the apply endpoints, and the preview endpoints when they carry apply."""
+    out = []
+    for method, url, body in log['requests']:
+        path = urlsplit(url).path
+        if method == 'POST' and (path in APPLY_PATHS or (path in APPLY_FLAG and json.loads(body or '{}').get('apply'))):
+            out.append(path)
+    return out
+
+
+def poke(page, expect, button):
+    """A click the browser does not block (aria-disabled, not disabled), then Enter on the focused button."""
+    expect(button).to_have_attribute('aria-disabled', 'true')
+    button.click(force=True)
+    button.focus()
+    page.keyboard.press('Enter')
+    page.wait_for_timeout(200)
+
+
+def test_aria_disabled_approve_controls_never_post(browser, tmp_path, monkeypatch):
+    """A-SEC: before its check, and after an edit once the check has passed, every approve control sends nothing."""
+    from playwright.sync_api import expect
+    from agent_tool_maker.extensions import new_template
+    from agent_tool_maker.storage import State
+    from agent_tool_maker.sync import Sync
+    from agent_tool_maker.vault import Vault
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        card = Sync(Vault(State(info['home'].parent / 'remote'), password=fx.PASSWORD)).identity()
+        ctx, page, log = open_page(browser, server, info, init=NO_CONFIRM)
+        modal = page.locator('#modal')
+        # D6 批准安装
+        go(page, 'services')
+        page.get_by_role('button', name='安装工具定义', exact=True).click()
+        apply = modal.get_by_role('button', name='批准安装', exact=True)
+        definition = page.get_by_label('工具定义 JSON')
+        definition.fill(json.dumps(new_template('studio.export', 'web', url='https://example.com/')))
+        poke(page, expect, apply)
+        modal.get_by_role('button', name='检查定义', exact=True).click()
+        expect(apply).to_have_attribute('aria-disabled', 'false')
+        definition.press_sequentially(' ')
+        poke(page, expect, apply)
+        page.keyboard.press('Escape')
+        # D16 批准配对
+        go(page, 'settings/sync')
+        page.get_by_role('button', name='配对另一台设备', exact=True).click()
+        apply = modal.get_by_role('button', name='批准配对', exact=True)
+        page.get_by_label('另一台设备的公开身份（JSON）').fill(json.dumps(card))
+        fingerprint = page.get_by_label('独立核对指纹（在另一台设备上看到的完整指纹）')
+        fingerprint.fill(card['id'])
+        for legend in ('允许发给它的 Key', '允许它发来或修改的 Key'):  # The scopes it already has.
+            modal.locator('fieldset', has=page.locator('legend', has_text=legend)).get_by_label('tripo', exact=True).check()
+        poke(page, expect, apply)
+        modal.get_by_role('button', name='检查配对内容', exact=True).click()
+        expect(apply).to_have_attribute('aria-disabled', 'false')
+        fingerprint.press_sequentially(' ')
+        poke(page, expect, apply)
+        page.keyboard.press('Escape')
+        # D19 检查授权内容 with an id the catalogue does not know, then 批准并写入.
+        go(page, 'agents')
+        page.get_by_role('button', name='新建受限授权', exact=True).click()
+        check = modal.get_by_role('button', name='检查授权内容', exact=True)
+        apply = modal.get_by_role('button', name='批准并写入', exact=True)
+        tools = page.get_by_label('精确工具 ID（逗号分隔）')
+        tools.fill('ffmpeg.probe, not.a.tool')
+        expect(check).to_have_attribute('aria-describedby', 'grant-unknown')
+        expect(page.locator('#grant-unknown')).to_have_text('不在目录中：not.a.tool。删掉这些工具 ID 后才能检查。')
+        poke(page, expect, check)
+        assert '/api/access/grant' not in posts(log)  # Not even the preview.
+        tools.fill('ffmpeg.probe')
+        expect(check).not_to_have_attribute('aria-disabled', 'true')
+        page.get_by_label('允许的项目目录').fill(str(info['workspace']))
+        poke(page, expect, apply)
+        check.click()
+        expect(apply).to_have_attribute('aria-disabled', 'false')
+        page.get_by_label('有效期').select_option('24')
+        poke(page, expect, apply)
+        page.keyboard.press('Escape')
+        # D14 批准导入 (the check's answer is served in the page; only the client guard is under test).
+        def importing(route):
+            body = json.loads(route.request.post_data or '{}')
+            if body.get('apply'):
+                route.abort()
+            else:
+                route.fulfill(status=200, content_type='application/json', body=json.dumps({'status': 'planned', 'sender': 'f' * 64, 'changes': []}))
+        page.route('**/api/sync/import', importing)
+        packet = tmp_path / 'fake.atmsync'
+        packet.write_text('{}')
+        go(page, 'settings/sync')
+        page.get_by_role('button', name='导入加密包', exact=True).click()
+        apply = modal.get_by_role('button', name='批准导入', exact=True)
+        poke(page, expect, apply)
+        page.get_by_label('选择加密同步包（.atmsync）').set_input_files(str(packet))
+        modal.get_by_role('button', name='检查内容', exact=True).click()
+        expect(apply).to_have_attribute('aria-disabled', 'false')
+        other = tmp_path / 'other.atmsync'
+        other.write_text('{"changed": true}')
+        page.get_by_label('选择加密同步包（.atmsync）').set_input_files(str(other))
+        expect(page.locator('#import-reason')).to_be_visible()
+        poke(page, expect, apply)
+        # A file picker dismissed without a choice fires a bubbling cancel: the dialog keeps its content.
+        page.get_by_label('选择加密同步包（.atmsync）').dispatch_event('cancel', {'bubbles': True})
+        expect(modal.get_by_role('button', name='检查内容', exact=True)).to_be_visible()
+        page.keyboard.press('Escape')
+        page.unroute('**/api/sync/import')
+        # D18 使用这个版本
+        go(page, 'services/exa')
+        page.locator('li.route[data-kind=key]').get_by_role('button', name='选择版本', exact=True).click()
+        poke(page, expect, modal.get_by_role('button', name='使用这个版本', exact=True))
+        page.keyboard.press('Escape')
+        # D13 移除 Key
+        go(page, 'services/tripo')
+        page.locator('li.route[data-kind=key]').get_by_role('button', name='移除', exact=True).click()
+        apply = modal.get_by_role('button', name='移除 Key', exact=True)
+        poke(page, expect, apply)
+        confirm = page.get_by_label('确认 Key 名称')
+        confirm.fill('tripo')
+        expect(apply).to_have_attribute('aria-disabled', 'false')
+        confirm.fill('trip')
+        poke(page, expect, apply)
+        page.keyboard.press('Escape')
+        # D1 确认安装 while the plan needs review (served as such to this page).
+        def review(route):
+            response = route.fetch()
+            body = response.json()
+            body['status'] = 'needs_review'
+            body['skills'] = [{'agent': 'codex', 'path': '/fake/codex/SKILL.md', 'action': 'conflict'}]
+            route.fulfill(response=response, body=json.dumps(body), headers={**response.headers, 'content-type': 'application/json'})
+        page.route('**/api/setup/preview', review)
+        go(page, 'agents')
+        page.get_by_role('button', name='安装到 Codex', exact=True).click()
+        apply = modal.get_by_role('button', name='确认安装', exact=True)
+        expect(page.locator('#setup-reason')).to_have_text('有需要你确认的变化。确认前不会修改任何文件。')
+        poke(page, expect, apply)
+        modal.get_by_label('允许备份并替换这个文件（我已经看过它）').check()
+        expect(page.locator('#setup-reason')).to_be_visible()
+        poke(page, expect, apply)
+        page.keyboard.press('Escape')
+        assert applied(log) == [], applied(log)
+        assert not log['errors'], log['errors']
+        ctx.close()
+
+
+def test_a_working_atm_login_can_be_replaced(browser, tmp_path, monkeypatch):
+    """M74: 重新登录 opens D11 with the replace checkbox while the ATM login is ready (renewing or not)."""
+    from playwright.sync_api import expect
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        for change in (None, lambda b: b['oauth'][0].update(status='ready', keep_login=False, service={'status': 'not_installed'})):
+            ctx, page, log = open_page(browser, server, info)
+            if change:
+                mock(page, '/api/connections', change)
+                page.get_by_role('button', name='刷新状态').click()
+                expect(page.locator('#announce')).to_have_text('已刷新')
+            sent = []
+            def login(route):
+                sent.append(json.loads(route.request.post_data))
+                route.fulfill(status=200, content_type='application/json', body=json.dumps({'status': 'pending', 'browser_opened': True}))
+            page.route('**/api/oauth/login', login)  # Answered in the page: nothing opens and nothing leaves the machine.
+            go(page, 'services/higgsfield')
+            route = page.locator('li.route[data-kind=oauth]')
+            expect(route.get_by_role('button', name='刷新状态', exact=True)).to_be_visible()
+            route.get_by_role('button', name='重新登录', exact=True).click()
+            expect(page.locator('#modal-title')).to_have_text('登录 Higgsfield（ATM 登录）')
+            replace = page.locator('#modal').get_by_label('替换已有的 ATM 登录（higgsfield 程序的登录不受影响）')
+            expect(replace).not_to_be_checked()
+            replace.check()
+            page.locator('#modal').get_by_role('button', name='打开官方登录页面', exact=True).click()
+            expect(page.locator('#modal')).to_be_hidden()
+            assert sent == [{'provider': 'higgsfield', 'keep_login': False, 'replace': True}], sent
+            assert not log['errors'], log['errors']
+            ctx.close()
+
+
+def test_focus_stays_on_refresh_and_moves_to_a_successor(browser, tmp_path, monkeypatch):
+    """§3.6 / A-A11Y: 刷新 keeps the focus; when a dialog's opener is gone after success, focus lands on its successor."""
+    from playwright.sync_api import expect
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        ctx, page, log = open_page(browser, server, info)
+        refresh = page.locator('#refresh')
+        refresh.focus()
+        page.keyboard.press('Enter')
+        expect(page.locator('#announce')).to_have_text('已刷新')
+        expect(refresh).to_be_focused()
+        assert refresh.get_attribute('disabled') is None
+        # A failed refresh is said once, by the page banner; no toast repeats it, and the focus stays.
+        page.route('**/api/overview', lambda route: route.abort())
+        page.keyboard.press('Enter')
+        expect(page.locator('#main .banner')).to_contain_text('读取本机状态失败')
+        page.wait_for_timeout(300)
+        expect(page.locator('#toast')).to_be_hidden()
+        expect(refresh).to_be_focused()
+        page.unroute('**/api/overview')
+        # Saving the Key from the header: the header button is gone afterwards; focus moves to the Key's 更换.
+        go(page, 'services/elevenlabs')
+        page.locator('[data-key="service:primary:elevenlabs"]').click()
+        page.get_by_label('API Key', exact=True).fill(fx.SECRET + '-focus')
+        page.get_by_label('ATM 主密码', exact=True).fill(fx.PASSWORD)  # Locked, no shared session: typed for this request.
+        page.get_by_role('button', name='加密保存', exact=True).click()
+        expect(page.locator('#modal')).to_be_hidden()
+        expect(page.locator('#main .banner')).to_have_count(0)
+        expect(page.locator('[data-key="route:key:elevenlabs:更换"]')).to_be_focused()
+        # Revoking a grant: its row is gone; focus moves to 新建受限授权 in the same section.
+        go(page, 'agents')
+        page.locator(f'[data-key="grant:revoke:{info["grant"]}"]').click()
+        page.locator('#modal').get_by_role('button', name='撤销授权', exact=True).click()
+        expect(page.locator('#modal')).to_be_hidden()
+        expect(page.locator('[data-key="grants:new"]')).to_be_focused()
+        assert fx.SECRET + '-focus' not in page.content()
+        assert not log['errors'], log['errors']
         ctx.close()
 
 
@@ -720,6 +959,22 @@ def test_layout_at_every_width(browser, tmp_path, monkeypatch, width):
             assert fits(), section
             if width < 768:
                 assert page.locator('#main table').evaluate_all('xs => xs.filter(x => x.offsetParent !== null).length') == 0, section
+        # The breadcrumb never collapses: the whole of it (or, below 480 px, the back link) fits.
+        for section in ('services/elevenlabs', 'settings/keys'):
+            go(page, section)
+            context = page.locator('#context')
+            assert context.evaluate('e => e.scrollWidth <= e.clientWidth + 1'), (section, context.evaluate('e => [e.scrollWidth, e.clientWidth]'))
+            if width >= 768:
+                assert context.evaluate('e => e.getBoundingClientRect().width') >= 120
+                expect(page.locator('#context .crumb-here')).to_be_visible()
+            else:
+                expect(page.locator('#context .back')).to_be_visible()
+                if width < 480:
+                    expect(page.locator('#context .crumb-here')).to_be_hidden()
+        if width < 768:  # One line per tab label ('Agent 与权限' shows as 权限; its name is unchanged).
+            heights = page.locator('#nav .nav-label').evaluate_all('xs => xs.map(x => Math.round(x.getBoundingClientRect().height))')
+            assert len(set(heights)) == 1, heights
+            expect(page.get_by_role('button', name=re.compile('^Agent 与权限'))).to_have_count(1)
         go(page, 'services')
         page.get_by_role('button', name='按工具', exact=True).click()
         assert fits()
@@ -883,6 +1138,10 @@ def test_probes_from_home(browser, tmp_path, monkeypatch):
         expect(page.locator('#services-results [data-tool-id]')).to_have_count(1)
         expect(page.locator('#services-results [data-tool-id="tripo.studio.generate"]')).to_have_class(re.compile('disabled'))
         expect(page.locator('#tools-count')).to_have_text('1 个工具')
+        page.get_by_label('工具状态').select_option('on')  # 已允许: everything the owner has not switched off.
+        enabled = page.evaluate('model.counts.toolsEnabled')
+        expect(page.locator('#tools-count')).to_have_text(f'{enabled} 个工具')
+        assert page.locator('#services-results [data-tool-id].disabled').count() == 0
         page.get_by_label('工具状态').select_option('')
         expect(page.locator('table.tools thead th')).to_have_count(5)
         states = page.locator('table.tools tbody td:nth-child(4) .state').all_inner_texts()
@@ -893,6 +1152,15 @@ def test_probes_from_home(browser, tmp_path, monkeypatch):
         click_path(page, 'jobs'); click_path(page, 'services')  # M55: filters survive navigation in this tab.
         expect(page.locator('#services-q')).to_have_value('tripo.studio')
         expect(page.get_by_role('button', name='按工具', exact=True)).to_have_attribute('aria-pressed', 'true')
+        # A service page's records say which day they are from (ffmpeg's only record is 30 hours old).
+        click_path(page, 'services')
+        page.locator('#services-q').fill('')
+        page.get_by_role('button', name='按服务', exact=True).click()
+        click_path(page, 'services/ffmpeg')
+        day = page.locator('#service-jobs .day-group h3')
+        expect(day).to_have_count(1)
+        expect(day).not_to_have_text('今天')
+        expect(page.locator('#service-jobs .day-group')).to_contain_text('ffmpeg.probe')
         # M98: no raw job status code is visible.
         click_path(page, 'jobs')
         for raw in ['submission_unknown', 'requires_browser', 'completed', 'failed']:
