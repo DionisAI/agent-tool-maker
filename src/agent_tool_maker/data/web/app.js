@@ -12,8 +12,17 @@ const el = (tag, attrs = {}, ...children) => {
   for (const child of children.flat()) if (child !== null && child !== undefined) n.append(child instanceof Node ? child : document.createTextNode(String(child)));
   return n;
 };
+// The bearer lives in this tab's sessionStorage (exact origin, this tab only); never localStorage or cookies.
+const TOKEN_KEY = 'atm-console-token';
+const tabToken = {
+  get() { try { return sessionStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; } },
+  set(value) { try { sessionStorage.setItem(TOKEN_KEY, value); } catch {} },
+  clear() { try { sessionStorage.removeItem(TOKEN_KEY); } catch {} }
+};
 let token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
+if (token) tabToken.set(token); else token = tabToken.get();
 if (location.hash) history.replaceState(null, '', location.pathname);
+const forgetToken = () => { token = ''; tabToken.clear(); };
 let data = null, active = 'overview', noticeTimer;
 const toolFilters={q:'',mode:'',status:''};
 const labels = {
@@ -73,7 +82,7 @@ async function api(path, body) {
   if (body !== undefined) {opts.method='POST';opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(body);}
   const r=await fetch(path,opts); const value=await r.json();
   if (!r.ok) {
-    if(r.status===401) {token=''; $('#gate').hidden=false;}
+    if(r.status===401) {forgetToken(); $('#gate').hidden=false;}
     throw new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成'));
   }
   return value;
@@ -332,8 +341,8 @@ document.querySelectorAll('[data-nav]').forEach(n=>n.onclick=()=>{active=n.datas
 $('#modal-close').onclick=closeModal;
 $('#modal').addEventListener('cancel',()=>$('#modal-body').replaceChildren());
 $('#refresh').onclick=action(refresh);
-$('#lock').onclick=()=>{token='';data=null;closeModal();$('#main').replaceChildren();$('#gate').hidden=false;};
-$('#session-form').onsubmit=action(async e=>{e.preventDefault();token=$('#session-token').value;$('#session-token').value='';await refresh();});
+$('#lock').onclick=()=>{forgetToken();data=null;closeModal();$('#main').replaceChildren();$('#gate').hidden=false;};
+$('#session-form').onsubmit=action(async e=>{e.preventDefault();token=$('#session-token').value;$('#session-token').value='';await refresh();tabToken.set(token);});
 if(token)refresh().catch(e=>{toast(e.message,true);$('#gate').hidden=false;});
 
 function renderExtensions(main) {
