@@ -877,7 +877,8 @@ function settingsKeys() {
   const vault=vaultInfo(), session=sessionInfo(), pk=data.passkeys||{}, out=[];
   out.push(el('section',{id:'vault-panel'},el('div',{class:'section-head'},el('div',{},el('h2',{},'保管方式'))),el('div',{class:'panel'},
     ...(!vault.backend?[el('p',{},'还没有设置。保存任何 API Key 之前需要设置一次。'),el('div',{},btn('设置保管方式',()=>vaultDialog(),'primary',{'data-key':'vault:init'}))]
-      :[facts([['方式',T.backend[vault.backend]||vault.backend],['状态',MODEL.say(T.vault,vault.state,'{code}')]]),el('p',{},'已设置。不要重新设置：已保存的 Key 会一直保留。'),
+      // While unlocked the vault is not "needed to unlock"; the lock itself is shown only in the pill.
+      :[facts([['方式',T.backend[vault.backend]||vault.backend],['状态',MODEL.say(T.vault,vault.state==='needs_unlock'&&session.unlocked?'unlock_not_checked':vault.state,'{code}')]]),el('p',{},'已设置。不要重新设置：已保存的 Key 会一直保留。'),
         vault.next_action?el('p',{class:'quiet'},'在终端解锁或修复现有的保管库；不要重置，也不用重新填写每个服务的 Key。'):null]))));
   out.push(el('section',{id:'unlock-panel'},el('div',{class:'section-head'},el('div',{},el('h2',{},'解锁'))),el('div',{class:'panel'},
     el('p',{},'当前：'+(session.unlocked?`Key 已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定`:'Key 已锁定')+'。用右上角的按钮解锁或锁定。'),
