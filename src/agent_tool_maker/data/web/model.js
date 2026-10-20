@@ -322,9 +322,9 @@
     const history = new Map(arr(conns.verification_history).map(v => [v?.provider, v]));
     const peers = arr(sync.peers);
     const services = new Map();
-    const ensure = (key, provider, nameHint) => {
+    const ensure = (key, provider, nameHint, toolId = '') => {
       if (!services.has(key)) {
-        const brand = brandOf(provider);
+        const brand = brandOf(provider, toolId);
         services.set(key, {key, name: nameHint || brand.name || key, provider, brand: {...brand, key: brand.key}, tools: [], keyNames: new Map(),
           routes: [], keys: [], credits: null, oauth: null, jobs: [], grants: [], requests: [], inUse: false});
       }
@@ -333,7 +333,7 @@
     const toolViews = new Map();
     for (const tool of tools) {
       if (!str(tool?.id)) continue;
-      const key = serviceKeyOf(tool.provider, tool.id), service = ensure(key, tool.provider, brandOf(tool.provider, tool.id).name);
+      const key = serviceKeyOf(tool.provider, tool.id), service = ensure(key, tool.provider, brandOf(tool.provider, tool.id).name, tool.id);
       const kind = routeKindOf(tool), readiness = toolReadiness(tool, data);
       const view = {id: tool.id, title: str(tool.title) || tool.id, tool, serviceKey: key, route: kind, routeId: routeIdOf(tool, kind),
         enabled: tool.enabled !== false, paid: tool.paid === true, tags: tags(tool, custom), custom: custom.has(tool.id), ...readiness};

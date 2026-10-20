@@ -74,10 +74,10 @@ def test_native_prf_enrollment_management_and_project_unlock(tmp_path,plain_arra
             page.on('response',response_failure)
             cdp,identifier=virtual(context,page)
             page.goto(server.origin+'/#token='+server.token)
-            page.get_by_role('heading',name='连接一次，持续使用。').wait_for()
-            page.get_by_role('button',name='连接与凭证',exact=True).click()
-            page.get_by_role('button',name='绑定 1Password / Passkey',exact=True).click()
-            page.get_by_label('现有 ATM 主密码（首次绑定验证）',exact=True).fill(PASSWORD)
+            page.get_by_role('heading',name='开始使用 ATM').wait_for()
+            page.get_by_role('button',name='设置',exact=True).click()
+            page.get_by_role('button',name='绑定 Passkey',exact=True).click()
+            page.get_by_label('ATM 主密码（首次绑定需要验证）',exact=True).fill(PASSWORD)
             page.get_by_role('button',name='开始绑定',exact=True).click()
             expect(page.locator('#modal')).not_to_be_visible()
             try: expect(page.locator('#passkeys-panel')).to_contain_text('1Password · 已绑定')
@@ -85,7 +85,7 @@ def test_native_prf_enrollment_management_and_project_unlock(tmp_path,plain_arra
                 pytest.fail('Passkey enrollment failed: '+json.dumps(failures)+'; toast='+page.locator('#toast').inner_text()+'; registered='+str(bool(state.setting(SETTING))))
             assert state.setting(SETTING) and not status(state.home)['unlocked']
             assert not page.locator('input[type=password]').evaluate_all('xs=>xs.some(x=>x.value)')
-            page.get_by_role('button',name='总览',exact=True).click()
+            page.get_by_role('button',name='首页',exact=True).click()
             page.get_by_role('button',name='解锁 30 分钟',exact=True).click()
             page.get_by_role('button',name='用 Passkey 解锁 30 分钟',exact=True).click()
             try: expect(page.locator('#credential-session')).to_contain_text('已解锁')
@@ -119,8 +119,8 @@ def test_native_prf_enrollment_management_and_project_unlock(tmp_path,plain_arra
             # Original recovery route and persisted binding survive a new console request.
             page.goto(server.origin+'/#token='+server.token)
             page.get_by_role('button',name='解锁 30 分钟',exact=True).click()
-            page.get_by_label('现有库口令（仅本机解锁，不写入文件）',exact=True).fill(PASSWORD)
-            page.get_by_role('button',name='确认解锁 30 分钟',exact=True).click()
+            page.get_by_label('ATM 主密码',exact=True).fill(PASSWORD)
+            page.get_by_role('button',name='用主密码解锁',exact=True).click()
             expect(page.locator('#credential-session')).to_contain_text('已解锁')
             with state.db() as db:assert db.execute('SELECT * FROM secrets').fetchall()==before
             assert not errors,errors
@@ -148,15 +148,15 @@ def test_native_missing_prf_does_not_persist_binding(tmp_path):
             context=browser.new_context();page=context.new_page();expect.set_options(timeout=15000)
             cdp,identifier=virtual(context,page,prf=False)
             page.goto(server.origin+'/#token='+server.token)
-            page.get_by_role('button',name='连接与凭证',exact=True).click()
-            page.get_by_role('button',name='绑定 1Password / Passkey',exact=True).click()
-            page.get_by_label('现有 ATM 主密码（首次绑定验证）',exact=True).fill(PASSWORD)
+            page.get_by_role('button',name='设置',exact=True).click()
+            page.get_by_role('button',name='绑定 Passkey',exact=True).click()
+            page.get_by_label('ATM 主密码（首次绑定需要验证）',exact=True).fill(PASSWORD)
             page.get_by_role('button',name='开始绑定',exact=True).click()
-            expect(page.locator('#toast')).to_contain_text('passkey_prf_missing')
+            expect(page.locator('#modal-alert')).to_contain_text('passkey_prf_missing')  # Stays inside the dialog.
             assert state.setting(SETTING) is None and server.passkeys.pending is None
             assert not status(state.home)['unlocked']
             assert Vault(state,password=PASSWORD).unlock()
-            assert page.get_by_label('现有 ATM 主密码（首次绑定验证）',exact=True).input_value()==''
+            assert page.get_by_label('ATM 主密码（首次绑定需要验证）',exact=True).input_value()==''
             browser.close()
     finally:server.shutdown();server.server_close();thread.join(5)
 
@@ -184,8 +184,8 @@ def test_native_keyring_modal_omits_absent_password_node(tmp_path):
             browser=pw.chromium.launch(executable_path=chrome,headless=True)
             page=browser.new_page()
             page.goto(server.origin+'/#token='+server.token)
-            page.get_by_role('button',name='连接与凭证',exact=True).click()
-            page.get_by_role('button',name='绑定 1Password / Passkey',exact=True).click()
+            page.get_by_role('button',name='设置',exact=True).click()
+            page.get_by_role('button',name='绑定 Passkey',exact=True).click()
             expect(page.locator('#modal-body')).not_to_contain_text('null')
             expect(page.locator('#modal-body input[type=password]')).to_have_count(0)
             expect(page.get_by_role('button',name='开始绑定',exact=True)).to_be_enabled()

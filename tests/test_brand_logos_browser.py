@@ -35,7 +35,7 @@ def test_native_local_logos_filters_unknown_and_controls(tmp_path,width):
             page.on('requestfailed',lambda request:failures.append(request.failure))
             page.on('request',lambda request:requests.append((request.method,request.url)))
             page.goto(server.origin+'/#token='+server.token)
-            page.get_by_role('heading',name='你的工具箱').wait_for()
+            page.get_by_role('heading',name='我在用的服务').wait_for()
             def loaded():
                 page.wait_for_function("() => [...document.querySelectorAll('.provider-mark img')].every(x=>x.complete&&x.naturalWidth>0)")
             def screenshot(name):
@@ -45,49 +45,63 @@ def test_native_local_logos_filters_unknown_and_controls(tmp_path,width):
                     page.locator('footer').evaluate("e=>e.textContent='隔离测试状态 · 假凭证 · 没有供应商请求'")
                     page.screenshot(path=str(Path(path)/f'brand-{width}-{name}.png'),full_page=True)
             loaded()
-            assert page.locator('.brand-tile').count()==12
-            assert page.locator('.brand-tile [data-brand=tripo] img').count()==1
-            assert page.locator('.brand-tile [data-brand=higgsfield] img').count()==1
+            # 首页: the in-use service rows, the credits cards and both Agents carry bundled marks.
+            assert page.locator('#home-services .service-row').count()>=1
+            assert page.locator('#home-services .service-row [data-brand=fal] img').count()==1
+            assert page.locator('#credits-panel [data-brand=tripo] img').count()==1
+            assert page.locator('#credits-panel [data-brand=higgsfield] img').count()==1
             assert page.locator('[data-brand=claude] img').count()==1
             assert page.locator('[data-brand=openai] img').count()==1
             assert page.evaluate('document.documentElement.scrollWidth')<=width
             screenshot('overview')
-            page.locator('.brand-tile').filter(has=page.locator('[data-brand=tripo]')).click()
-            expect(page.get_by_label('搜索工具')).to_have_value('tripo.')
-            assert 'tripo.' in page.locator('tbody tr').first.inner_text()
+            # 服务: every service is one click away; Tripo collects the studio-namespace tool.
+            page.get_by_role('button',name='服务',exact=True).click()
+            assert page.locator('.service-index [data-brand=tripo] img').count()==1
+            assert page.locator('.service-index [data-brand=higgsfield] img').count()==1
+            assert page.locator('.service-index [data-brand=acme]').count()==1
+            page.locator('.service-index button').filter(has=page.locator('[data-brand=tripo]')).click()
+            expect(page.locator('#main .page-title h1')).to_have_text('Tripo3D')
+            expect(page.locator('#tools')).to_contain_text('tripo.studio.fixture')
             loaded();screenshot('tripo')
-            page.get_by_label('搜索工具').fill('acme.fixture')
-            expect(page.locator('tbody tr')).to_have_count(1)
-            assert page.locator('[data-brand=acme]').inner_text()=='AC'
-            assert page.locator('tbody img').count()==0
-            assert '<img src=x onerror=alert(1)>' in page.locator('tbody').inner_text()
-            page.get_by_role('button',name='查看',exact=True).click()
+            page.get_by_role('button',name='服务',exact=True).click()
+            page.get_by_role('button',name='按工具',exact=True).click()
+            page.locator('#services-q').fill('acme.fixture')
+            rows=page.locator('#services-results [data-tool-id]')
+            expect(rows).to_have_count(1)
+            assert page.locator('#services-results [data-brand=acme]').inner_text()=='AC'
+            assert page.locator('#services-results img').count()==0
+            assert '<img src=x onerror=alert(1)>' in rows.inner_text()
+            page.locator('[data-key="tool:acme.fixture"]').click()
             expect(page.locator('#modal-body')).to_contain_text('acme.fixture')
             page.get_by_role('button',name='关闭',exact=True).click()
-            page.get_by_label('搜索工具').fill('Higgsfield')
-            assert page.locator('tbody tr').count()>0
-            assert page.locator('tbody [data-brand=higgsfield] img').count()==page.locator('tbody tr').count()
+            page.locator('#services-q').fill('Higgsfield')
+            assert rows.count()>0
+            assert page.locator('#services-results [data-tool-id] [data-brand=higgsfield] img').count()==rows.count()
             loaded();screenshot('tools')
-            page.get_by_role('button',name='连接与凭证',exact=True).click()
-            page.get_by_label('搜索连接').fill('fal.ai')
-            expect(page.locator('.connection-grid .card')).to_have_count(1)
-            expect(page.locator('.connection-grid')).to_contain_text('已保存')
+            # 设置 › Key 保管: the saved Key and the Passkey mark.
+            page.get_by_role('button',name='设置',exact=True).click()
+            page.get_by_label('搜索 Key').fill('fal')
+            saved=page.locator('#all-keys .rows').first.locator('li.key-row')
+            expect(saved).to_have_count(1)
+            expect(saved).to_contain_text('可以使用')
             assert page.locator('#passkeys-panel [data-brand="1password"] img').count()==1
             loaded();screenshot('connections')
             assert not [r for r in requests if r[0]=='POST'] # Logos/navigation are read-only.
             assert all(urlsplit(url).netloc==urlsplit(server.origin).netloc or url.startswith('data:') for _,url in requests)
-            page.get_by_role('button',name='工具目录',exact=True).click()
-            page.get_by_label('搜索工具').fill('fal.generate')
-            page.on('dialog',lambda dialog:dialog.accept())
-            page.get_by_role('button',name='已启用 · 停用',exact=True).click()
-            expect(page.get_by_role('button',name='已停用 · 启用',exact=True)).to_be_visible()
+            page.get_by_role('button',name='服务',exact=True).click()
+            page.locator('#services-q').fill('fal.generate')
+            switch=page.get_by_role('switch',name='允许 Agent 使用 fal.generate',exact=True)
+            expect(switch).to_have_attribute('aria-checked','true')
+            page.on('dialog',lambda dialog:pytest.fail('no native confirm for a single switch'))
+            switch.click()
+            expect(page.get_by_role('switch',name='允许 Agent 使用 fal.generate',exact=True)).to_have_attribute('aria-checked','false')
             router=Router(state.home)
             try:assert router.readiness(router.catalog.get('fal.generate'))=='disabled'
             finally:router.close()
-            page.get_by_role('button',name='Agent 客户端',exact=True).click()
-            assert page.locator('tbody [data-brand=ffmpeg] img').count()>0
+            page.evaluate("go('settings/programs')")
+            assert page.locator('[data-program=ffmpeg] [data-brand=ffmpeg] img').count()==1
             loaded()
-            page.get_by_role('button',name='锁定界面',exact=True).click()
+            page.get_by_role('button',name='退出管理台',exact=True).click()
             assert page.locator('#gate').is_visible() and not page.locator('#main').inner_text()
             assert not errors,errors
             assert not failures,failures
