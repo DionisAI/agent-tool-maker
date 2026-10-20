@@ -8,7 +8,8 @@
   const arr = value => Array.isArray(value) ? value : [];
   const obj = value => value !== null && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const str = value => typeof value === 'string' ? value : '';
-  const fill = (text, vars = {}) => String(text).replace(/\{(\w+)\}/g, (match, key) => own(vars, key) ? String(vars[key]) : match);
+  // Keys may be CJK (for example {服务}); \w would only match ASCII.
+  const fill = (text, vars = {}) => String(text).replace(/\{([^{}\s]+)\}/g, (match, key) => own(vars, key) ? String(vars[key]) : match);
   // Code → copy lookups use own keys only: a code such as "constructor" is not a prototype member.
   function say(dict, code, fallback = '') {
     return own(dict, code) ? dict[code] : fill(fallback, {code: String(code)});
@@ -106,7 +107,14 @@
   // Short labels for credits refresh errors; anything else shows its code.
   const CREDIT_ERRORS = {cli_not_configured: '程序未绑定', login_required: '需要登录', refresh_in_progress: '正在读取',
     credits_unreadable: '无法读取额度', runtime_unavailable: '服务未运行', cli_failed: '读取失败'};
-  const creditLabel = code => own(CREDIT_ERRORS, code) ? CREDIT_ERRORS[code] : '读取失败 · ' + code;
+  const CREDIT_REASONS = {cli_protocol: '程序返回的内容无法识别', cli_timeout: '读取超时', cli_start_failed: '程序无法启动',
+    cli_output_limit: '程序输出过多', executable_changed: '程序已更新，需要重新确认', refresh_failed: '读取没有完成',
+    execution_interrupted: '读取被中断', tool_disabled: '读取工具已停用', upstream_schema: '返回内容格式不对',
+    upstream_rejected: '服务拒绝了读取请求', unsafe_path: '本机路径不安全，没有读取'};
+  const creditLabel = code => own(CREDIT_ERRORS, code) ? CREDIT_ERRORS[code] : own(CREDIT_REASONS, code) ? CREDIT_REASONS[code] : '读取失败 · ' + code;
+  // The badge title: the message; a code translated into a reason keeps the code there too.
+  const creditTitle = error => { const code = str(error?.code), message = str(error?.message);
+    return own(CREDIT_REASONS, code) ? (message ? message + '（' + code + '）' : code) : message; };
   const OAUTH_SERVICE = {loaded: '运行中', load_failed: '启动失败', load_conflict: '和已有服务冲突', not_installed: '未安装', foreground_only: '只在前台运行'};
   const ERROR = {
     vault_locked: 'ATM 主密码不正确（或保管库数据已损坏）。Key 仍是锁定的。',
@@ -147,7 +155,7 @@
     passkey_vault_mismatch: '这个 Passkey 打不开当前的保管库，请改用 ATM 主密码。', passkey_expired: '操作超时，请重试。',
     passkey_busy: '正在处理另一个 Passkey 请求，请稍候。', passkey_dependency_missing: '需要先安装 Passkey 组件。',
     passkey_origin: '请从 atm ui 打开的 localhost 地址使用 Passkey。', passkey_limit: '已经绑定了允许的最多数量的 Passkey。',
-    network: '连接不到本机 ATM。请确认 atm ui 还在运行。',
+    network: '连接不到本机 ATM。请确认 atm ui 还在运行。', unknown_tool: '有工具 ID 不在目录中，删掉后再检查。',
   };
   function errorText(code) {
     code = str(code);
@@ -256,7 +264,10 @@
         // The vault-lock rule: the Key is saved; whether it is unlocked lives only in the Key pill.
         set('ready', session.unlocked ? '可以使用。Key 已解锁。' : vault.backend === 'keyring' ? '可以使用。Key 保存在系统钥匙串里。'
           : '可以使用。Key 已保存；Key 锁定时，Agent 会打开授权窗口请你解锁。'); break;
-      case 'missing_credential': set('setup', '缺少 Key：' + credential, dialog('添加 API Key', {d: 'key', mode: 'add', name: credential})); break;
+      case 'missing_credential':
+        // An MCP tool reports a missing Key only after its reviewed configuration is bound: half set up, so it needs the owner.
+        if (kind === 'mcp') set('attention', `MCP 服务已设置，还缺少 Key：${credential}。`, dialog('添加 API Key', {d: 'key', mode: 'add', name: credential}), '缺少 Key');
+        else set('setup', '缺少 Key：' + credential, dialog('添加 API Key', {d: 'key', mode: 'add', name: credential})); break;
       case 'credential_expired': set('blocked', credential + ' 的 Key 已过期。', dialog('更换 API Key', {d: 'key', mode: 'replace', name: credential}), 'Key 已过期'); break;
       case 'sync_conflict': set('blocked', credential + ' 的 Key 在两台设备上不一致，已暂停。', dialog('选择版本', {d: 'resolve', name: credential}), 'Key 冲突'); break;
       case 'cli_not_configured': set('setup', `需要本机程序 ${exe}。`, toRoute('查看设置步骤')); break;
@@ -282,7 +293,7 @@
       case 'not_initialized': case 'vault_not_initialized': set('setup', '先设置 Key 的保管方式。', dialog('开始设置', {d: 'vault'})); break;
       default: set('attention', `ATM 返回了未知状态（${code || 'unknown'}）。`, dialog('查看详情', {d: 'tool', id: tool?.id}));
     }
-    if (health.cli_authentication === 'vendor_login_not_verified') r.sentence += ` 登录由 ${exe} 自己管理，ATM 不检查。`;
+    if (health.cli_authentication === 'vendor_login_not_verified') r.sentence += `登录由 ${exe} 自己管理，ATM 不检查。`;
     return r;
   }
 
@@ -409,7 +420,7 @@
       const key = serviceKeyOf(name);
       if (services.has(key)) services.get(key).requests.push(req);
     }
-    // In use: anything the owner set up, installed or started.
+    // In use: anything the owner set up, installed or started, or anything that needs the owner.
     const sessionNames = new Set(sessions.map(s => s?.name));
     for (const service of services.values()) {
       const toolIds = new Set(service.tools.map(v => v.id));
@@ -418,7 +429,10 @@
         || service.tools.some(v => v.custom) || (service.oauth && service.oauth.status !== 'missing')
         || Boolean(service.credits?.installed) || service.jobs.length > 0 || service.grants.length > 0 || service.requests.length > 0
         || service.tools.some(v => !v.enabled) || service.tools.some(v => v.route === 'recipe' && sessionNames.has(sessionOf(v.tool)))
-        || service.routes.some(r => !HANDOFF_KINDS.has(r.kind) && r.state === 'ready' && r.kind !== 'key');
+        || service.routes.some(r => !HANDOFF_KINDS.has(r.kind) && r.state === 'ready' && r.kind !== 'key')
+        // Something needs the owner, or a reviewed MCP configuration is bound (its Key may still be missing).
+        || service.routes.some(r => ['attention', 'blocked'].includes(r.state))
+        || service.tools.some(v => v.route === 'mcp' && str(v.tool.health?.state) && v.tool.health.state !== 'mcp_not_configured');
       service.toolIds = toolIds;
       service.haystack = [service.key, service.name, ...service.tools.flatMap(v => [v.id, v.title, ...arr(v.tool.capabilities)])].join('\n').toLowerCase();
     }
@@ -524,8 +538,8 @@
     const ids = listTools(tools.map(v => v.id));
     const route = {kind, id, anchor: routeAnchor(kind, id), title: KIND_TITLES[kind], chip: KIND_CHIPS[kind], sub: '', state, word: '',
       summary: '', facts: [], steps: null, body: [], info: null, commands: [], actions: [], tools, notes: []};
+    // A command shows in its own box with a 复制 button; the route adds no second copy button for it.
     const cmd = (text, label = '') => route.commands.push({text, label});
-    const copy = text => ({label: '复制命令', kind: 'copy', target: text});
     if (kind === 'chrome') {
       route.title = '你的 Chrome 登录 · ' + site.name; route.chip = '你的 Chrome';
       route.sub = `${tools.length} 个工具通过 OpenCLIApp 在你已登录的 Chrome 里操作 ${site.host || site.name}，用的是网站会员积分。登录保存在 Chrome 里，ATM 不保存密码。`;
@@ -536,7 +550,7 @@
       let programOk = false;
       if (program.state === 'configured_not_verified' && program.path) {
         programOk = true;
-        steps.push({state: 'ok', text: '已绑定 OpenCLIApp' + (others.length ? `（与${others.join('、')}共用）` : ''), mono: program.path});
+        steps.push({state: 'ok', text: '已绑定 OpenCLIApp' + (others.length ? `（与 ${others.join('、')} 共用）` : ''), mono: program.path});
       } else if (program.state === 'cli_not_configured' && program.detected) {
         steps.push({state: 'todo', text: `在 ${program.detected} 找到了 OpenCLIApp，确认后即可使用。`, action: dialog('绑定', {d: 'setup', clis: [exe]})});
       } else if (program.state === 'cli_not_configured') {
@@ -549,17 +563,22 @@
       }
       const row = site.credits ? ctx.creditRows.find(r => r?.provider === site.credits) : null;
       const accountInstalled = site.account && ctx.toolViews.has(site.account);
-      const fromSite = row && row.source === site.account;
+      const fromSite = row && row.source === site.account, readsSite = row && row.next_source === site.account;
+      // Another source (such as a CLI) reads this site's credits: the Chrome login is not checked from here.
+      const reader = row && !readsSite && str(row.next_source) ? exeOf(ctx.toolViews.get(row.next_source)?.tool) : '';
       let login = false;
       if (fromSite && row.status === 'ok') steps.push({state: 'ok', text: `Chrome 已登录 ${site.name}（${relative(row.checked_at, now)}检查）`});
       else if (fromSite && row.status === 'error' && row.error?.code === 'login_required') {
         login = true;
         steps.push({state: 'todo', text: `上次检查时，Chrome 里没有登录 ${site.name}（${relative(row.checked_at, now)}）。登录后点“检查 Chrome 登录”。`});
       } else if (fromSite && row.status === 'error') steps.push({state: 'todo', text: `上次检查没有成功：${creditLabel(str(row.error?.code))}（${relative(row.checked_at, now)}）。`});
+      else if (accountInstalled && reader) steps.push({state: 'none', text: `积分从 ${reader} 程序读取，不会检查 Chrome。Chrome 里是否已登录 ${site.name}，在 Agent 使用时确认${site.host ? '；可以先在 Chrome 里打开网站登录好' : ''}。`});
       else if (accountInstalled) steps.push({state: 'none', text: '还没检查过 Chrome 是否已登录。'});
       else steps.push({state: 'none', text: '登录状态只能在 Agent 使用时确认。'});
       route.steps = steps;
       const check = row && row.next_source === site.account && programOk;
+      // Opening the website is always possible, so the login step never ends without a next step.
+      if (site.host) route.open = {host: site.host, name: site.name};
       if (check) {
         route.check = {provider: site.credits, host: site.host, name: site.name};
         route.notes.push(`检查会让 Chrome 打开 ${site.name}，只读取登录状态和积分，不生成任何内容，并在记录里留下一条“读取额度”。`);
@@ -570,10 +589,10 @@
       if (state === 'off') route.word = '已停用';
       else if (state === 'setup') {
         route.word = '待设置';
-        route.actions = [program.detected ? dialog('绑定', {d: 'setup', clis: [exe]}, {primary: true}) : routeAction('查看设置步骤', service.key, kind, id, {step: 2, primary: true})];
+        route.actions = [program.detected ? dialog('绑定', {d: 'setup', clis: [exe]}, {primary: true}) : {...routeAction('查看设置步骤', service.key, kind, id, {step: 2}), primary: true}];
         route.summary = '还没绑定 OpenCLIApp。';
       } else if (state === 'blocked') {
-        route.word = '不能使用'; route.actions = [{...copy(`atm cli bind opencliapp ${quote(program.path)}`), primary: true}];
+        route.word = '不能使用';  // The rebind command is in step 2, with its own 复制 button.
         route.summary = 'OpenCLIApp 已更新或不见了，需要你重新确认。';
       } else if (state === 'attention') {
         route.word = login ? '需要登录' : STATE_WORDS.attention;
@@ -602,7 +621,7 @@
           route.summary = `在本机找到了 ${exe}，确认绑定后即可使用。`;
         } else if (program.state === 'cli_not_configured') {
           route.word ||= '待设置'; route.body = [`本机没有找到 ${exe}。先安装它；如果装好后它不在 PATH 里，在终端运行：`];
-          cmd(command(exe)); route.actions = [{...copy(command(exe)), primary: true}];
+          cmd(command(exe));
           route.summary = `需要本机程序 ${exe}。`;
         } else if (program.state.startsWith('executable_')) {
           const table = {
@@ -612,7 +631,7 @@
             executable_unreadable: ['无法读取', `无法读取 ${path}。`, `无法读取 ${exe}。`],
             executable_unpinned: ['需要重新绑定', `${exe} 已绑定，但没有记录程序指纹。在终端重新绑定一次：`, `${exe} 已绑定，但没有记录程序指纹。`],
           }[program.state] || ['不能使用', `${path}：${program.state}`, `${exe} 不能使用。`];
-          route.word ||= table[0]; route.body = [table[1]]; cmd(bind); route.actions = [{...copy(bind), primary: true}];
+          route.word ||= table[0]; route.body = [table[1]]; cmd(bind);
           route.summary = table[2];
         } else if (credits) {
           if (state !== 'off' && severity(state) > severity('attention')) state = 'attention';
@@ -655,6 +674,7 @@
       if (str(o.last_error)) route.facts.push(['最近一次续期失败', o.last_error, true]);
       if (!o.keep_login && backend !== 'keyring') route.facts.push(['自动续期', '自动续期需要用系统钥匙串保管 Key；你现在用的是 ATM 主密码。']);
       if (primary !== '刷新状态') route.actions.push({label: '刷新状态', kind: 'refresh'});
+      if (!primary) route.actions.push(dialog('重新登录', {d: 'oauth', keep: Boolean(o.keep_login)}));
       if (o.keep_login) route.actions.push(dialog('停止自动续期', {d: 'stop-renew'}));
       else if (status === 'ready' && backend === 'keyring') route.actions.push(dialog('开启自动续期', {d: 'oauth', keep: true}));
     } else if (kind === 'mcp') {
@@ -665,17 +685,18 @@
       if (state === 'off') route.word = '已停用';
       if (codes.includes('mcp_not_configured')) {
         route.word ||= '待设置'; route.body = ['需要在终端绑定一次经过你审阅的 MCP 配置：']; cmd(bindCmd);
-        route.actions = [{...copy(bindCmd), primary: true}]; route.summary = `MCP 服务 ${id} 还没设置。`;
+        route.summary = `MCP 服务 ${id} 还没设置。`;
       } else if (codes.includes('missing_credential')) {
         const name = str(enabled.find(v => v.tool.health?.state === 'missing_credential')?.tool.health.credential);
-        route.word ||= '待设置'; route.body = [`MCP 已设置，还需要 Key：${name}。`];
-        route.actions = [dialog('添加 API Key', {d: 'key', mode: 'add', name}, {primary: true})];
+        // Bound but its Key is not saved: one Key to add, on the Key route above (no second 添加 API Key button).
+        route.word ||= '缺少 Key'; route.body = [`MCP 已设置，还需要 Key：${name}。`];
+        route.actions = [{...routeAction('到“API Key”里添加', service.key, 'key', name, {focus: 'action'}), quiet: true}];
         route.summary = `MCP 服务已设置，还缺少 Key：${name}。`;
       } else if (codes.some(c => c.startsWith('executable_'))) {
         const path = str(enabled.map(v => v.tool.health?.binary?.path).find(Boolean));
         route.word ||= codes.includes('executable_changed') ? '程序已更新' : '不能使用';
         route.body = [`MCP 服务的程序 ${path} 已变化，需要你重新确认：`]; cmd(bindCmd);
-        route.actions = [{...copy(bindCmd), primary: true}]; route.summary = `MCP 服务 ${id} 的程序已变化，需要你重新确认。`;
+        route.summary = `MCP 服务 ${id} 的程序已变化，需要你重新确认。`;
       } else {
         route.word ||= state === 'ready' ? '可以使用' : STATE_WORDS[state];
         route.facts.push(['服务', id]);
@@ -691,13 +712,13 @@
         route.word ||= '待设置'; route.body = ['需要先安装 ATM 的网页组件（[web] 扩展）和它使用的 Chromium。']; route.summary = '需要安装 ATM 的网页组件。';
       } else if (codes.includes('browser_session_missing')) {
         route.word ||= '待设置'; route.body = ['还没有登录。在终端运行：']; cmd(`atm web login ${toolId}`);
-        route.actions = [{...copy(`atm web login ${toolId}`), primary: true}]; route.summary = '还没有用 ATM 登录这个网站。';
+        route.summary = '还没有用 ATM 登录这个网站。';
       } else if (codes.includes('browser_session_expired')) {
         route.word ||= '登录已过期'; route.body = ['登录已过期。在终端重新登录：']; cmd(`atm web login ${toolId} --replace`);
-        route.actions = [{...copy(`atm web login ${toolId} --replace`), primary: true}]; route.summary = 'ATM 网页登录已过期。';
+        route.summary = 'ATM 网页登录已过期。';
       } else if (codes.includes('browser_session_scope')) {
         route.word ||= '登录范围不符'; route.body = ['已保存的登录覆盖的网站和这个工具需要的不一致。在终端重新登录：']; cmd(`atm web login ${toolId} --replace`);
-        route.actions = [{...copy(`atm web login ${toolId} --replace`), primary: true}]; route.summary = '已保存的登录不包含这个工具需要的网站。';
+        route.summary = '已保存的登录不包含这个工具需要的网站。';
       } else {
         route.word ||= state === 'ready' ? '可以使用' : STATE_WORDS[state];
         const saved = ctx.sessions.find(s => s?.name === id);
@@ -715,14 +736,15 @@
       const text = `atm origin set ${provider} '<服务地址>' --approve-origin`;
       cmd(text);
       route.word = state === 'off' ? '已停用' : STATE_WORDS[state];
-      if (state === 'setup') { route.actions = [{...copy(text), primary: true}]; route.summary = '需要先设置服务地址。'; }
+      if (state === 'setup') route.summary = '需要先设置服务地址。';
     } else if (kind === 'agent_browser') {
       route.sub = ids;
       const host = hostOf(tools.map(v => str(v.tool.url)).find(Boolean)) || service.name + ' 网站';
       route.info = [`${ids} 不在 ATM 里登录。Claude Code 或 Codex 用到它时，会在它自己的浏览器里打开 ${host}；如果网站要求登录，请在那个浏览器窗口里登录。ATM 不保存这个登录，也不会提前检查。`,
         '任务会显示“等 Agent 的浏览器”，完成后由 Agent 把文件交回 ATM。'];
       if (tools.some(v => v.paid)) route.info.push(`在网站上的操作可能消耗你在 ${service.name} 的会员额度。`);
-      if (ctx.keyNames.length && service.tools.some(v => v.route === 'key')) route.info.push(`想让 Agent 不经过浏览器、直接调用 ${service.name}？在上面的“API Key”里保存 Key。`);
+      const keyWorks = service.routes.some(r => r.kind === 'key' && ['ready', 'attention'].includes(r.state));
+      if (ctx.keyNames.length && service.tools.some(v => v.route === 'key') && !keyWorks) route.info.push(`想让 Agent 不经过浏览器、直接调用 ${service.name}？在上面的“API Key”里保存 Key。`);
       if (ctx.kinds.has('chrome')) route.info.push('这和“你的 Chrome 登录”是同一个网站，但用的是 Agent 的浏览器，不是你的 Chrome。');
       route.word = state === 'off' ? '已停用' : '无需在 ATM 设置';
       route.handoffNote = ids;
@@ -764,15 +786,32 @@
     if (severe) service.lead = stripStop(severe.summary || severe.word) + (ready.length ? '；其余方式可以使用。' : '。');
     else if (!live.length) service.lead = '还没有设置。';
     else if (live.every(r => r.state === 'handoff')) service.lead = '无需在 ATM 设置。Agent 会在它自己的浏览器或软件里完成，ATM 只记录结果。';
-    else if (!setup.length) service.lead = `可以使用。Agent 可以通过${[...ready, ...handoff].map(r => r.title).join('、')}使用 ${count([...ready, ...handoff])} 个工具。`;
+    else if (!setup.length) service.lead = `可以使用。Agent 可以通过 ${[...ready, ...handoff].map(r => r.title).join('、')} 使用 ${count([...ready, ...handoff])} 个工具。`;
     else if (!ready.length) service.lead = '还没有设置。' + (setup[0].summary || '') + handoffNote;
-    else service.lead = `可以使用。Agent 可以通过${[...ready, ...handoff].map(r => r.title).join('、')}使用 ${count([...ready, ...handoff])} 个工具；${setup.map(r => r.title).join('、')}还没设置，用到时再设置。`;
-    // One primary: the first action of the most severe route (blocked > attention > setup), in route order.
+    else service.lead = `可以使用。Agent 可以通过 ${[...ready, ...handoff].map(r => r.title).join('、')} 使用 ${count([...ready, ...handoff])} 个工具；${setup.map(r => r.title).join('、')} 还没设置，用到时再设置。`;
+    // One primary per intent. The header carries the fix of the most severe route (blocked > attention > setup, in route
+    // order). A link to another route on this page stands for that route's own fix. A route fixed by a command (shown with
+    // its own 复制 button) gets a header link that jumps to the command. Next to a working route, a setup is optional.
     const eligible = routes.filter(r => r.tools.some(v => v.enabled) || (r.kind === 'key' && !service.tools.length) || r.kind === 'oauth');
+    const firstOf = r => r.actions.find(a => a.primary) || r.actions[0] || null;
+    const fixOf = r => {
+      const a = firstOf(r), to = a?.kind === 'route' && a.target?.service === service.key ? routes.find(x => x.anchor === a.target.anchor) : null;
+      if (to && to !== r && firstOf(to)) return firstOf(to);
+      if (a) return a;
+      const link = (r.commands.length || arr(r.steps).some(step => step.command)) && r.tools.find(v => v.enabled && v.state === r.state && v.fix?.kind === 'route')?.fix;
+      return link ? {...link, target: {...link.target, focus: 'command'}} : null;
+    };
     service.primary = null;
     for (const s of ['blocked', 'attention', 'setup']) {
-      const route = eligible.find(r => r.state === s && r.actions.length);
-      if (route) { service.primary = {...(route.actions.find(a => a.primary) || route.actions[0]), primary: true, route: route.anchor}; break; }
+      if (s === 'setup' && ready.length) break;
+      const route = eligible.find(r => r.state === s && fixOf(r));
+      if (route) { service.primary = {...fixOf(route), primary: true, quiet: false, route: route.anchor}; break; }
+    }
+    // The header's fix is not repeated as a second filled button, and an optional setup never outshines a working route.
+    const same = (a, b) => Boolean(b) && a.label === b.label && a.kind === b.kind && JSON.stringify(a.target) === JSON.stringify(b.target);
+    for (const r of routes) {
+      const optional = r.state === 'setup' && routes.some(o => o !== r && ['ready', 'attention', 'blocked'].includes(o.state));
+      r.actions = r.actions.map(a => a.primary && (optional || same(a, service.primary)) ? {...a, primary: false} : a);
     }
   }
 
@@ -911,9 +950,9 @@
       if (own(words, status))
         push('oauth', status, words[status][0], key, `Higgsfield 的 ATM 登录${words[status][1]}`, 'Higgsfield MCP 工具暂时不能使用。', dialog('重新登录', {d: 'oauth', keep: false}));
       if (o.keep_login && svcRow.status !== 'loaded')
-        push('renew', o.provider, 'warn', key, 'Higgsfield 自动续期没有运行', `ATM 登录将在 ${typeof o.expires_at === 'number' ? datetime(o.expires_at, now) : '到期时'} 到期，之后需要你重新登录。`, routeAction('查看', key, 'oauth', 'oauth'));
+        push('renew', o.provider, 'warn', key, 'Higgsfield 自动续期没有运行', typeof o.expires_at === 'number' ? `ATM 登录将在 ${datetime(o.expires_at, now)} 到期，之后需要你重新登录。` : 'ATM 登录到期后需要你重新登录。', routeAction('查看', key, 'oauth', 'oauth'));
       if (status === 'pending')
-        push('oauth-pending', o.provider, 'info', key, '等你在浏览器里完成 Higgsfield 登录', `${typeof o.login_deadline === 'number' ? datetime(o.login_deadline, now) : '登录期限'} 前有效。完成后点“刷新”。`, {label: '刷新状态', kind: 'refresh'});
+        push('oauth-pending', o.provider, 'info', key, '等你在浏览器里完成 Higgsfield 登录', (typeof o.login_deadline === 'number' ? `${datetime(o.login_deadline, now)} 前有效。` : '') + '完成后点“刷新状态”。', {label: '刷新状态', kind: 'refresh'});
     }
     for (const row of creditRows) {
       if (!row?.installed || row.status !== 'error' || row.error?.code !== 'login_required') continue;
@@ -972,7 +1011,7 @@
 
   const T = Object.freeze({
     state: STATE_WORDS, job, jobSentence: JOB_SENTENCE, verify: VERIFY, verifyWord, cost, verifyResult: VERIFY_RESULT, verifyText: verifyResult,
-    creditErrors: CREDIT_ERRORS, creditLabel, vault: VAULT, backend: BACKEND, permission: PERMISSION, tag: TAG, oauthService: OAUTH_SERVICE, error: ERROR, errorText, knownError,
+    creditErrors: CREDIT_ERRORS, creditReasons: CREDIT_REASONS, creditLabel, creditTitle, vault: VAULT, backend: BACKEND, permission: PERMISSION, tag: TAG, oauthService: OAUTH_SERVICE, error: ERROR, errorText, knownError,
     kinds: KIND_TITLES, chips: KIND_CHIPS, kindOrder: KIND_ORDER, sites: SITES, date, time, datetime, fullDate, day, relative, listTools, quote, fill, brandOf, slug,
   });
   W.ATM_MODEL = Object.freeze({derive, T, say, routeKindOf, toolReadiness, serviceKeyOf});

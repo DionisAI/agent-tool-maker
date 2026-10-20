@@ -118,7 +118,7 @@ test('a saved Key reads ready whatever the lock: the lock lives only in the pill
   }
   const vendor = tool('wrangler.deploy', 'command', 'cloudflare_wrangler', 'configured_not_verified',
     {executable: 'wrangler', health: {cli_authentication: 'vendor_login_not_verified'}});
-  assert.equal(M.toolReadiness(vendor, data()).sentence, '可以使用（ATM 不会提前联网验证）。 登录由 wrangler 自己管理，ATM 不检查。');
+  assert.equal(M.toolReadiness(vendor, data()).sentence, '可以使用（ATM 不会提前联网验证）。登录由 wrangler 自己管理，ATM 不检查。');
 });
 
 test('each tool maps to exactly one route kind, with and without the reference fields', () => {
@@ -198,7 +198,9 @@ test('route and service states aggregate, and the lead sentence follows them', (
   service = M.derive(data({tools: eleven, connections: [conn('elevenlabs', {configured: true, configured_at: NOW - 86400})]}), NOW).byKey.get('elevenlabs');
   assert.equal(service.state, 'ready');
   assert.equal(service.primary, null);
-  assert.equal(service.lead, '可以使用。Agent 可以通过API Key、交给 Agent 的浏览器使用 2 个工具。');
+  assert.equal(service.lead, '可以使用。Agent 可以通过 API Key、交给 Agent 的浏览器 使用 2 个工具。');
+  // A working Key: the Agent-browser route no longer suggests saving one.
+  assert.ok(!service.routes.find(r => r.kind === 'agent_browser').info.some(line => line.includes('保存 Key')));
   assert.deepEqual(plain(service.routes[0].facts[0]), ['用于', 'elevenlabs.tts']);
   assert.ok(service.routes[0].actions.map(a => a.label).join() === '联网测试,更换,移除');
   // Blocked beats ready in the lead, which says the other routes still work.
@@ -209,7 +211,11 @@ test('route and service states aggregate, and the lead sentence follows them', (
   assert.equal(service.lead, 'ffmpeg 已更新，需要你重新确认；其余方式可以使用。');
   assert.equal(service.routes[0].word, '程序已更新');
   assert.equal(service.routes[0].commands[0].text, "atm cli bind ffmpeg '/fake/ffmpeg'");
-  assert.equal(service.primary.label, '复制命令');
+  // The command box has its own 复制 button: no second copy button; the header jumps to the command.
+  assert.deepEqual(plain(service.routes[0].actions), []);
+  assert.equal(service.primary.label, '查看确认方法');
+  assert.equal(service.primary.kind, 'route');
+  assert.deepEqual(plain(service.primary.target), {service: 'ffmpeg', kind: 'program', id: 'ffmpeg', anchor: 'route-program-ffmpeg', focus: 'command'});
   // Only blocked: the service is blocked. All disabled: off, with one bulk primary.
   service = M.derive(data({tools: [ffmpeg[0]], clis: [{name: 'ffmpeg', state: 'executable_changed', path: '/fake/ffmpeg'}]}), NOW).byKey.get('ffmpeg');
   assert.equal(service.state, 'blocked');
@@ -429,4 +435,151 @@ test('agents, first run and counts', () => {
   assert.equal(model.counts.servicesReady, 1);
   assert.ok(model.byKey.get('suno').inUse);  // An owner-disabled tool is something the owner set.
   assert.deepEqual(plain(model.tools.get('fal.generate').tags), ['可能扣费']);
+});
+
+test('fill() substitutes CJK keys as well as ASCII ones, and leaves unknown keys alone', () => {
+  assert.equal(M.T.fill('到达了 {服务}。请先到 {服务} 网站核对（{code}）。', {'服务': 'Tripo3D', code: 'x'}), '到达了 Tripo3D。请先到 Tripo3D 网站核对（x）。');
+  assert.equal(M.T.fill('{未知} {constructor}', {}), '{未知} {constructor}');
+});
+
+// Every status, every route kind and every inbox rule at once: the owner never reads a raw {placeholder}.
+function richFixture() {
+  const base = inboxFixture();
+  const statuses = Object.keys(M.T.job).concat(['fixture_new_status']);
+  base.jobs.push(...statuses.map((status, i) => ({id: 'job-' + status, tool: i % 2 ? 'tripo.studio.generate' : 'fal.generate', status, kind: 'tool',
+    created: NOW - 86400 * (i % 3) - 60, updated: NOW - 30, verification: i % 2 ? null : 'ffprobe', cost_usd: i % 2 ? null : 0.18, cost_status: 'provider_report', artifact_count: i})),
+  {id: 'job-orphan', tool: 'gone.tool', status: 'login_required', kind: 'tool', created: NOW - 5, updated: NOW - 5});
+  base.tools.push(
+    tool('elevenlabs.tts', 'elevenlabs', 'elevenlabs', 'missing_credential', {credentials: ['elevenlabs'], paid: true, health: {credential: 'elevenlabs'}}),
+    tool('elevenlabs.web', 'browser', 'elevenlabs', 'browser_login_unknown', {url: 'https://elevenlabs.io/app/', paid: true}),
+    tool('xyq.web.account', 'command', 'xyq', 'configured_not_verified', {executable: 'opencliapp'}),
+    tool('pippit.cli.credit_balance', 'xyq', 'xyq', 'configured_not_verified', {executable: 'xyq'}),
+    tool('higgsfield.mcp', 'mcp', 'higgsfield', 'configured_not_verified', {server: 'higgsfield', oauth: 'higgsfield'}),
+    tool('comfyui.queue', 'rest', 'comfyui', 'missing_origin'),
+    tool('clo.handoff', 'desktop', 'clo', 'host_desktop_required'), tool('upwork.handoff', 'human', 'upwork', 'host_human_required'),
+    tool('fixture.flow', 'workflow', 'fixture', 'workflow_dependencies_not_verified'), tool('catalog.x', 'rest', 'acme', 'catalog_only'),
+    tool('wrangler.deploy', 'command', 'cloudflare_wrangler', 'configured_not_verified', {executable: 'wrangler', health: {cli_authentication: 'vendor_login_not_verified'}}),
+    tool('blender.render', 'command', 'blender', 'cli_not_configured', {executable: 'blender'}),
+    tool('mystery.tool', 'rest', 'mystery', 'fixture_new_state', {credentials: ['mystery']}));
+  base.clis.push({name: 'opencliapp', state: 'configured_not_verified', path: '/fake/opencliapp'}, {name: 'xyq', state: 'configured_not_verified', path: '/fake/xyq'},
+    {name: 'blender', state: 'cli_not_configured', detected_path: '/fake/found/blender'});
+  base.overview.credits.providers.push({provider: 'xyq', label: '小云雀', brand: 'xyq', installed: true, bound: true, source: 'pippit.cli.credit_balance', source_kind: 'cli',
+    status: 'error', error: {code: 'cli_protocol', message: 'Fixture.'}, next_source: 'pippit.cli.credit_balance', sources: ['xyq.web.account', 'pippit.cli.credit_balance']});
+  base.connections.oauth.push({provider: 'higgsfield', status: 'pending', keep_login: false, service: {status: 'fixture_status'}});
+  base.access = {clock: NOW, grants: [{id: 'p'.repeat(32), kind: 'project_session', agent: 'local-project', tools: [], workspace: '/fake/demo', credential_scope: ['fal'], exec_rules: [], expires_at: NOW + 99, revoked: false}],
+    requests: [{id: 'a'.repeat(32), workspace: '/fake/demo', credentials: ['fal'], status: 'needs_unlock', created_at: NOW - 60, expires_at: NOW + 540, live: true}]};
+  return base;
+}
+
+test('no rendered sentence, inbox detail, lead or job sentence from derive() contains a raw { or }', () => {
+  const model = M.derive(richFixture(), NOW);
+  const texts = [];
+  const add = (where, value) => { if (typeof value === 'string') texts.push([where, value]); };
+  for (const s of model.services) {
+    add(s.key + ' lead', s.lead);
+    for (const r of s.routes) {
+      for (const field of ['title', 'sub', 'word', 'summary']) add(r.anchor + ' ' + field, r[field]);
+      for (const line of [...r.body, ...(r.info || []), ...(r.notes || [])]) add(r.anchor + ' body', line);
+      for (const step of r.steps || []) add(r.anchor + ' step', step.text);
+      for (const [term, value] of r.facts) { add(r.anchor + ' fact', term); add(r.anchor + ' fact', value); }
+      for (const a of r.actions) add(r.anchor + ' action', a.label);
+    }
+  }
+  for (const v of model.tools.values()) { add(v.id + ' sentence', v.sentence); add(v.id + ' word', v.word); }
+  for (const i of model.inbox) { add(i.id + ' title', i.title); add(i.id + ' detail', i.detail); add(i.id + ' action', i.action.label); }
+  for (const j of model.jobs) for (const field of ['word', 'sentence', 'verification', 'cost', 'day']) add(j.id + ' ' + field, j[field]);
+  for (const r of model.requests) for (const field of ['title', 'statusText', 'timeText']) add(r.id + ' ' + field, r[field]);
+  for (const g of [...model.grants.active, ...model.grants.ended]) { add(g.id, g.title); g.lines.forEach(line => add(g.id, line)); }
+  for (const a of model.agents) { add(a.agent, a.word); add(a.agent, a.detail); }
+  assert.ok(texts.length > 200, 'the fixture covers a lot of copy');
+  const sentences = model.jobs.filter(j => j.sentence).map(j => j.status);
+  for (const code of ['submission_unknown', 'login_required']) assert.ok(sentences.includes(code), code);
+  const raw = texts.filter(([, value]) => /[{}]/.test(value));
+  assert.deepEqual(raw, []);
+  const unknown = model.jobs.find(j => j.status === 'submission_unknown' && j.serviceKey === 'tripo');
+  assert.equal(unknown.sentence, 'ATM 不能确定这次提交是否到达了 Tripo3D。请先到 Tripo3D 网站核对结果，不要让 Agent 重新提交，以免重复扣费。');
+  assert.equal(model.jobs.find(j => j.id === 'job-orphan').sentence, '需要先登录 服务。登录后让 Agent 继续这个任务。');
+});
+
+test('a bound MCP service missing its Key is in use, needs the owner, and offers one Key to add', () => {
+  const model = M.derive(inboxFixture(), NOW);
+  const linear = model.byKey.get('linear');
+  assert.ok(linear.inUse);
+  assert.equal(linear.state, 'attention');
+  assert.equal(linear.lead, 'MCP 服务已设置，还缺少 Key：linear。');
+  const mcp = linear.routes.find(r => r.kind === 'mcp'), key = linear.routes.find(r => r.kind === 'key');
+  assert.equal(mcp.state, 'attention');
+  assert.equal(mcp.word, '缺少 Key');
+  assert.deepEqual(plain(mcp.actions), [{label: '到“API Key”里添加', kind: 'route', quiet: true,
+    target: {service: 'linear', kind: 'key', id: 'linear', anchor: 'route-key-linear', focus: 'action'}}]);
+  // One filled button for the one Key: the header. The Key route's own button is secondary.
+  assert.equal(linear.primary.label, '添加 API Key');
+  assert.equal(linear.primary.kind, 'dialog');
+  assert.equal(key.actions[0].label, '添加 API Key');
+  assert.ok(!key.actions[0].primary);
+  assert.ok(model.services.filter(s => s.inUse && ['blocked', 'attention'].includes(s.state)).some(s => s.key === 'linear'));
+  assert.ok(model.inbox.some(i => i.id === 'mcp-key:linear:linear'));
+  // The services list and the inbox agree.
+  assert.equal(model.counts.servicesAttention, model.services.filter(s => s.inUse && ['blocked', 'attention'].includes(s.state)).length);
+  // A tool whose MCP configuration is not bound is still only 待设置 and not in use.
+  const unbound = M.derive(data({tools: [tool('linear.mcp_tools', 'mcp', 'linear', 'mcp_not_configured', {server: 'linear'})]}), NOW).byKey.get('linear');
+  assert.equal(unbound.inUse, false);
+  assert.equal(unbound.state, 'setup');
+});
+
+test('one primary per intent: the header fix is not repeated, and an optional setup is secondary', () => {
+  const model = M.derive(inboxFixture(), NOW);
+  for (const s of model.services) {
+    const filled = s.routes.flatMap(r => r.actions.filter(a => a.primary));
+    for (const a of filled) assert.ok(!(s.primary && a.label === s.primary.label && JSON.stringify(a.target) === JSON.stringify(s.primary.target)), s.key + ' repeats ' + a.label);
+    for (const r of s.routes) if (r.state === 'setup' && s.routes.some(o => o !== r && ['ready', 'attention', 'blocked'].includes(o.state)))
+      assert.ok(!r.actions.some(a => a.primary), s.key + ' ' + r.anchor);
+    for (const r of s.routes) assert.ok(!r.actions.some(a => a.kind === 'copy' && r.commands.some(c => c.text === a.target)), r.anchor);
+  }
+  // Higgsfield: the CLI login fix is the header; the Key route and the CLI route do not add more filled buttons.
+  const higgs = M.derive(data({
+    tools: [tool('higgsfield.generate', 'higgsfield', 'higgsfield', 'missing_credential', {credentials: ['higgsfield'], health: {credential: 'higgsfield'}}),
+      tool('higgsfield.subscription.account', 'command', 'higgsfield', 'configured_not_verified', {executable: 'higgsfield'})],
+    clis: [{name: 'higgsfield', state: 'configured_not_verified', path: '/fake/higgsfield'}],
+    credits: [{provider: 'higgsfield', label: 'Higgsfield', brand: 'higgsfield', installed: true, bound: true, source: 'higgsfield.subscription.account', source_kind: 'cli',
+      status: 'error', error: {code: 'login_required'}, next_source: 'higgsfield.subscription.account', sources: ['higgsfield.subscription.account']}],
+    oauth: [{provider: 'higgsfield', status: 'ready', keep_login: true, expires_at: NOW + 3600, service: {status: 'load_failed'}}]}), NOW).byKey.get('higgsfield');
+  assert.equal(higgs.primary.label, '检查登录');
+  assert.deepEqual(plain(higgs.routes.flatMap(r => r.actions.filter(a => a.primary).map(a => a.label))), []);
+});
+
+test('a working ATM login can be replaced: 重新登录 sits next to 刷新状态', () => {
+  for (const [status, keep, service] of [['ready', false, 'not_installed'], ['refreshing', false, 'not_installed'], ['ready', true, 'load_failed']]) {
+    const route = M.derive(data({vault: {backend: 'keyring', state: 'unlock_not_checked'}, oauth: [{provider: 'higgsfield', status, keep_login: keep, expires_at: NOW + 3600, service: {status: service}}]}), NOW)
+      .byKey.get('higgsfield').routes.find(r => r.kind === 'oauth');
+    const relogin = route.actions.find(a => a.label === '重新登录');
+    assert.ok(relogin, status);
+    assert.deepEqual(plain(relogin.target), {d: 'oauth', keep});
+    assert.ok(!relogin.primary);
+    assert.ok(route.actions.some(a => a.label === '刷新状态'));
+  }
+  const missing = M.derive(data({oauth: [{provider: 'higgsfield', status: 'missing', keep_login: false, service: {status: 'not_installed'}}]}), NOW).byKey.get('higgsfield').routes.find(r => r.kind === 'oauth');
+  assert.deepEqual(plain(missing.actions.map(a => a.label)), ['登录 Higgsfield', '刷新状态']);
+});
+
+test('a site whose credits come from a CLI explains the Chrome login and still offers the website', () => {
+  const model = M.derive(richFixture(), NOW);
+  const chrome = model.byKey.get('xyq').routes.find(r => r.kind === 'chrome');
+  assert.equal(chrome.steps[2].text, '积分从 xyq 程序读取，不会检查 Chrome。Chrome 里是否已登录 小云雀，在 Agent 使用时确认；可以先在 Chrome 里打开网站登录好。');
+  assert.equal(chrome.check, undefined);
+  assert.deepEqual(plain(chrome.open), {host: 'xyq.jianying.com', name: '小云雀'});
+  // Credits failure codes read in Chinese; a translated code stays in the badge title.
+  assert.equal(M.T.creditLabel('cli_protocol'), '程序返回的内容无法识别');
+  assert.equal(M.T.creditTitle({code: 'cli_protocol', message: 'Fixture.'}), 'Fixture.（cli_protocol）');
+  assert.equal(M.T.creditTitle({code: 'cli_failed', message: 'Fixture failure.'}), 'Fixture failure.');
+  assert.equal(M.T.creditLabel('fixture_new_code'), '读取失败 · fixture_new_code');
+  assert.equal(M.T.errorText('unknown_tool'), '有工具 ID 不在目录中，删掉后再检查。');
+});
+
+test('generated copy keeps a space between Chinese and Latin words', () => {
+  const model = M.derive(richFixture(), NOW);
+  const texts = [...model.services.flatMap(s => [s.lead, ...s.routes.flatMap(r => [r.summary, r.sub, ...r.body, ...(r.info || []), ...(r.steps || []).map(x => x.text)])]),
+    ...model.inbox.flatMap(i => [i.title, i.detail]), ...model.jobs.map(j => j.sentence)].filter(Boolean);
+  const tight = texts.filter(t => /[一-鿿][A-Za-z0-9]|[A-Za-z0-9][一-鿿]/.test(t.replace(/\d+ (月|日|年)/g, '')));
+  assert.deepEqual(tight, []);
 });
