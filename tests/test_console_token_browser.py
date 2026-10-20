@@ -4,8 +4,14 @@ import os
 import shutil
 import threading
 import time
+import uuid
 import pytest
 from agent_tool_maker import webapp
+from agent_tool_maker.engine import Router
+from agent_tool_maker.quickstart import scope_plan
+from agent_tool_maker.quickstart_web import ApprovalWindow
+from agent_tool_maker.secrets_provider import fingerprint
+from agent_tool_maker.vault import Vault
 from agent_tool_maker.webapp import Console
 
 pytestmark = pytest.mark.browser
@@ -36,6 +42,7 @@ EXPIRED = '会话已过期：在终端再次运行 atm ui 打开新的管理台'
 RESTARTED = '管理台已重启或会话已失效：在终端再次运行 atm ui'
 REJECTED = '会话码未被接受：请核对终端所示 token 文件中的会话码'
 LAUNCH_USED = '启动链接已使用或已过期：在终端再次运行 atm ui'
+WINDOW_KEY, WINDOW_HEADING = 'atm-window-token', '解锁一次，Agent 继续。'
 OVERVIEW, TOOLS, CONNECTIONS = '连接一次，持续使用。', '一个目录，两种 Agent。', '连接与凭证'
 
 
@@ -378,3 +385,39 @@ def test_unavailable_storage_falls_back_to_page_memory(console):
     expect(page.locator('#gate')).to_be_visible()
     assert not errors, errors
     context.close()
+
+
+def test_approval_window_opens_with_a_launch_code_and_no_url_holds_its_bearer(console, tmp_path):
+    _, browser, expect = console
+    root = tmp_path.resolve(); r = Router(root/'window')
+    r.vault = Vault(r.state, password='fake-window-password'); r.vault.init('passphrase'); r.vault.put('fal', 'fake-window-key')
+    workspace = root/'project'; workspace.mkdir()
+    plan = scope_plan(r.state, workspace, ['fal']); identifier = uuid.uuid4().hex
+    r.state.set_setting('desktop-request:' + identifier, {'id': identifier, **plan, 'status': 'needs_unlock',
+                        'created_at': time.time(), 'approval_sha256': fingerprint(plan)})
+    r.close()
+    window = ApprovalWindow(root/'window', identifier, localhost=True)
+    thread = threading.Thread(target=window.serve_forever, daemon=True); thread.start()
+    try:
+        context = browser.new_context()
+        page = context.new_page(); errors, urls = watch(page, window)
+        code = window.launch_code()  # What the Agent's window process opens.
+        page.goto(window.origin + '/#launch=' + code)
+        expect(page.get_by_role('heading', name=WINDOW_HEADING)).to_be_visible()
+        expect(page.locator('#workspace')).to_have_text(str(workspace))
+        assert page.url == window.origin + '/' and stored(page, WINDOW_KEY) == window.token and not window.launch_codes
+        page.reload()  # Kept in this tab, as before.
+        expect(page.get_by_role('heading', name=WINDOW_HEADING)).to_be_visible()
+        assert all(code not in url and window.token not in url for url in history(context, page))
+
+        other = context.new_page(); other_errors, other_urls = watch(other, window)
+        other.goto(window.origin + '/#launch=' + code)  # Used once already.
+        expect(other.locator('#error')).to_contain_text('已使用或已过期')
+        expect(other.locator('#request')).to_be_hidden()
+        assert other.url == window.origin + '/' and stored(other, WINDOW_KEY) is None
+        assert all(code not in url for url in history(context, other))
+        assert all(window.token not in url for url in urls + other_urls)
+        assert not errors and not other_errors, errors + other_errors
+        context.close()
+    finally:
+        window.shutdown(); thread.join(5); window.server_close()

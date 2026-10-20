@@ -173,8 +173,9 @@ def serve_request(home, identifier):
         server.update_record(url=server.origin, browser_opened=False, heartbeat=time.time())
         opened = False
         if server.record.get('open_browser'):
-            # The per-window bearer only goes to the local browser fragment. Never to CLI JSON/logs.
-            opened = bool(webbrowser.open(server.origin + '/#token=' + server.token))
+            # A one-time launch code, never the per-window bearer, goes into the browser's URL and history.
+            # The page trades it at the exact Origin for the bearer. Neither goes to CLI JSON/logs.
+            opened = bool(webbrowser.open(server.origin + '/#launch=' + server.launch_code()))
         server.update_record(status='needs_approval' if current['unlocked'] else 'needs_unlock', browser_opened=opened)
         thread = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .1}, daemon=True)
         thread.start()

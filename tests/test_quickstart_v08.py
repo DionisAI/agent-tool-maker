@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tempfile
@@ -15,11 +16,12 @@ import httpx
 import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+from agent_tool_maker import quickstart_web
 from agent_tool_maker.broker import call, revoke
 from agent_tool_maker.engine import Router
 from agent_tool_maker.errors import RouterError
 from agent_tool_maker.quickstart import (profile_path, scope_plan, ready, start, use, request_record)
-from agent_tool_maker.quickstart_web import ApprovalWindow
+from agent_tool_maker.quickstart_web import ApprovalWindow, serve_request
 from agent_tool_maker.secrets_provider import fingerprint
 from agent_tool_maker.session import owner_call, status, SecretSession, run_service
 from agent_tool_maker.storage import State, canonical
@@ -140,6 +142,60 @@ def test_window_rejects_csrf_and_wrong_bearer(window,header,value):
     response=c.post('/api/desktop/approve',json=approval(ui),headers={header:value})
     assert response.status_code in (401,403)
     assert not profile_path(r.state,w).exists()
+
+
+def test_window_trades_a_launch_code_once_at_its_exact_origin(window):
+    r,w,ui,c,root=window
+    code=ui.launch_code()
+    with httpx.Client(base_url=ui.origin,trust_env=False) as plain:
+        redeem=lambda **headers:plain.post('/api/console/redeem',json={'code':code},headers=headers)
+        # No bearer, but the exact Origin and Host; a refused attempt does not use the code up.
+        assert redeem().status_code==403
+        assert redeem(Origin='http://localhost:1').status_code==403
+        assert redeem(Origin=ui.origin,Host='localhost:'+str(ui.server_port)).status_code==403
+        response=redeem(Origin=ui.origin)
+        assert response.status_code==200 and response.json()=={'token':ui.token}
+        assert response.headers['cache-control']=='no-store'
+        again=redeem(Origin=ui.origin)
+        assert again.status_code==401 and again.json()['error']['code']=='launch_expired' and ui.token not in again.text
+    # The window mints no codes over HTTP and never answers as an `atm ui` console.
+    assert c.post('/api/console/launch-code',json={}).status_code==404
+    assert c.get('/api/console').status_code==404
+    assert c.get('/api/console',headers={'X-ATM-Challenge':'0'*64,'Authorization':''}).status_code==404
+
+
+def test_agent_window_opens_a_one_time_launch_code_never_the_bearer(monkeypatch,tmp_path):
+    root=tmp_path.resolve();r=Router(root/'s');r.vault=Vault(r.state,password=PASSWORD)
+    r.vault.init('passphrase');r.vault.put('fal',KEY)
+    w=root/'p';w.mkdir();plan=scope_plan(r.state,w,['fal']);ident=uuid.uuid4().hex
+    r.state.set_setting('desktop-request:'+ident,{'id':ident,**plan,'status':'starting','created_at':time.time(),
+                        'heartbeat':time.time(),'open_browser':True,'approval_sha256':fingerprint(plan)})
+    monkeypatch.setattr(signal,'signal',lambda *args:None)  # serve_request's handlers must not outlive this test.
+    seen={}
+    def browser(url):
+        def visit():  # What the opened page does: trade the code at the exact Origin, then use the bearer.
+            origin=url.split('/#',1)[0];code=url.partition('/#launch=')[2]
+            token=(r.state.home/('ui-session-'+origin.rsplit(':',1)[1]+'.token')).read_text()  # Test harness only.
+            with httpx.Client(base_url=origin,trust_env=False) as client:
+                try:
+                    seen['redeem']=client.post('/api/console/redeem',json={'code':code},headers={'Origin':origin}).json()
+                    seen['view']=client.get('/api/desktop',headers={'Authorization':'Bearer '+seen['redeem'].get('token','')}).status_code
+                    seen['again']=client.post('/api/console/redeem',json={'code':code},headers={'Origin':origin}).status_code
+                finally:
+                    seen['token']=token
+                    client.post('/api/desktop/cancel',json={},headers={'Authorization':'Bearer '+token,'Origin':origin})
+        seen['url']=url;threading.Thread(target=visit,daemon=True).start()
+        return True
+    monkeypatch.setattr(quickstart_web.webbrowser,'open',browser)
+    try:
+        assert serve_request(r.state.home,ident)==0
+    finally:
+        r.close()
+    record=request_record(State(r.state.home),ident)
+    assert seen['url'].startswith(record['url']+'/#launch=') and seen['token'] not in seen['url']
+    assert seen['redeem']=={'token':seen['token']} and seen['view']==200 and seen['again']==401
+    assert record['status']=='denied' and record['browser_opened'] is True
+    assert seen['token'] not in canonical(record) and seen['url'].partition('#launch=')[2] not in canonical(record)
 
 
 @pytest.mark.parametrize('endpoint',['/api/connections','/api/session','/api/access','/api/sync'])
