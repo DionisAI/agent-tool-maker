@@ -111,7 +111,7 @@ async function api(path, body) {
   if (body !== undefined) {opts.method='POST';opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(body);}
   const r=await fetch(path,opts); const value=await r.json();
   if (!r.ok) {
-    const error=new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成'));
+    const error=Object.assign(new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成')),{code:value.error?.code});
     // Only an answer for the current bearer ends the session; a late reply for an old one must not.
     // The gate then says why in Chinese, so callers do not repeat it in a toast.
     if(r.status===401&&sent===token) {forget(value.error?.code==='session_expired'?'session_expired':sent===typed?'rejected':'unauthorized');error.gated=true;}
@@ -134,8 +134,13 @@ function heading(title,subtitle,button) {
   return el('section',{class:'page-title'},el('div',{},el('p',{class:'eyebrow'},'AGENT TOOL MAKER / YOUR LOCAL WORKSHOP'),el('h1',{},title),el('p',{},subtitle)),button);
 }
 function section(title,meta='') {return el('div',{class:'section-head'},el('h2',{},title),el('small',{},meta));}
-function openModal(title,...content) {$('#modal-title').textContent=title;$('#modal-body').replaceChildren(...content.flat().filter(c=>c!==null&&c!==undefined));if(!$('#modal').open)$('#modal').showModal();}
-function closeModal() {$('#modal').close();$('#modal-body').replaceChildren();}
+// The control that opened a dialog. action() disables (and so blurs) the clicked button, hence lastFocus.
+let modalReturn=null, lastFocus=null;
+document.addEventListener('focusin',e=>{if(!$('#modal').contains(e.target))lastFocus=e.target;});
+function openModal(title,...content) {$('#modal-title').textContent=title;$('#modal-body').replaceChildren(...content.flat().filter(c=>c!==null&&c!==undefined));if(!$('#modal').open){modalReturn=document.activeElement===document.body?lastFocus:document.activeElement;$('#modal').showModal();}}
+// Focus returns to the control that opened the dialog, or to its re-rendered credits counterpart.
+function restoreFocus() {const node=modalReturn;modalReturn=null;if(node?.isConnected)node.focus();else focusCredit(creditFocus(node));}
+function closeModal() {$('#modal').close();$('#modal-body').replaceChildren();restoreFocus();}
 function agentCard(a) {
   const registered=a.state==='registered_not_host_verified';
   return el('article',{class:'card'},
@@ -156,6 +161,7 @@ function render() {
     main.append(sessionPanel());
     const c=data.overview.counts;
     main.append(el('div',{class:'stats'},...[[c.tools,'工具动作','API · CLI · MCP · 外部交接'],[c.enabled,'启用的动作','同一开关作用于所有本地 Agent'],[c.connections,'已保存连接','已配置不等于上游已验证'],[c.recent_jobs,'最近任务','最多统计最近 50 条']].map(([n,t,h])=>el('div',{class:'stat'},el('small',{},t),el('strong',{},n),el('span',{},h)))));
+    const credits=creditsPanel();if(credits)main.append(credits);
     main.append(section('默认客户端','共用 ATM · 不复制密钥'),el('div',{class:'grid2'},...data.overview.agents.map(agentCard)));
     main.append(el('div',{class:'notice'},'本页只检查本地配置，不执行生成、发帖或部署。网页修改与 CLI 即时共用；新会话复用同一持久状态目录。'));
     main.append(toolCollection());
@@ -172,6 +178,125 @@ function render() {
   else if(active==='jobs') renderJobs(main);
   else if(active==='sync') renderSync(main);
   else if(active==='access') renderAccess(main);
+}
+// Subscription credits: cached values only; a tool runs only when the owner clicks 刷新.
+const creditsBusy=new Set(); // Queued or running.
+let creditsRunning=null, creditsQueue=Promise.resolve(); // Every refresh runs one at a time: website sources share the logged-in browser.
+const creditNumber=value=>new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(value);
+const creditErrors={cli_not_configured:'CLI 未绑定',login_required:'需要登录',refresh_in_progress:'正在读取',
+  credits_unreadable:'无法读取额度',runtime_unavailable:'服务未运行',cli_failed:'读取失败'};
+// Short label for an error code; own keys only, so a code such as "constructor" is not a prototype member.
+const creditLabel=code=>Object.hasOwn(creditErrors,code)?creditErrors[code]:'读取失败 · '+code;
+const sourceKind=kind=>kind==='cli'?'CLI':'网站';
+// A tool id may wrap after each dot (<wbr>), never inside a word; the text stays the same.
+const breakable=id=>String(id).split(/(?<=\.)/).flatMap((part,i)=>i?[el('wbr'),part]:[part]);
+function relativeTime(epoch) {
+  const s=Math.max(0,Math.round(Date.now()/1000-epoch));
+  return s<60?'刚刚':s<3600?Math.floor(s/60)+' 分钟前':s<86400?Math.floor(s/3600)+' 小时前':Math.floor(s/86400)+' 天前';
+}
+function updateCredit(record) {
+  const list=data?.overview?.credits?.providers, i=list?list.findIndex(p=>p.provider===record.provider):-1;
+  if(i>=0)list[i]=record;
+}
+// Keyboard focus survives a re-render: the same provider + action button is focused in the new panel.
+function creditFocus(node) {
+  const action=node?.dataset?.creditAction;
+  return action?{action,provider:node.closest('[data-provider]')?.dataset.provider}:null;
+}
+function focusCredit(key) {
+  if(!key)return;
+  const scope=key.provider?$('#credits-panel .credit-card[data-provider="'+key.provider+'"]'):$('#credits-panel');
+  scope?.querySelector('[data-credit-action="'+key.action+'"]')?.focus();
+}
+function drawCredits() {
+  const old=$('#credits-panel');if(!old||!data)return;
+  const key=old.contains(document.activeElement)?creditFocus(document.activeElement):null;
+  old.replaceWith(creditsPanel());focusCredit(key);
+}
+function refreshCredits(names) {
+  names=names.filter(name=>!creditsBusy.has(name));
+  if(!names.length)return creditsQueue;
+  names.forEach(name=>creditsBusy.add(name));drawCredits();
+  const run=async()=>{
+    const failed=[];
+    for(const name of names) {
+      creditsRunning=name;drawCredits();
+      const label=data?.overview?.credits?.providers?.find(p=>p.provider===name)?.label||name;
+      try{const r=await api('/api/credits/refresh',{provider:name});updateCredit(r);if(r.refresh==='error')failed.push(r.label+' · '+creditLabel(r.error.code));}
+      catch(e){failed.push(label+' · '+(e.code?creditLabel(e.code):e.message));}
+      finally{creditsRunning=null;creditsBusy.delete(name);drawCredits();}
+    }
+    if(failed.length)toast('额度读取失败：'+failed.join('；'),true);else toast('订阅额度已更新。');
+  };
+  creditsQueue=creditsQueue.then(run).catch(e=>toast(e.message||'额度刷新未完成。',true));
+  return creditsQueue;
+}
+function creditsButton(text,names,type,kind) {
+  // Busy only when every listed provider is; a busy button stays focusable (aria-disabled) across re-renders.
+  const busy=names.length>0&&names.every(name=>creditsBusy.has(name));
+  const label=!busy?text:names.length===1&&names[0]!==creditsRunning?'排队中…':'刷新中…';
+  return el('button',{class:type,disabled:!names.length,ariaDisabled:String(busy),ariaBusy:String(busy),'data-credit-action':kind,onclick:()=>refreshCredits(names)},label);
+}
+function cycleDialog(p) {
+  const problem=el('p',{class:'form-error',role:'alert',hidden:true,id:'credit-cycle-problem'});
+  const input=el('input',{type:'number',min:1,max:31,step:1,value:p.cycle_day??'',ariaLabel:'每月续期日','aria-describedby':problem.id});
+  // Messages stay in the dialog's alert line, not behind its backdrop; an invalid day also marks the input.
+  const report=(message,invalid=false)=>{
+    problem.textContent=message;problem.hidden=!message;
+    if(invalid)input.setAttribute('aria-invalid','true');else input.removeAttribute('aria-invalid');
+  };
+  const save=async day=>{
+    try{const r=await api('/api/credits/cycle',{provider:p.provider,day});updateCredit(r);}
+    catch(e){report(e.message);return;}
+    closeModal();drawCredits();toast(day===null?'已清除续期日。':'续期日已保存。');
+  };
+  const submit=btn('保存',async()=>{
+    const day=Number(input.value);
+    const message=input.value!==''&&Number.isInteger(day)&&day>=1&&day<=31?'':'请输入 1–31 的整数。';
+    // The inline alert is the only message; the browser's own validation bubble would repeat it.
+    input.setCustomValidity(message);report(message,Boolean(message));
+    if(!message)await save(day);else input.focus();
+  },'primary');
+  input.addEventListener('input',()=>{input.setCustomValidity('');report('');});
+  input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit.click();}});
+  openModal('设置续期日 · '+p.label,el('p',{class:'quiet'},'供应商目前不提供续期日期。填写账单上的每月续期日（1–31），短月份按月末计算；只保存在本机。'),
+    el('label',{},'每月续期日',input),problem,
+    el('div',{class:'dialog-actions'},btn('清除',()=>save(null),'plain'),submit));
+  input.focus();
+}
+function creditError(error) {
+  const node=badge(creditLabel(error.code),'bad');
+  node.title=error.message||'';
+  return node;
+}
+function creditCard(p) {
+  const cycle=el('small',{class:'credit-cycle'},p.next_cycle?'下次续期 '+p.next_cycle.date+'（你设置的）':'未设置续期日');
+  const cycleButton=el('button',{class:'plain','data-credit-action':'cycle',onclick:action(()=>cycleDialog(p))},'设置续期日');
+  if(!p.installed) // Compact: which tool to install or enable, and the owner-set renewal day.
+    return el('article',{class:'credit-card','data-provider':p.provider},
+      el('div',{class:'card-head'},brandIdentity(p.brand,[el('h3',{},p.label)],p.source||'')),
+      el('p',{class:'quiet'},'安装或启用 '+p.sources.join(' / ')+' 后可读取。'),cycle,el('div',{class:'card-actions'},cycleButton));
+  const stale=p.last_ok_at&&Date.now()/1000-p.last_ok_at>86400;
+  const amount=typeof p.credits==='number'?creditNumber(p.credits):'—';
+  return el('article',{class:'credit-card'+(creditsBusy.has(p.provider)?' busy':''),'data-provider':p.provider},
+    el('div',{class:'card-head'},brandIdentity(p.brand,[el('h3',{},p.label),el('small',{},sourceKind(p.source_kind)+' · ',breakable(p.source))],p.source||'')),
+    el('strong',{class:'credit-amount'+(amount.length>12?' long':'')},amount,el('small',{},' 积分')),
+    el('div',{class:'credit-meta'},p.plan?el('span',{class:'badge'},p.plan):null,el('small',{},p.last_ok_at?'上次读取 '+relativeTime(p.last_ok_at):'尚未读取'),
+      stale?badge('超过 24 小时，可能已变化','warn'):null,
+      p.status==='error'&&p.error?creditError(p.error):null),
+    p.bound?null:el('p',{class:'quiet'},'先运行 ',el('code',{},'atm cli bind '+p.next_executable+' <path>'),' 绑定 CLI'),
+    cycle,
+    el('div',{class:'card-actions'},p.bound?creditsButton('刷新',[p.provider],'secondary','refresh'):null,
+      p.bound&&p.next_source!==p.source?el('small',{class:'credit-next',title:p.next_source},'下次刷新读取'+(p.next_source_kind==='cli'?' CLI':'网站')):null,
+      cycleButton));
+}
+function creditsPanel() {
+  const providers=data.overview.credits?.providers;
+  if(!providers)return null;
+  return el('section',{class:'credits',id:'credits-panel'},
+    el('div',{class:'section-head'},el('div',{},el('h2',{},'订阅额度'),el('small',{},'只在你点击刷新时读取 · 打开本页不运行工具')),creditsButton('全部刷新',providers.filter(p=>p.installed&&p.bound).map(p=>p.provider),'secondary','all')),
+    el('p',{class:'quiet'},'这些是网站 / CLI 的订阅积分，与开发者 API 余额分开计费。网站来源会读取本机已登录的浏览器。'),
+    el('div',{class:'credits-grid'},...providers.map(creditCard)));
 }
 function cliTable() {
   return table(['程序','本地状态','检测到的入口','配置'],data.clis.map(c=>el('tr',{},el('td',{},brandIdentity(c.name,[el('strong',{},c.name)],'',true)),el('td',{},badge(c.state)),el('td',{},el('small',{},c.path || c.detected_path || '未安装 / 不在 PATH')),el('td',{},btn('查看配置计划',()=>setupDialog([], [c.name]))))));
@@ -379,6 +504,7 @@ window.addEventListener('popstate',e=>{if(launchLink())return;active=known(e.sta
 window.addEventListener('hashchange',()=>{if(launchLink())location.reload();});
 $('#modal-close').onclick=closeModal;
 $('#modal').addEventListener('cancel',()=>$('#modal-body').replaceChildren());
+$('#modal').addEventListener('close',restoreFocus);
 $('#refresh').onclick=action(refresh);
 $('#lock').onclick=()=>forget();
 $('#session-form').onsubmit=action(async e=>{e.preventDefault();typed=token=$('#session-token').value;$('#session-token').value='';await refresh();typed='';tabToken.set(token);});

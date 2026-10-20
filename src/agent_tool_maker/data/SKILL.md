@@ -533,6 +533,8 @@ No code sandbox or complete output-leak prevention is claimed.
 For registered tools or strict per-command pins, consult docs/SECRETS_FIRST.md and
 EXTENSIBILITY.md; do not weaken existing strict profiles to fit this convenient flow.
 Optional extensions use `atm make validate` and `atm make install` only after explicit owner review.
+Agents may read cached subscription credits with `atm credits` before proposing paid work; refresh drives
+the owner's logged-in browser for website sources, so only refresh when the owner asks (docs/SUBSCRIPTION_CREDITS.md).
 On `submission_unknown`, reconcile the upstream task before any new request; do not retry blindly.
 For management the Agent starts `atm ui`; the human enters secrets only in that local UI.
 `"reused": true` means it reopened this home's running console and exited; do not start another.
