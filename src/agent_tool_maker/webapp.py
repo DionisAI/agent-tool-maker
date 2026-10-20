@@ -2,6 +2,8 @@
 
 Static assets are public shell only. Every data request requires a per-process
 bearer, exact Host, same-origin writes, bounded JSON, and a whitelisted endpoint.
+One bearer-less exception returns nothing else: the `atm ui` challenge, an HMAC
+proof of the token.
 No arbitrary file read, shell, generation, deployment or job-refresh endpoint.
 """
 from __future__ import annotations
@@ -9,8 +11,8 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 import errno
+import hashlib
 import hmac
-import http.client
 import json
 import os
 from pathlib import Path
@@ -38,6 +40,11 @@ STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/assets/app.css": ("app.css", "text/css; charset=utf-8")}
 TOKEN_FILE = re.compile(r"ui-session-([1-9][0-9]{3,4})\.token")
 TOKEN_VALUE = re.compile(r"[A-Za-z0-9_-]{32,128}")
+CHALLENGE = re.compile(r"[0-9a-f]{64}")
+SESSION_SECONDS = 8 * 3600
+REUSE_MIN_SECONDS = 15 * 60
+PROBE_SECONDS = 2
+PROBE_LIMIT = 8192  # One identity or proof response, headers included.
 BIND_ATTEMPTS = 16
 CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'"
 
@@ -81,6 +88,10 @@ def selections(body, key, allowed=None):
     return value
 
 
+def probe_proof(token, challenge):
+    return hmac.new(token.encode(), ("atm-console-probe|" + challenge).encode(), hashlib.sha256).hexdigest()
+
+
 class Console(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = False
@@ -97,7 +108,7 @@ class Console(ThreadingHTTPServer):
         self.secret_session = None
         self.secret_session_thread = None
         self.token = secrets.token_urlsafe(32)
-        self.expires_at = time.monotonic() + 8 * 3600
+        self.expires_at = time.monotonic() + SESSION_SECONDS
         self.lock = threading.RLock()
         self.loopback6 = None
         super().__init__(("127.0.0.1", port), Handler, bind_and_activate=False)
@@ -243,7 +254,7 @@ class Handler(BaseHTTPRequestHandler):
             self.close_connection = True
 
     def check_request(self, *, authenticated):
-        for header in ("Host", "Origin", "Authorization", "Content-Type", "Content-Length"):
+        for header in ("Host", "Origin", "Authorization", "Content-Type", "Content-Length", "X-ATM-Challenge"):
             if len(self.headers.get_all(header, [])) > 1:
                 raise RouterError("forbidden_request", "Duplicate security-sensitive header.")
         if self.headers.get("Host") != self.server.authority:
@@ -272,10 +283,19 @@ class Handler(BaseHTTPRequestHandler):
         router = None
         try:
             static = self.path in STATIC and not write
-            self.check_request(authenticated=not static)
+            challenge = self.path == "/api/console" and not write and "Authorization" not in self.headers \
+                and "X-ATM-Challenge" in self.headers
+            self.check_request(authenticated=not (static or challenge))
             if static:
                 name, mime = STATIC[self.path]
                 self.respond(200, files("agent_tool_maker.data").joinpath("web").joinpath(name).read_bytes(), mime=mime)
+                return
+            if challenge:
+                # Proof of token possession without the bearer: `atm ui` sends it only to a listener that can answer.
+                value = self.headers["X-ATM-Challenge"]
+                if not CHALLENGE.fullmatch(value):
+                    raise RouterError("invalid_request", "Expected a 64-hex challenge.")
+                self.respond(200, {"service": "atm-console", "proof": probe_proof(self.server.token, value)})
                 return
             if self.path == "/api/console" and not write:
                 # Non-secret identity: `atm ui` reopens this console, never a foreign listener or another home.
@@ -464,10 +484,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def read_token_file(path):
-    """(token, lstat) of an owner-only regular token file, else None. Never follows a link."""
+    """(token, lstat) of an owner-only, single-link regular token file, else None. Never follows a link."""
     try:
         info = os.lstat(path)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600 or not 0 < info.st_size <= 256:
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600 \
+                or info.st_nlink != 1 or not 0 < info.st_size <= 256:
             return None
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         try:
@@ -480,32 +501,80 @@ def read_token_file(path):
     return (value, info) if TOKEN_VALUE.fullmatch(value) else None
 
 
+def exchange(port, method, path, headers, deadline, body=None):
+    """JSON object of one 200 application/json answer from 127.0.0.1:port, else None.
+
+    The whole exchange (connect, status line, headers, body) shares one monotonic deadline and a
+    small size cap, so a trickling or flooding listener cannot hold `atm ui`. Redirects are not
+    followed. ConnectionRefusedError: nothing listens.
+    """
+    def left():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Console probe deadline passed.")
+        return remaining
+    lines = [f"{method} {path} HTTP/1.0", f"Host: localhost:{port}", *(f"{k}: {v}" for k, v in headers.items())]
+    if body is not None:
+        lines += ["Content-Type: application/json", f"Content-Length: {len(body)}"]
+    raw = b""
+    with socket.create_connection(("127.0.0.1", port), timeout=left()) as connection:
+        connection.sendall(("\r\n".join(lines) + "\r\n\r\n").encode() + (body or b""))
+        while len(raw) <= PROBE_LIMIT:
+            connection.settimeout(left())
+            chunk = connection.recv(512)
+            if not chunk:
+                break
+            raw += chunk
+    head, separator, content = raw.partition(b"\r\n\r\n")
+    status, *header_lines = head.decode("latin-1").split("\r\n")
+    found = {}
+    for line in header_lines:
+        name, _, value = line.partition(":")
+        found.setdefault(name.strip().lower(), []).append(value.strip())
+    if len(raw) > PROBE_LIMIT or not separator or not re.fullmatch(r"HTTP/1\.[01] 200( .*)?", status) \
+            or [v.split(";")[0].strip() for v in found.get("content-type", [])] != ["application/json"] \
+            or found.get("content-length", [str(len(content))]) != [str(len(content))]:
+        return None
+    value = json.loads(content)
+    return value if isinstance(value, dict) else None
+
+
 def probe(port, token, home):
-    """Identity of this home's console on port, else None. ConnectionRefusedError: nothing listens."""
-    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
+    """Identity of this home's console on port, else None. ConnectionRefusedError: nothing listens.
+
+    The listener first proves it holds the token (HMAC of a fresh challenge); a listener that
+    cannot never receives the bearer. Only then is the authenticated identity read.
+    """
+    deadline = time.monotonic() + PROBE_SECONDS
     try:
-        connection.request("GET", "/api/console", headers={"Host": f"localhost:{port}", "Authorization": "Bearer " + token})
-        response = connection.getresponse()  # http.client never follows redirects.
-        raw = response.read(MAX_BODY + 1)
-        if response.status != 200 or not response.getheader("Content-Type", "").startswith("application/json") or len(raw) > MAX_BODY:
+        challenge = secrets.token_hex(32)
+        answer = exchange(port, "GET", "/api/console", {"X-ATM-Challenge": challenge}, deadline)
+        if not answer or set(answer) != {"service", "proof"} or answer["service"] != "atm-console" \
+                or not isinstance(answer["proof"], str) or not CHALLENGE.fullmatch(answer["proof"]) \
+                or not hmac.compare_digest(answer["proof"], probe_proof(token, challenge)):
             return None
-        body = json.loads(raw)
-        if not isinstance(body, dict) or body.get("service") != "atm-console" or type(body.get("expires_in_seconds")) is not int \
-                or body["expires_in_seconds"] <= 0 or not isinstance(body.get("home"), str) or not os.path.samefile(body["home"], home):
+        body = exchange(port, "GET", "/api/console", {"Authorization": "Bearer " + token}, deadline)
+        if not body or body.get("service") != "atm-console" or body.get("version") != __version__ \
+                or type(body.get("expires_in_seconds")) is not int or not 0 < body["expires_in_seconds"] <= SESSION_SECONDS \
+                or not isinstance(body.get("home"), str) or not os.path.samefile(body["home"], home):
             return None
         return body
     except ConnectionRefusedError:
         raise
-    except (OSError, ValueError, RecursionError, http.client.HTTPException):
+    except (OSError, ValueError, RecursionError):
         return None
-    finally:
-        connection.close()
 
 
 def running_console(home, port=0):
-    """(origin, token, token file, identity) of this home's live console; removes files nothing listens on."""
+    """(port, token, token file, identity) of this home's live console; removes files nothing listens on."""
     home = Path(home).expanduser().absolute()
-    if os.name != "posix" or home.is_symlink():
+    if os.name != "posix":
+        return None
+    try:  # Only an owner-only home: another account must not plant or swap token files in it.
+        info = os.lstat(home)
+    except OSError:
+        return None
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o022:
         return None
     found = []
     try:
@@ -528,29 +597,33 @@ def running_console(home, port=0):
                 pass
             continue
         if identity:
-            return f"http://localhost:{number}", token, path, identity
+            return number, token, path, identity
     return None
 
 
-def announce(origin, token_path, hours, *, reused):
-    note = "Reused the console already running for this ATM home; its own terminal stops it. " if reused else "Ctrl-C stops the server. "
+def announce(origin, token_path, hours, *, reused, note=""):
+    note += "Reused the console already running for this ATM home; its own terminal stops it. " if reused else "Ctrl-C stops the server. "
     print(json.dumps({"url": origin, "session_token_file": str(token_path), "scope": "loopback_only",
                       "expires_after_hours": hours, "reused": reused,
                       "note": "Keep the session token private. " + note + "No secret is printed here."}), flush=True)
 
 
 def serve(home, *, port=0, open_browser=True, executable=None):
-    running = running_console(home, port)
+    running, note = running_console(home, port), ""
     if running:
-        origin, token, token_path, identity = running
-        announce(origin, token_path, round(identity["expires_in_seconds"] / 3600, 2), reused=True)
-        if open_browser:
-            webbrowser.open(origin + "/#token=" + token)
-        return 0
+        number, token, token_path, identity = running
+        if identity["expires_in_seconds"] < REUSE_MIN_SECONDS:
+            note = "The console already running for this ATM home expires within 15 minutes, so a new one was started. "
+        else:
+            origin = f"http://localhost:{number}"
+            announce(origin, token_path, round(identity["expires_in_seconds"] / 3600, 2), reused=True)
+            if open_browser:
+                webbrowser.open(origin + "/#token=" + token)
+            return 0
     from .onboarding import executable_path
     server = Console(home, port=port, executable=str(executable_path(executable)), localhost=True)
     try:
-        announce(server.origin, server.token_path, 8, reused=False)
+        announce(server.origin, server.token_path, SESSION_SECONDS // 3600, reused=False, note=note)
         if open_browser:
             webbrowser.open(server.origin + "/#token=" + server.token)
         server.serve_forever(poll_interval=0.2)

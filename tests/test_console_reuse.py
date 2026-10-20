@@ -1,8 +1,11 @@
 """`atm ui` reopens this home's live console; never a foreign listener or another home."""
 from contextlib import contextmanager
+import hashlib
+import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+import re
 import secrets
 import socket
 import threading
@@ -54,20 +57,84 @@ def running(home, **kw):
 
 
 @contextmanager
-def foreign(status, ctype, body, location=None):
+def listener(answer):
+    """Another local HTTP program; records every request. answer(headers) -> (status, type, body, headers)."""
+    seen = []
+
     class Other(BaseHTTPRequestHandler):
         def log_message(self, *args): pass
         def do_GET(self):
+            seen.append(dict(self.headers))
+            status, ctype, body, extra = answer(self.headers)
             raw = body.encode()
             self.send_response(status); self.send_header('Content-Type', ctype); self.send_header('Content-Length', str(len(raw)))
-            if location: self.send_header('Location', location)
+            for name, value in extra.items(): self.send_header(name, value)
             self.end_headers(); self.wfile.write(raw)
+        do_POST = do_GET
     server = ThreadingHTTPServer(('127.0.0.1', 0), Other)
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     try:
-        yield server.server_address[1]
+        yield SimpleNamespace(port=server.server_address[1], seen=seen)
     finally:
         server.shutdown(); server.server_close(); thread.join(5)
+
+
+def foreign(status, ctype, body, location=None):
+    return listener(lambda headers: (status, ctype, body, {'Location': location} if location else {}))
+
+
+def proof(token, challenge):
+    return hmac.new(token.encode(), b'atm-console-probe|' + challenge.encode(), hashlib.sha256).hexdigest()
+
+
+def impostor(token, identity, pad=0):
+    """Holds the token (so it passes the proof) but reports the given identity."""
+    def answer(headers):
+        if 'X-ATM-Challenge' in headers and 'Authorization' not in headers:
+            body = json.dumps({'service': 'atm-console', 'proof': proof(token, headers['X-ATM-Challenge'])})
+            return 200, 'application/json', body + ' ' * pad, {}
+        if headers.get('Authorization') == 'Bearer ' + token:
+            return 200, 'application/json', json.dumps(identity), {}
+        return 401, 'application/json', '{"error":{"code":"unauthorized"}}', {}
+    return listener(answer)
+
+
+def bearer_sent(seen):
+    return any(name.lower() == 'authorization' for headers in seen for name in headers)
+
+
+@contextmanager
+def trickling(seconds=8):
+    """Accepts, then sends a response that never finishes, one byte every 50 ms."""
+    server = socket.create_server(('127.0.0.1', 0)); server.settimeout(.1)
+    stop, seen = threading.Event(), []
+
+    def serve():
+        end = time.monotonic() + seconds
+        while not stop.is_set() and time.monotonic() < end:
+            try:
+                connection, _ = server.accept()
+            except TimeoutError:
+                continue
+            with connection:
+                connection.settimeout(.5)
+                try:
+                    seen.append(connection.recv(4096))
+                except OSError:
+                    pass
+                for byte in b'HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nX-Pad: ' + b'a' * 4000:
+                    if stop.is_set() or time.monotonic() >= end:
+                        break
+                    try:
+                        connection.sendall(bytes([byte]))
+                    except OSError:
+                        break
+                    stop.wait(.05)
+    thread = threading.Thread(target=serve, daemon=True); thread.start()
+    try:
+        yield SimpleNamespace(port=server.getsockname()[1], seen=seen)
+    finally:
+        stop.set(); thread.join(5); server.close()
 
 
 def free_port():
@@ -92,6 +159,22 @@ def test_console_identity_requires_bearer_and_is_non_secret(ui):
                         'expires_in_seconds': body['expires_in_seconds']}
         assert 8 * 3600 - 60 < body['expires_in_seconds'] <= 8 * 3600 and server.token not in json.dumps(body)
         assert client.post('/api/console', json={}, headers={'Authorization': 'Bearer ' + server.token, 'Origin': server.origin}).status_code == 404
+
+
+def test_console_challenge_answers_only_a_proof_of_the_token(ui):
+    with running(ui.home) as server, httpx.Client(base_url=server.origin, trust_env=False) as client:
+        challenge = secrets.token_hex(32)
+        response = client.get('/api/console', headers={'X-ATM-Challenge': challenge})
+        assert response.status_code == 200
+        assert response.json() == {'service': 'atm-console', 'proof': proof(server.token, challenge)}
+        assert server.token not in response.text and str(server.home) not in response.text and __version__ not in response.text
+        assert client.get('/api/console', headers={'X-ATM-Challenge': secrets.token_hex(32)}).json()['proof'] != response.json()['proof']
+        for bad in ['', 'zz' * 32, 'AB' * 32, challenge[:-1], challenge + '0']:
+            assert client.get('/api/console', headers={'X-ATM-Challenge': bad}).status_code == 400
+        # A request with any bearer is the identity mode: a wrong one is refused, not proven.
+        assert client.get('/api/console', headers={'X-ATM-Challenge': challenge, 'Authorization': 'Bearer wrong'}).status_code == 401
+        assert client.get('/api/console', headers={'X-ATM-Challenge': challenge, 'Origin': 'http://evil.test'}).status_code == 403
+        assert client.get('/api/console', headers=[('X-ATM-Challenge', challenge)] * 2).status_code == 403
 
 
 @pytest.mark.parametrize('extra', [(), ('--no-browser',), ('--port', 'SAME')], ids=['browser', 'no-browser', 'same-port'])
@@ -158,13 +241,41 @@ def test_foreign_listener_is_not_reused_and_its_file_is_kept(ui, status, ctype, 
         # Even the real token copied beside another listener must not reach it via that port.
         server.token_path.unlink()
         location = server.origin + '/api/console' if redirect else None
-        with foreign(status, ctype, body.replace('HOME', str(server.home)), location) as port:
-            other = ui.home/f'ui-session-{port}.token'
-            atomic_write(other, server.token.encode())
+        with foreign(status, ctype, body.replace('HOME', str(server.home)), location) as other:
+            path = ui.home/f'ui-session-{other.port}.token'
+            atomic_write(path, server.token.encode())
             result = ui.run(ui.home)
             fresh(ui, result)
-            assert result['url'] != f'http://localhost:{port}'
-            assert other.read_text() == server.token
+            assert result['url'] != f'http://localhost:{other.port}'
+            assert path.read_text() == server.token
+            assert other.seen and not bearer_sent(other.seen)
+
+
+def test_perfect_shape_listener_without_the_token_never_receives_the_bearer(ui):
+    with running(ui.home) as server:
+        server.token_path.unlink()
+        identity = {'service': 'atm-console', 'version': __version__, 'home': str(server.home), 'expires_in_seconds': 3600}
+
+        def answer(headers):
+            if 'X-ATM-Challenge' in headers:  # Right shape, but it cannot compute the proof.
+                return 200, 'application/json', json.dumps({'service': 'atm-console', 'proof': secrets.token_hex(32)}), {}
+            return 200, 'application/json', json.dumps(identity), {}
+        with listener(answer) as other:
+            path = ui.home/f'ui-session-{other.port}.token'
+            atomic_write(path, server.token.encode())
+            fresh(ui, ui.run(ui.home))
+            assert other.seen and re.fullmatch('[0-9a-f]{64}', other.seen[0]['X-ATM-Challenge'])
+            assert not bearer_sent(other.seen) and path.read_text() == server.token
+
+
+def test_trickling_listener_cannot_hold_atm_ui(ui):
+    with trickling() as other:
+        path = ui.home/f'ui-session-{other.port}.token'
+        atomic_write(path, secrets.token_urlsafe(32).encode())
+        began = time.monotonic()
+        fresh(ui, ui.run(ui.home))
+        assert time.monotonic() - began < 3
+        assert other.seen and b'authorization' not in b''.join(other.seen).lower() and path.exists()
 
 
 def test_expired_console_is_not_reused(ui):
@@ -174,7 +285,53 @@ def test_expired_console_is_not_reused(ui):
         assert server.token_path.exists()
 
 
-@pytest.mark.parametrize('unsafe', ['symlink', 'mode', 'oversized', 'empty'])
+@pytest.mark.parametrize('remaining', [8 * 3600 + 120, 10 ** 9], ids=['beyond-8h', 'huge'])
+def test_console_claiming_more_than_its_lifetime_is_not_reused(ui, remaining):
+    with running(ui.home) as server:
+        server.expires_at = time.monotonic() + remaining
+        fresh(ui, ui.run(ui.home))
+        assert server.token_path.exists()
+
+
+@pytest.mark.parametrize('version,reused', [(__version__, True), (__version__ + '.other', False)], ids=['same', 'other'])
+def test_console_of_another_version_is_not_reused(ui, version, reused):
+    token = secrets.token_urlsafe(32)
+    identity = {'service': 'atm-console', 'version': version, 'home': str(ui.home), 'expires_in_seconds': 3600}
+    ui.home.mkdir(mode=0o700)
+    with impostor(token, identity) as other:
+        path = ui.home/f'ui-session-{other.port}.token'
+        atomic_write(path, token.encode())
+        result = ui.run(ui.home, '--no-browser')
+        assert result['reused'] is reused and len(ui.started) == (0 if reused else 1)
+        assert bearer_sent(other.seen) and path.exists()  # It proved the token; only the version differs.
+
+
+@pytest.mark.parametrize('pad,reused', [(0, True), (20000, False)], ids=['plain', 'padded'])
+def test_answer_beyond_a_few_kib_is_refused_before_the_bearer(ui, pad, reused):
+    token = secrets.token_urlsafe(32)
+    identity = {'service': 'atm-console', 'version': __version__, 'home': str(ui.home), 'expires_in_seconds': 3600}
+    ui.home.mkdir(mode=0o700)
+    with impostor(token, identity, pad) as other:  # Valid JSON either way; only its size differs.
+        path = ui.home/f'ui-session-{other.port}.token'
+        atomic_write(path, token.encode())
+        result = ui.run(ui.home, '--no-browser')
+        assert result['reused'] is reused and bearer_sent(other.seen) is reused and path.exists()
+
+
+@pytest.mark.parametrize('left,reused', [(15 * 60 - 5, False), (15 * 60 + 30, True)], ids=['short', 'enough'])
+def test_console_is_reused_only_with_15_minutes_left(ui, left, reused):
+    with running(ui.home) as server:
+        server.expires_at = time.monotonic() + left
+        result = ui.run(ui.home)
+        assert result['reused'] is reused and ('15 minutes' in result['note']) is not reused
+        if reused:
+            assert ui.started == [] and result['url'] == server.origin
+        else:
+            fresh(ui, result)
+        assert server.token_path.exists()
+
+
+@pytest.mark.parametrize('unsafe', ['symlink', 'mode', 'oversized', 'empty', 'hardlink'])
 def test_unsafe_token_files_are_ignored_and_never_deleted(ui, tmp_path, unsafe):
     dead = ui.home/f'ui-session-{free_port()}.token'
     with running(ui.home) as server:
@@ -184,12 +341,39 @@ def test_unsafe_token_files_are_ignored_and_never_deleted(ui, tmp_path, unsafe):
             if unsafe == 'symlink':
                 target = tmp_path/(path.name + '.target'); atomic_write(target, value.encode()); path.symlink_to(target)
                 if hasattr(os, 'lchmod'): os.lchmod(path, 0o600)  # Only the file-type check remains.
+            elif unsafe == 'hardlink':
+                atomic_write(path, value.encode()); os.link(path, tmp_path/(path.name + '.link'))
             else:
-                atomic_write(path, {'mode': value, 'oversized': value + ' ' * 512, 'empty': ''}[unsafe].encode())
+                # 'oversized' uses token characters, so only the size bound rejects it.
+                atomic_write(path, {'mode': value, 'oversized': value + 'A' * 512, 'empty': ''}[unsafe].encode())
                 if unsafe == 'mode': path.chmod(0o644)
         fresh(ui, ui.run(ui.home))
         assert server.token_path.is_symlink() == dead.is_symlink() == (unsafe == 'symlink')
         assert os.path.lexists(server.token_path) and os.path.lexists(dead)
+
+
+def test_token_file_size_and_link_bounds_stand_on_their_own(tmp_path, monkeypatch):
+    monkeypatch.setattr(webapp, 'TOKEN_VALUE', re.compile(r'[A-Za-z0-9_-]+'))  # Only the lstat checks remain.
+    path = tmp_path/'ui-session-4242.token'
+    atomic_write(path, b'A' * 256)
+    assert webapp.read_token_file(path)[0] == 'A' * 256
+    atomic_write(path, b'A' * 257)
+    assert webapp.read_token_file(path) is None
+    atomic_write(path, b'A' * 64)
+    assert webapp.read_token_file(path)[0] == 'A' * 64
+    os.link(path, tmp_path/'second-name')
+    assert webapp.read_token_file(path) is None and webapp.read_token_file(tmp_path/'second-name') is None
+
+
+@pytest.mark.parametrize('mode', [0o770, 0o702, 0o722], ids=['group-write', 'other-write', 'both'])
+def test_home_writable_by_others_is_not_searched(ui, mode):
+    with running(ui.home) as server:
+        ui.home.chmod(mode)
+        try:
+            fresh(ui, ui.run(ui.home))
+        finally:
+            ui.home.chmod(0o700)
+        assert server.token_path.exists()
 
 
 def test_explicit_different_port_starts_a_new_console(ui):
