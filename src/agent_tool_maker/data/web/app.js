@@ -1040,8 +1040,8 @@ function settingsPrograms() {
       el('div',{},el('strong',{},c.name),' ',stateWord(info.state,info.word)),
       el('div',{class:'detail'},users.length?el('span',{},'用于 ',...users.flatMap((k,i)=>[i?'、':'',el('button',{type:'button',class:'plain',onclick:()=>go('services/'+k)},model.byKey.get(k)?.name||k)])):null,
         el('span',{},info.sentence),mono(c.path||c.detected_path||'不在 PATH 中','path'),info.command&&!info.bind?commandBox(info.command):null),
-      info.bind?actionButton({label:'绑定',kind:'dialog',target:{d:'setup',clis:[c.name]}},'secondary','program:bind:'+c.name)
-        :info.command?el('button',{type:'button',class:'secondary','data-key':'program:copy:'+c.name,onclick:()=>copyText(info.command,null,null).then(()=>toast('已复制命令：'+info.command))},'复制命令'):null);
+      // A command shows in its box with its own 复制; only binding a found program needs a button here.
+      info.bind?actionButton({label:'绑定',kind:'dialog',target:{d:'setup',clis:[c.name]}},'secondary','program:bind:'+c.name):null);
   });
   const agents=clis.filter(c=>['claude','codex'].includes(c.name)), rest=clis.filter(c=>!['claude','codex'].includes(c.name));
   const by=g=>rest.filter(c=>programInfo(c).group===g);
