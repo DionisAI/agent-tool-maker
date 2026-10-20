@@ -93,11 +93,29 @@ sessionStorage 连同会话码一起恢复，直到收到 401、点“锁定界�
 |---|---|---|
 | 总览 | 真实目录/启用数、已保存连接、最近任务计数 | 来自同一 SQLite，不用展示假统计 |
 | Agent 客户端 | 查看 Claude/Codex、预览并应用注册、移除登记入口 | 共用 onboarding；只动 ATM 自有入口 |
-| 工具目录 | 搜索、类型/启用筛选、查看 schema、启用或停用具体动作 | `atm tools list/enable/disable` 使用同一开关 |
+| 工具目录 | 搜索、类型/启用筛选、查看 schema、启用或停用具体动作；每行“在哪里设置”（见下文） | `atm tools list/enable/disable` 使用同一开关；`atm tools list` 同样输出 `setup` |
 | CLI 入口 | 检测程序并预览首次绑定；变化显示为需审查 | 改动后重新绑定仍用 `atm cli bind` 审核 |
 | 连接与凭证 | 初始化空库，新增/显式替换/移除 Key，可选有效期 | 原有 Vault 格式；已有 Key 默认不覆盖 |
 | 账户检查 | 预览并明确同意已有四类固定账户探针 | 共用 `atm verify`；不会退回生成测试 |
 | 任务记录 | 最近 50 条真实摘要、状态、产物数、已知/未知费用 | 不向 Web 返回输入、原始响应或签名 URL |
+
+工具目录的“在哪里设置”列来自 `/api/tools`（及 `atm tools list`）每行的 `setup`：一个步骤列表，只由工具定义与
+本机状态得出（名称、定义里的网址、布尔值），不含密钥或程序路径，不发网络请求。每个步骤都有 `method` 与 `ready`：
+`true`/`false` 表示这一步在本机是否已设好（不代表供应商已验证），`null` 表示 ATM 不检查这一步（交接、工作流）。
+
+| `method` | 其他字段 | 网页显示 |
+|---|---|---|
+| `api_key` | `credential, required, configured, expired` | 加密库里的 Key（`required: false` 为可选覆盖，不填则沿用 CLI 自己的登录）；未保存时“去连接”打开连接与凭证的保存对话框，已保存时“已连接”与原有“检查”，已过期时“更新连接”。已绑定 MCP 服务引用的 Key 也列为必需 |
+| `cli_bind` | `alias` | 需绑定的 CLI 别名 `atm cli bind <别名> <path>` 及是否已绑定 |
+| `opencli_chrome` | `alias`（`opencliapp`） | 同上；网站工具经 OpenCLIApp 使用本机已登录的 Chrome，ATM 不保存网站登录 |
+| `web_login` | `session, saved, expired` | 网页配方：在私有终端运行 `atm web login <工具 ID>`，并显示该登录态是否已保存/过期（不读取内容） |
+| `oauth` | `provider, status` | 绑定到 ATM OAuth 的 MCP 服务：本机 OAuth 连接状态（在连接与凭证页登录） |
+| `mcp` / `origin` | `server` / `provider` | `atm mcp bind …` / `atm origin set …` 及是否已设置 |
+| `browser_handoff` | `url` | 宿主 Agent 浏览器交接：登录在 Agent 自己的浏览器里（显示工具 url），ATM 不保存也不验证 |
+| `desktop_handoff` / `human_handoff` | `url` | 桌面交接、人工交接 |
+| `workflow` / `catalog_only` | `tools` / – | 按各步骤工具设置、仅目录条目 |
+
+付费工具另起一行：每次运行仍需明确的付费批准。没有步骤的工具（如不需登录的网页配方）显示“无需额外设置”。
 
 **停用是全局 ATM 执行开关，不是每个 Agent 独立的访问控制。**它阻止经 ATM 发起
 的新动作及工作流后续新步骤；不撤销上游已提交任务，也不阻止用户绕过 ATM 直接用工具。
