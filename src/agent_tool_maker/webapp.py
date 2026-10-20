@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
+import errno
 import hmac
 import http.client
 import json
@@ -15,6 +16,8 @@ import os
 from pathlib import Path
 import re
 import secrets
+import socket
+import socketserver
 import stat
 import threading
 import time
@@ -35,6 +38,7 @@ STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/assets/app.css": ("app.css", "text/css; charset=utf-8")}
 TOKEN_FILE = re.compile(r"ui-session-([1-9][0-9]{3,4})\.token")
 TOKEN_VALUE = re.compile(r"[A-Za-z0-9_-]{32,128}")
+BIND_ATTEMPTS = 16
 CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'"
 
 
@@ -95,7 +99,13 @@ class Console(ThreadingHTTPServer):
         self.token = secrets.token_urlsafe(32)
         self.expires_at = time.monotonic() + 8 * 3600
         self.lock = threading.RLock()
-        super().__init__(("127.0.0.1", port), Handler)
+        self.loopback6 = None
+        super().__init__(("127.0.0.1", port), Handler, bind_and_activate=False)
+        try:
+            self.bind_loopback(port, localhost)
+        except BaseException:
+            self.socket.close()
+            raise
         self.authority = f"{'localhost' if localhost else '127.0.0.1'}:{self.server_port}"
         self.origin = "http://" + self.authority
         from .passkeys import Passkeys
@@ -103,10 +113,55 @@ class Console(ThreadingHTTPServer):
         self.token_path = self.home / (f"ui-session-{self.server_port}.token")
         atomic_write(self.token_path, self.token.encode())
 
+    def bind_loopback(self, port, localhost):
+        """127.0.0.1:port and, for a localhost authority, [::1]:port too: browsers try ::1 first for
+        localhost, so no other local program may answer there with this page or its launch fragment."""
+        for _ in range(BIND_ATTEMPTS):
+            self.server_address = ("127.0.0.1", port)
+            try:
+                self.server_bind()
+            except OSError as error:
+                if port and error.errno == errno.EADDRINUSE:
+                    raise RouterError("port_in_use", f"127.0.0.1:{port} is already in use. Choose another --port.") from None
+                raise
+            self.server_activate()
+            if not localhost:
+                return
+            try:
+                self.loopback6 = Loopback6(self)
+                return
+            except OSError as error:
+                if error.errno in (errno.EADDRNOTAVAIL, errno.EAFNOSUPPORT):
+                    return  # No IPv6 loopback here: the browser cannot reach [::1] either.
+                if error.errno != errno.EADDRINUSE:
+                    raise
+            if port:
+                raise RouterError("port_in_use", f"Another program holds [::1]:{port}, which the browser tries first "
+                                  f"for localhost:{port}. Choose another --port.")
+            self.socket.close()  # Both families on one fresh port, or no console.
+            self.socket = socket.socket(self.address_family, self.socket_type)
+        raise RouterError("port_in_use", "No local port was free on both 127.0.0.1 and [::1]. No console was started.")
+
     def get_request(self):
         connection, address = super().get_request()
         connection.settimeout(10)
         return connection, address
+
+    def serve_forever(self, poll_interval=0.5):
+        twin = self.loopback6 and threading.Thread(target=self.loopback6.serve_forever, args=(poll_interval,), daemon=True)
+        if twin:
+            twin.start()
+        try:
+            super().serve_forever(poll_interval)
+        finally:
+            if twin:
+                self.loopback6.shutdown()
+                twin.join()
+
+    def shutdown(self):
+        super().shutdown()
+        if self.loopback6:
+            self.loopback6.shutdown()
 
     def open_router(self, password=None):
         if self.router_factory:
@@ -123,6 +178,8 @@ class Console(ThreadingHTTPServer):
             if self.secret_session_thread:
                 self.secret_session_thread.join(320)
         super().server_close()
+        if self.loopback6:
+            self.loopback6.server_close()
         if hasattr(self, "token_path"):
             try:
                 if self.token_path.read_text() == self.token:
@@ -130,6 +187,33 @@ class Console(ThreadingHTTPServer):
             except OSError:
                 pass
         self.token = ""
+
+
+class Loopback6(socketserver.ThreadingTCPServer):
+    """[::1] twin of a localhost console. Requests are handled by, and with the state of, the IPv4 server."""
+    address_family = socket.AF_INET6
+    daemon_threads = True
+    allow_reuse_address = False
+    request_queue_size = Console.request_queue_size
+
+    def __init__(self, primary):
+        self.primary = primary
+        super().__init__(("::1", primary.server_port), None, bind_and_activate=False)
+        try:
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+            self.server_bind()
+            self.server_activate()
+        except BaseException:
+            self.server_close()
+            raise
+
+    def get_request(self):
+        connection, address = super().get_request()
+        connection.settimeout(10)
+        return connection, address
+
+    def finish_request(self, request, client_address):
+        self.primary.finish_request(request, client_address)
 
 
 class Handler(BaseHTTPRequestHandler):
