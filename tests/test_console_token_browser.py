@@ -235,9 +235,14 @@ def test_lock_and_401_forget_the_same_way(console):
     page.locator('#session-token').fill(server.token)
     page.get_by_role('button', name='打开管理台').click()
     ready(page, expect)
-    server.expires_at = time.monotonic() - 1
-    # Opening the install dialog previews its plan at once: that request is answered 401 session_expired.
+    # The install dialog is open, its plan previewed while the session is still valid.
     page.locator('[data-key="first:agents"]').click()
+    expect(page.locator('#modal')).to_be_visible()
+    expect(page.locator('#modal ul.plan')).to_be_visible()
+    server.expires_at = time.monotonic() - 1
+    # Changing an Agent previews the plan again: that request is answered 401 session_expired,
+    # and forget() closes the open dialog like everything else.
+    page.locator('#modal').get_by_label('Codex', exact=True).click()
     locked(page, expect, EXPIRED)
     page.reload()  # Nothing is stored, so a reload offers the plain gate.
     expect(page.locator('#gate')).to_be_visible()
