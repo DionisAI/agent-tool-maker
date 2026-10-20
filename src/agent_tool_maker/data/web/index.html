@@ -8,30 +8,44 @@
 <script src="/assets/brand-data.js" defer></script>
 <script src="/assets/brands.js" defer></script>
 <script src="/assets/passkeys.js" defer></script>
+<script src="/assets/model.js" defer></script>
 <script src="/assets/app.js" defer></script>
 </head>
 <body>
-<aside class="sidebar">
-  <a class="brand" href="/" aria-label="Agent Tool Maker"><span class="mark">a<span>tm</span></span><span>Agent Tool Maker<small>LOCAL WORKSHOP</small></span></a>
-  <p class="nav-label">WORKSPACE / 工作台</p>
-  <nav aria-label="主导航">
-    <button data-nav="overview"><span aria-hidden="true">◫</span>总览</button>
-    <button data-nav="agents"><span aria-hidden="true">◎</span>Agent 客户端</button>
-    <button data-nav="tools"><span aria-hidden="true">⌘</span>工具目录</button>
-    <button data-nav="extensions"><span aria-hidden="true">✦</span>扩展工坊</button>
-    <button data-nav="connections"><span aria-hidden="true">◇</span>连接与凭证</button>
-    <button data-nav="sync"><span aria-hidden="true">⇄</span>设备与同步</button>
-    <button data-nav="access"><span aria-hidden="true">◈</span>Agent 授权</button>
-    <button data-nav="jobs"><span aria-hidden="true">≡</span>任务记录</button>
+<a class="skip-link" href="#main">跳到主要内容</a>
+<aside class="rail">
+  <a class="rail-brand" href="/" aria-label="Agent Tool Maker"><span class="rail-mark" aria-hidden="true">atm</span><span class="rail-name">ATM<small>本机管理台</small></span></a>
+  <nav id="nav" aria-label="主导航">
+    <button type="button" data-nav="overview"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span class="nav-label">首页</span><span class="nav-count" hidden></span></button>
+    <button type="button" data-nav="services"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="nav-label">服务</span></button>
+    <button type="button" data-nav="agents"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg><span class="nav-label"><span class="nav-long">Agent 与权限</span><span class="nav-short" aria-hidden="true">权限</span></span><span class="nav-count" hidden></span></button>
+    <button type="button" data-nav="jobs"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg><span class="nav-label">记录</span></button>
+    <button type="button" data-nav="settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg><span class="nav-label">设置</span></button>
   </nav>
-  <div class="sidebar-bottom"><span class="small-pill">LOCAL FIRST</span><p>Agents don't just use tools.<br>They make them.</p><small id="version">ATM · Management console</small></div>
+  <div class="rail-foot"><small id="version">ATM</small><small id="origin">仅在本机运行</small></div>
 </aside>
 <div class="shell">
-  <header><div><span class="dot"></span><strong>本地管理台</strong><span class="quiet" id="origin"></span></div><div class="header-actions"><button class="plain" id="lock">锁定界面</button><button class="secondary" id="refresh">刷新状态 ↻</button></div></header>
-  <main id="main" aria-live="polite"><section class="page-title"><div><p class="eyebrow">AGENT TOOL MAKER / YOUR LOCAL WORKSHOP</p><h1>正在连接本机 ATM…</h1><p>Claude Code 与 Codex，共用一套工具与本地配置。</p></div></section><div class="notice">只读取本机状态，没有向供应商发起请求。</div></main>
-  <footer>ATM 本地管理 · CLI 与网页共用状态 · 不提供云端远程控制</footer>
+  <header class="topbar">
+    <div class="context" id="context"><span class="crumb-here">首页</span></div>
+    <form id="global-search" role="search" autocomplete="off">
+      <svg class="search-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <label class="vh" for="global-q">搜索服务或工具</label>
+      <input id="global-q" type="search" placeholder="搜索服务或工具 ID…" autocomplete="off">
+      <kbd class="hint" aria-hidden="true">/</kbd>
+    </form>
+    <button type="button" id="search-button" class="icon-button" aria-label="搜索服务或工具"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="label">搜索</span></button>
+    <div id="credential-session" class="key-pill" data-state="loading">
+      <span class="pill-state"><svg class="icon-locked" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><svg class="icon-unlocked" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/></svg><span class="glyph" aria-hidden="true"></span><span class="pill-text" id="pill-text">Key …</span><span id="lease-countdown" aria-hidden="true"></span><span class="vh" id="lease-minutes"></span></span>
+      <button type="button" id="session-action" hidden></button>
+    </div>
+    <button type="button" id="refresh" class="icon-button" aria-label="刷新状态"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg><span class="label">刷新</span></button>
+    <button type="button" id="lock" class="icon-button" aria-label="退出管理台" title="只退出这个标签页，不锁定 Key，也不影响 Agent"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 4h5a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-5"/><path d="M10 16l-4-4 4-4M6 12h10"/></svg><span class="label">退出管理台</span></button>
+  </header>
+  <main id="main" tabindex="-1"><section class="page-title"><div><h1 tabindex="-1">正在连接本机 ATM…</h1></div></section></main>
+  <footer class="foot">ATM 本地管理 · CLI 与网页共用状态 · 不提供云端远程控制</footer>
 </div>
-<div class="gate" id="gate" hidden><form id="session-form" class="gate-card"><span class="small-pill">PRIVATE SESSION</span><h1>连接本地工作台</h1><p class="notice" id="gate-reason" role="alert" hidden></p><p>使用启动 <code>atm ui</code> 的终端自动打开本页，或粘贴终端所示私有 token 文件中的会话码。它不是供应商 API Key。</p><label>本次管理会话码<input id="session-token" type="password" autocomplete="off" required></label><button class="primary" type="submit">连接工作台 →</button><p class="quiet">会话码只保存在当前标签页，刷新后保留；新标签页、锁定界面或会话过期后需重新连接。</p></form></div>
-<dialog id="modal"><div class="dialog-head"><h2 id="modal-title"></h2><button id="modal-close" class="plain" aria-label="关闭">✕</button></div><div id="modal-body"></div></dialog>
+<div id="announce" class="vh" aria-live="polite" aria-atomic="true"></div>
+<div class="gate" id="gate" hidden><form id="session-form" class="gate-card"><span class="rail-mark" aria-hidden="true">atm</span><h1>打开本机管理台</h1><p id="gate-reason" class="gate-reason" role="alert" hidden></p><p>在终端运行 <code>atm ui</code> 会自动打开这里。也可以粘贴终端里 token 文件中的管理台会话码；它不是任何服务的 API Key。</p><label>管理台会话码<input id="session-token" type="password" autocomplete="off" required></label><button class="primary" type="submit">打开管理台</button><p class="quiet">会话码只保存在这个标签页：刷新后保留；新标签页、退出管理台或会话过期后需要重新打开。</p></form></div>
+<dialog id="modal" aria-labelledby="modal-title"><div class="dialog-head"><h2 id="modal-title"></h2><button type="button" id="modal-close" class="plain" aria-label="关闭">✕</button></div><ol id="modal-steps" class="stepper" hidden></ol><div id="modal-body"></div><p id="modal-alert" class="form-error" hidden></p><p id="modal-status" class="vh" role="status"></p><div id="modal-actions" class="dialog-actions"></div></dialog>
 <div id="toast" role="status" hidden></div>
 </body></html>
