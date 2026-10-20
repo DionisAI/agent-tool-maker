@@ -437,6 +437,9 @@ dialog::backdrop{background:var(--scrim)}
 #modal-close:hover{text-decoration:none;background:var(--sunken);border-radius:var(--r-s)}
 #modal-body{padding:4px 20px 8px;overflow:auto;display:grid;gap:10px;align-content:start;min-height:0}
 #modal-body>*{min-width:0}
+#modal-body ul:not(.plan){margin:0;padding-left:20px}
+.dialog-form{display:grid;gap:10px;min-width:0}
+.hint:empty{display:none}
 #modal-body h3{font-size:15px;margin-top:6px}
 #modal-alert{margin:0 20px 8px}
 .dialog-actions{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 20px 16px;border-top:1px solid var(--line);background:var(--surface)}

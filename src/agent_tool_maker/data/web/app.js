@@ -1410,8 +1410,10 @@ function trustDialog(){
     apply.setAttribute('aria-disabled','false');reason.hidden=true;});
   apply.addEventListener('click',action(async()=>{const v=values();if(!v)return;if(!reviewed||JSON.stringify(v)!==reviewed){changed();return;}
     await api('/api/sync/trust',{...v,apply:true});closeModal();await refresh();toast(`已配对 ${v.card.name||''}。`);}));
-  openModal({title:'配对另一台设备',wide:true,body:[card.node,fp.node,send.node,receive.node,view,reason],actions:[cancel(),check,apply]});
-  $('#modal-body').addEventListener('input',changed);$('#modal-body').addEventListener('change',e=>{if(e.target.type==='checkbox')changed();});
+  // Any edit after the check needs a new check (listeners live on this dialog's own form only).
+  const form=el('div',{class:'dialog-form'},card.node,fp.node,send.node,receive.node);
+  form.addEventListener('input',changed);form.addEventListener('change',e=>{if(e.target.type==='checkbox')changed();});
+  openModal({title:'配对另一台设备',wide:true,body:[form,view,reason],actions:[cancel(),check,apply]});
 }
 function exportDialog(peer){const pass=syncPassword();
   openModal({title:'导出给 '+peer.card.name,body:[el('p',{},'只包含允许发给它的 Key 的当前版本、冲突和删除标记。加密包只有这台设备能解开。'),pass?pass.node:null],actions:[cancel(),btn('生成并下载加密包',async()=>{let p=pass?.input.value||'';
@@ -1478,12 +1480,12 @@ function grantDialog(){
     apply.setAttribute('aria-disabled','false');reason.hidden=true;});
   apply.addEventListener('click',action(async()=>{const v=values();if(!reviewed||JSON.stringify(v)!==reviewed){changed();return;}
     await api('/api/access/grant',{...v,apply:true,approved_sha256:hash});closeModal();await refresh();toast(`已创建 ${agentLabel()} 的受限授权。`);}));
-  openModal({title:'新建受限授权',wide:true,body:[el('p',{},'给某个 Agent 一组固定的工具和一个项目目录，用于 broker 严格模式。默认模式不需要它。'),
-    el('fieldset',{},el('legend',{},'给哪个 Agent'),...agents.map(([a,r])=>el('label',{class:'check'},r,a==='claude'?'Claude Code':'Codex'))),
+  const form=el('div',{class:'dialog-form'},el('fieldset',{},el('legend',{},'给哪个 Agent'),...agents.map(([a,r])=>el('label',{class:'check'},r,a==='claude'?'Claude Code':'Codex'))),
     tools.node,known,unknown,workspace.node,ttl.node,hours.node,
     el('fieldset',{},el('legend',{},'额外权限（只勾选所选工具需要的）'),...perms.map(([,b,l])=>el('label',{class:'check'},b,l))),
-    el('label',{class:'check'},paid,'允许这些工具消耗额度（这不是金额上限）'),paidHint,view,reason],actions:[cancel(),check,apply]});
-  $('#modal-body').addEventListener('input',changed);$('#modal-body').addEventListener('change',changed);
+    el('label',{class:'check'},paid,'允许这些工具消耗额度（这不是金额上限）'),paidHint);
+  form.addEventListener('input',changed);form.addEventListener('change',changed);
+  openModal({title:'新建受限授权',wide:true,body:[el('p',{},'给某个 Agent 一组固定的工具和一个项目目录，用于 broker 严格模式。默认模式不需要它。'),form,view,reason],actions:[cancel(),check,apply]});
 }
 
 // ---- Global search ----
