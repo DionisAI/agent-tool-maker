@@ -308,6 +308,31 @@ def test_reload_into_another_section_never_paints_the_overview(console):
     context.close()
 
 
+def test_launch_link_opened_in_an_already_open_tab_is_redeemed(console):
+    server, browser, expect = console
+    context = browser.new_context()
+    page = context.new_page(); errors, _ = watch(page, server)
+    page.goto(server.origin + '/#launch=' + server.launch_code())
+    ready(page, expect)
+    page.get_by_role('button', name='工具目录', exact=True).click()
+    ready(page, expect, TOOLS)
+    for name in ('launch', 'token'):
+        value = server.launch_code() if name == 'launch' else server.token
+        # The same tab, so only the fragment changes: the page must still take its normal load path.
+        with page.expect_event('load'):
+            page.goto(server.origin + '/#' + name + '=' + value)
+        ready(page, expect, TOOLS)
+        assert page.url == server.origin + '/' and stored(page) == server.token
+        assert all(value not in url for url in history(context, page)), history(context, page)
+        assert not server.launch_codes  # Redeemed, so it cannot be used again.
+    page.evaluate('window.__sameDocument = true')
+    page.goto(server.origin + '/#unrelated')  # Any other fragment is not a reason to reload.
+    page.wait_for_timeout(300)
+    assert page.evaluate('window.__sameDocument') is True and page.url == server.origin + '/#unrelated'
+    assert stored(page) == server.token and not errors, errors
+    context.close()
+
+
 def test_unavailable_storage_falls_back_to_page_memory(console):
     server, browser, expect = console
     context = browser.new_context()

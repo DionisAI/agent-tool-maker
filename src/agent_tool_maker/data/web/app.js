@@ -370,7 +370,11 @@ const apply=btn('批准并写入私有客户端文件',async()=>{const v=values(
 openModal('创建有范围的 Agent 授权',el('label',{},'客户端',agent),el('label',{},'精确工具 ID（逗号分隔）',tools),el('label',{},'允许的项目目录',workspace),el('label',{},'授权小时数（最多 720）',hours),el('label',{},paid,'允许所选工具消耗上游额度（不是金额上限）'),...permissions.map(p=>el('label',{},p.input,p.key)),view,el('div',{class:'dialog-actions'},btn('预览授权',async()=>{const v=values(),r=await api('/api/access/grant',v);reviewed=JSON.stringify(v);hash=r.approval_sha256;view.textContent=JSON.stringify(r,null,2);apply.disabled=false;}),apply));}
 
 document.querySelectorAll('[data-nav]').forEach(n=>n.onclick=()=>go(n.dataset.nav));
-window.addEventListener('popstate',e=>{active=known(e.state?.section)||'overview';tabSection.set(active);render();});
+// A launch link opened in this already-open tab changes only the fragment (popstate, then hashchange):
+// reload, so the normal load path strips and redeems it. Its popstate leaves the current section alone.
+const launchLink = () => /^#(launch|token)=/.test(location.hash);
+window.addEventListener('popstate',e=>{if(launchLink())return;active=known(e.state?.section)||'overview';tabSection.set(active);render();});
+window.addEventListener('hashchange',()=>{if(launchLink())location.reload();});
 $('#modal-close').onclick=closeModal;
 $('#modal').addEventListener('cancel',()=>$('#modal-body').replaceChildren());
 $('#refresh').onclick=action(refresh);
