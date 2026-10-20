@@ -526,9 +526,8 @@ function homeJobs() {
 const creditsBusy=new Set(); // Queued or running.
 let creditsRunning=null, creditsQueue=Promise.resolve(); // Every refresh runs one at a time: website sources share the logged-in browser.
 const creditNumber=value=>new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(value);
-const creditErrors=T.creditErrors;
-// Short label for an error code; own keys only, so a code such as "constructor" is not a prototype member.
-const creditLabel=code=>Object.hasOwn(creditErrors,code)?creditErrors[code]:'读取失败 · '+code;
+// Short label for an error code (model.js: own keys only, so a code such as "constructor" is not a prototype member).
+const creditLabel=T.creditLabel;
 const relativeTime=epoch=>T.relative(epoch);
 function updateCredit(record) {
   const list=data?.overview?.credits?.providers, i=list?list.findIndex(p=>p.provider===record.provider):-1;
@@ -1430,7 +1429,7 @@ function bulkDialog(tools, enable, routeTitle, serviceName) {
   },enable?'primary':'primary danger');
   // Enabling paid tools says how many may charge (S9: 可能扣费 wherever a paid tool is listed).
   const paid=enable?list.filter(v=>v.paid).length:0;
-  openModal({title:zh`${enable?'允许':'停用'} ${routeTitle} 的 ${list.length} 个工具？`,body:[el('p',{},enable?'Claude Code 和 Codex 都可以调用它们。允许使用不等于允许扣费。':zh`Claude Code 和 Codex 都不能再调用它们。已经提交给 ${serviceName} 的任务不会被取消。`),
+  openModal({title:zh`${enable?'允许':'停用'}「${routeTitle}」的 ${list.length} 个工具？`,body:[el('p',{},enable?'Claude Code 和 Codex 都可以调用它们。允许使用不等于允许扣费。':zh`Claude Code 和 Codex 都不能再调用它们。已经提交给 ${serviceName} 的任务不会被取消。`),
     paid?el('p',{class:'paid-line'},tagNode('可能扣费'),zh` 其中 ${paid} 个可能扣费：每次扣费都要 Agent 在调用时明确声明。`):null],actions:[cancel(),go_]});
 }
 function downloadJson(value,name){const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=el('a',{href:url,download:name});a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}

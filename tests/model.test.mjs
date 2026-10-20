@@ -554,6 +554,21 @@ test('one primary per intent: the header fix is not repeated, and an optional se
   assert.deepEqual(plain(higgs.routes.flatMap(r => r.actions.filter(a => a.primary).map(a => a.label))), []);
 });
 
+test('a Key no tool reads does not lead: GitHub shows one filled button, and its lead matches it', () => {
+  const github = M.derive(data({tools: ['repo', 'issues'].map(x => tool('github.' + x, 'command', 'github_cli', 'cli_not_configured', {executable: 'gh'})),
+    connections: [conn('github')]}), NOW).byKey.get('github');
+  assert.equal(github.state, 'setup');
+  assert.equal(github.primary.label, '查看设置步骤');
+  assert.equal(github.primary.route, github.routes.find(r => r.kind === 'program').anchor);
+  assert.ok(!github.lead.includes('Key'), github.lead);
+  assert.deepEqual(plain(github.routes.flatMap(r => r.actions.filter(a => a.primary).map(a => a.label))), []);
+  // A Key that a program tool reads is that tool's fix, so it leads the header.
+  const reads = M.derive(data({tools: [tool('acme.cli', 'command', 'acme', 'missing_credential', {executable: 'acme', credentials: ['acme'], health: {credential: 'acme'}})],
+    connections: [conn('acme')]}), NOW).byKey.get('acme');
+  assert.equal(reads.primary.label, '添加 API Key');
+  assert.deepEqual(plain(reads.routes.flatMap(r => r.actions.filter(a => a.primary).map(a => a.label))), []);
+});
+
 test('a working ATM login can be replaced: 重新登录 sits next to 刷新状态', () => {
   for (const [status, keep, service] of [['ready', false, 'not_installed'], ['refreshing', false, 'not_installed'], ['ready', true, 'load_failed']]) {
     const route = M.derive(data({vault: {backend: 'keyring', state: 'unlock_not_checked'}, oauth: [{provider: 'higgsfield', status, keep_login: keep, expires_at: NOW + 3600, service: {status: service}}]}), NOW)

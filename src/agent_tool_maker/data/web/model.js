@@ -808,12 +808,14 @@
     else if (!live.length) service.lead = '还没有设置。';
     else if (live.every(r => r.state === 'handoff')) service.lead = '无需在 ATM 设置。Agent 会在它自己的浏览器或软件里完成，ATM 只记录结果。';
     else if (!setup.length) service.lead = zh`可以使用。Agent 可以通过 ${[...ready, ...handoff].map(r => r.title).join('、')} 使用 ${count([...ready, ...handoff])} 个工具。`;
-    else if (!ready.length) service.lead = '还没有设置。' + (setup[0].summary || '') + handoffNote;
+    // The lead names the setup that unblocks tools (the header's fix), not a Key no tool reads yet.
+    else if (!ready.length) service.lead = '还没有设置。' + ((setup.find(r => r.tools.some(v => v.enabled)) || setup[0]).summary || '') + handoffNote;
     else service.lead = zh`可以使用。Agent 可以通过 ${[...ready, ...handoff].map(r => r.title).join('、')} 使用 ${count([...ready, ...handoff])} 个工具；${setup.map(r => r.title).join('、')} 还没设置，用到时再设置。`;
     // One primary per intent. The header carries the fix of the most severe route (blocked > attention > setup, in route
     // order). A link to another route on this page stands for that route's own fix. A route fixed by a command (shown with
     // its own 复制 button) gets a header link that jumps to the command. Next to a working route, a setup is optional.
-    const eligible = routes.filter(r => r.tools.some(v => v.enabled) || (r.kind === 'key' && !service.tools.length) || r.kind === 'oauth');
+    const readsKey = r => r.kind === 'key' && service.tools.some(v => v.enabled && arr(r.key?.usedBy).includes(v.id));
+    const eligible = routes.filter(r => r.tools.some(v => v.enabled) || (r.kind === 'key' && !service.tools.length) || readsKey(r) || r.kind === 'oauth');
     const firstOf = r => r.actions.find(a => a.primary) || r.actions[0] || null;
     const fixOf = r => {
       const a = firstOf(r), to = a?.kind === 'route' && a.target?.service === service.key ? routes.find(x => x.anchor === a.target.anchor) : null;
@@ -828,11 +830,10 @@
       const route = eligible.find(r => r.state === s && fixOf(r));
       if (route) { service.primary = {...fixOf(route), primary: true, quiet: false, route: route.anchor}; break; }
     }
-    // The header's fix is not repeated as a second filled button, and an optional setup never outshines a working route.
-    const same = (a, b) => Boolean(b) && a.label === b.label && a.kind === b.kind && JSON.stringify(a.target) === JSON.stringify(b.target);
+    // With a header fix, it is the page's only filled button; an optional setup never outshines a working route.
     for (const r of routes) {
       const optional = r.state === 'setup' && routes.some(o => o !== r && ['ready', 'attention', 'blocked'].includes(o.state));
-      r.actions = r.actions.map(a => a.primary && (optional || same(a, service.primary)) ? {...a, primary: false} : a);
+      r.actions = r.actions.map(a => a.primary && (optional || service.primary) ? {...a, primary: false} : a);
     }
   }
 

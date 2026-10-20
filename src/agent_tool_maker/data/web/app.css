@@ -566,9 +566,9 @@ table.schema th{color:var(--ink-2);font-weight:500;border-top:0}
   .pill-state{padding:0 4px 0 8px}
   #session-action{padding:0 7px}
   .topbar .icon-button{min-width:36px;padding:0 7px}
-  /* Only the way back on a sub-page: the page's own h1 names it. */
+  /* Only the way back on a sub-page; nothing on a top-level page. The tab bar and the h1 name it. */
   .context{min-width:40px}
-  .context .back~.crumb-here{display:none}
+  .context .crumb-here{display:none}
   .group-head .count-line{flex-basis:100%;order:1}
   .group-head .plain{order:2}
 }

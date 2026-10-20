@@ -343,6 +343,15 @@ def test_credits_refreshes_are_serialized_and_keep_focus(tmp_path, width):
             assert not errors, errors
             # Only Chromium's own log line for the deliberately refused (409) request.
             assert console_errors == ["Failed to load resource: the server responded with a status of 409 (Conflict)"], console_errors
+
+            # A known CLI failure code reads as a Chinese reason on the card; the code stays in the title.
+            State(tmp_path / "state").set_setting("credits:tripo_studio", {
+                "provider": "tripo_studio", "status": "error", "credits": 7, "plan": None, "unit": "credits",
+                "source": "tripo.studio.account", "checked_at": now - 30, "last_ok_at": now - 120,
+                "error": {"code": "cli_protocol", "message": "Fixture: unreadable CLI output."}})
+            page.locator("#refresh").click()
+            expect(tripo.locator(".badge.bad")).to_have_text("程序返回的内容无法识别")
+            expect(tripo.locator(".badge.bad")).to_have_attribute("title", "Fixture: unreadable CLI output.（cli_protocol）")
             browser.close()
     finally:
         server.shutdown()
