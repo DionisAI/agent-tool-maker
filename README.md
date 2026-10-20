@@ -41,7 +41,7 @@ ATM 把选定 Key 临时提供给程序；Python 仍可用 `os.environ["ELEVENLA
 它执行 `atm ui`。你在本地网页中管理 Key、工具和多设备同步。
 已有 Key 不重复索取；添加新 Key 与更换旧 Key 分开，不静默覆盖。
 
-管理台以本地品牌 Logo 识别工具和连接，提供工具箱入口；[图标覆盖与来源](docs/BRAND_LOGOS.md)。图标不代表供应商已登录或可用。
+管理台按服务组织：首页列出需要你处理的事，每个服务一页写明怎么连接；[说明](docs/WEB_CONSOLE.md)、[图标来源](docs/BRAND_LOGOS.md)。图标不代表已登录或可用。
 
 ## 安全范围
 

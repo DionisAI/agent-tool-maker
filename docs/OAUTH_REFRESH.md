@@ -3,7 +3,7 @@
 ## 用户体验
 
 告诉 Agent：**“打开 ATM，连接 Higgsfield 订阅并保持登录。”**
-Agent 打开本机管理页；在「连接与凭证 → Higgsfield 订阅 · ATM OAuth」中，
+Agent 打开本机管理页；在「服务 → Higgsfield → ATM 登录 · Higgsfield MCP」中，
 你勾选「保持登录」并打开官方登录窗口，自己完成登录/授权。密码和令牌不进入聊天。
 授权请求仅包含 `openid email offline_access`，绑定 `https://mcp.higgsfield.ai/mcp`。
 

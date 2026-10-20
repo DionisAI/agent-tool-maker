@@ -1,3 +1,9 @@
+# Unreleased — console redesign
+
+- Five sections (首页, 服务, Agent 与权限, 记录, 设置) with a needs-you inbox, one page per service listing every connection route with exact copy and terminal commands, and the Key lock in one top-bar control on every page; 退出管理台 only ends the tab.
+- Read-only payload additions: tool Key/program/server references, job `kind`, and pending approval-window requests in `/api/access` (no approve control in the console; no new write endpoint).
+- `model.js` derives every view from the same ten bootstrap GETs; strict CSP, no build step, CDN or remote font; light and dark tokens shared with the approval window.
+
 # Changes in 0.8.0
 
 - Agent-first local unlock window, temporary trusted-project consent and `atm use`.
