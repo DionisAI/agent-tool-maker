@@ -20,6 +20,18 @@ GATE_PROBE = """(() => {
   new MutationObserver(check).observe(document, {subtree: true, childList: true, attributes: true, attributeFilter: ['hidden']});
   const frame = () => { check(); requestAnimationFrame(frame); }; requestAnimationFrame(frame);
 })();"""
+# Records each distinct "page heading|active nav items" the page holds: on parser insertion, any change, every frame.
+SECTION_PROBE = """(() => {
+  window.__painted = [];
+  const check = () => {
+    const h1 = document.querySelector('#main .page-title h1');
+    const row = (h1 ? h1.textContent : '') + '|' + [...document.querySelectorAll('[data-nav].active')].map(n => n.dataset.nav).join(',');
+    if (window.__painted[window.__painted.length - 1] !== row) window.__painted.push(row);
+  };
+  new MutationObserver(check).observe(document, {subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class']});
+  const frame = () => { check(); requestAnimationFrame(frame); }; requestAnimationFrame(frame);
+})();"""
+PLACEHOLDER = '正在连接本机 ATM…'
 EXPIRED = '会话已过期：在终端再次运行 atm ui 打开新的管理台'
 RESTARTED = '管理台已重启或会话已失效：在终端再次运行 atm ui'
 REJECTED = '会话码未被接受：请核对终端所示 token 文件中的会话码'
@@ -54,7 +66,7 @@ def watch(page, server):
 
 
 def ready(page, expect, heading=OVERVIEW):
-    # Rendered from live data: the static placeholder (which shares the overview heading) is gone.
+    # Rendered from live data: the static placeholder is gone.
     expect(page.locator('#main')).not_to_contain_text('正在连接本机 ATM')
     expect(page.locator('#main .page-title h1')).to_have_text(heading)
     expect(page.locator('#gate')).to_be_hidden()
@@ -271,6 +283,27 @@ def test_section_is_restored_after_reload_and_back_moves_between_sections(consol
     page.go_forward(); ready(page, expect, TOOLS)
     expect(page.locator('[data-nav=tools]')).to_have_class('active')
     assert page.url == server.origin + '/' and not errors
+    context.close()
+
+
+def test_reload_into_another_section_never_paints_the_overview(console):
+    server, browser, expect = console
+    context = browser.new_context()
+    context.add_init_script(SECTION_PROBE)
+    page = context.new_page(); errors, _ = watch(page, server)
+    page.goto(server.origin + '/#token=' + server.token)
+    ready(page, expect)
+    assert page.evaluate('window.__painted')[-1] == OVERVIEW + '|overview'
+    page.get_by_role('button', name='工具目录', exact=True).click()
+    ready(page, expect, TOOLS)
+    for _ in range(3):
+        page.reload(); ready(page, expect, TOOLS)
+        painted = page.evaluate('window.__painted')
+        # A neutral placeholder, then only the restored section, in the heading and in the navigation.
+        assert painted[-1] == TOOLS + '|tools' and PLACEHOLDER + '|tools' in painted, painted  # Marked before data.
+        assert {row.split('|')[0] for row in painted} <= {'', PLACEHOLDER, TOOLS}, painted
+        assert {row.split('|')[1] for row in painted} <= {'', 'tools'}, painted
+    assert not errors, errors
     context.close()
 
 

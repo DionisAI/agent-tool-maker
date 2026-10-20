@@ -28,6 +28,8 @@ const SECTIONS = [...document.querySelectorAll('[data-nav]')].map(n => n.dataset
 const known = section => SECTIONS.includes(section) ? section : '';
 // This history entry's own section (reload, Back/Forward into a fresh load) first, then this tab's last one.
 let data = null, active = known(history.state?.section) || known(tabSection.get()) || 'overview', noticeTimer;
+const markNav = () => document.querySelectorAll('[data-nav]').forEach(n=>n.classList.toggle('active',n.dataset.nav===active));
+markNav();  // The restored section shows in the navigation before any data arrives.
 // The launch fragment leaves the address bar and this history entry before any request is made.
 if (location.hash) history.replaceState({section:active}, '', location.pathname); else history.replaceState({section:active}, '');
 const GATE_REASONS = {
@@ -142,8 +144,8 @@ function agentCard(a) {
     },'plain danger'):null));
 }
 function render() {
+  markNav();
   if(!data)return;
-  document.querySelectorAll('[data-nav]').forEach(n=>n.classList.toggle('active',n.dataset.nav===active));
   const main=$('#main'); main.replaceChildren();
   if(active==='overview') {
     main.append(heading('连接一次，持续使用。','Claude Code 与 Codex，共用一套工具、凭证和执行记录。',btn('配置默认客户端 →',()=>setupDialog(), 'primary')));
