@@ -104,6 +104,8 @@ const breakable = id => String(id).split(/(?<=[./])/).flatMap((part,i)=>i?[el('w
 const mono = (text, cls='') => el('code', {class:cls}, breakable(text));
 const stateWord = (state, word, attrs={}) => el('span', {class:'state', 'data-state':state, ...attrs}, el('span', {class:'glyph', ariaHidden:'true'}), word);
 const quote = T.quote;
+// Copy templates: one space where Chinese meets Latin at a name's edge, none between two Chinese words (model.js zh).
+const zh = T.zh;
 function brandMark(brand, size=32) {
   const mark=el('span',{class:'provider-mark s'+size,ariaHidden:'true','data-brand':brand.key});
   const fallback=()=>{mark.classList.add('initials');mark.replaceChildren(document.createTextNode(brand.initials));};
@@ -309,7 +311,7 @@ function render(opts={}) {
   const focusKey = focusedHere ? document.activeElement?.dataset?.key : '';
   const selection = focusKey && document.activeElement.selectionStart !== undefined ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
   const nodes = [];
-  if (ui.error) nodes.push(el('div',{class:'banner',role:'alert'},el('span',{},`读取本机状态失败：${ui.error.text.replace(/。$/,'')}。页面显示的是 ${T.time(ui.error.at)} 读取的状态。`),btn('重试',async()=>{await refresh();announce('已刷新');})));
+  if (ui.error) nodes.push(el('div',{class:'banner',role:'alert'},el('span',{},zh`读取本机状态失败：${ui.error.text.replace(/。$/,'')}。页面显示的是 ${T.time(ui.error.at)} 读取的状态。`),btn('重试',async()=>{await refresh();announce('已刷新');})));
   const page = {overview:renderOverview, services:renderServices, agents:renderAgents, jobs:renderJobs, settings:renderSettings}[topOf(active)];
   main.dataset.width = active.startsWith('services/') || topOf(active)==='settings' ? 'narrow' : 'wide';
   main.replaceChildren(...nodes, ...page(active.split('/')[1]));
@@ -378,7 +380,7 @@ function tick() {
   $('#lease-countdown').textContent = String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0');
   pill.style.setProperty('--lease', String(Math.min(1, left/1800)));
   const minute = Math.ceil(left/60);
-  if (minute!==lastMinute) { lastMinute=minute; $('#lease-minutes').textContent=`Key 已解锁，还剩 ${minute} 分钟`; }
+  if (minute!==lastMinute) { lastMinute=minute; $('#lease-minutes').textContent=zh`Key 已解锁，还剩 ${minute} 分钟`; }
   if (!left && !expiredOnce) { expiredOnce=true; refresh().then(()=>announce('30 分钟到了，Key 已自动锁定。'),report); }
 }
 setInterval(tick, 1000);
@@ -435,11 +437,11 @@ function openRoute(t) {
 function renderOverview() {
   const m=model, out=[], live=m.requests.filter(r=>r.live), open=m.firstRun.steps.filter(s=>!s.done).length;
   const ready=m.counts.servicesReady, vault=vaultInfo(), session=sessionInfo();
-  if (m.firstRun.show) out.push(pageTitle('开始使用 ATM', `还差 ${open} 步。完成后，Claude Code 和 Codex 就能用你在这里设置的 Key 和工具。`));
-  else if (m.inbox.length) out.push(pageTitle(`有 ${m.inbox.length} 件事需要你处理`, `只列出会让 Agent 用不了的问题，处理后会自动消失。${ready} 个服务可以使用。`));
+  if (m.firstRun.show) out.push(pageTitle('开始使用 ATM', zh`还差 ${open} 步。完成后，Claude Code 和 Codex 就能用你在这里设置的 Key 和工具。`));
+  else if (m.inbox.length) out.push(pageTitle(zh`有 ${m.inbox.length} 件事需要你处理`, zh`只列出会让 Agent 用不了的问题，处理后会自动消失。${ready} 个服务可以使用。`));
   else if (live.length) out.push(pageTitle('有 Agent 在等你确认', '在授权窗口里确认后，Agent 会继续。'));
-  else out.push(pageTitle('一切正常', `${ready} 个服务可以使用。` + (!vault.backend ? '还没设置 Key 保管方式。' : session.unlocked
-    ? `Key 已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定。` : 'Key 已锁定：Agent 需要 Key 时会打开授权窗口请你确认。')));
+  else out.push(pageTitle('一切正常', zh`${ready} 个服务可以使用。` + (!vault.backend ? '还没设置 Key 保管方式。' : session.unlocked
+    ? zh`Key 已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定。` : 'Key 已锁定：Agent 需要 Key 时会打开授权窗口请你确认。')));
   if (m.requests.length) out.push(requestsSection('home-requests'));
   if (m.firstRun.show) out.push(firstRunSection());
   if (!(m.firstRun.show && !m.inbox.length)) out.push(inboxSection());
@@ -488,7 +490,7 @@ function inboxSection() {
 function serviceRow(s) {
   const credit=s.credits&&typeof s.credits.credits==='number'?creditNumber(s.credits.credits):'';
   const word=serviceWord(s);
-  return el('button',{type:'button',class:'service-row','data-key':'service:'+s.key,ariaLabel:`${s.name}：${word}`+(credit?`，${credit} 积分`:''),onclick:()=>go('services/'+s.key)},
+  return el('button',{type:'button',class:'service-row','data-key':'service:'+s.key,ariaLabel:`${s.name}：${word}`+(credit?zh`，${credit} 积分`:''),onclick:()=>go('services/'+s.key)},
     serviceMark(s,32), el('span',{class:'name'},s.name), routeStrip(s.routes,false),
     el('span',{class:'side'},credit?el('span',{class:'num'},credit+' 积分'):null,stateWord(s.state,word),el('span',{class:'chev',ariaHidden:'true'},'›')));
 }
@@ -501,11 +503,11 @@ function homeServices() {
   const inUse=model.services.filter(s=>s.inUse), rank=s=>['blocked','attention'].includes(s.state)?0:1;
   const sorted=[...inUse].sort((a,b)=>rank(a)-rank(b)||new Intl.Collator('zh-CN').compare(a.name,b.name));
   const others=model.services.length-inUse.length;
-  const head=el('div',{class:'section-head'},el('div',{},el('h2',{},'我在用的服务'),el('small',{},`${inUse.length} 个 · 还有 ${others} 个可添加`)),
+  const head=el('div',{class:'section-head'},el('div',{},el('h2',{},'我在用的服务'),el('small',{},zh`${inUse.length} 个 · 还有 ${others} 个可添加`)),
     el('button',{type:'button',class:'plain',onclick:()=>go('services'),'data-key':'home:services'},'全部服务'));
   if (!inUse.length) return el('section',{id:'home-services'},head,el('div',{class:'panel'},el('p',{},'还没有在用的服务。到“服务”里找到要用的服务，按页面上的提示连接。'),el('div',{},btn('查看全部服务',()=>go('services')))));
   const list=el('div',{class:'service-list'},...sorted.slice(0,8).map(serviceRow));
-  if (sorted.length>8) list.append(el('button',{type:'button',class:'more',onclick:()=>go('services')},`还有 ${sorted.length-8} 个在用的服务`));
+  if (sorted.length>8) list.append(el('button',{type:'button',class:'more',onclick:()=>go('services')},zh`还有 ${sorted.length-8} 个在用的服务`));
   return el('section',{id:'home-services'},head,list);
 }
 function homeAgents() {
@@ -607,7 +609,7 @@ function creditSource(p) {
   if(!p.source)return null;
   const exe=model?.tools.get(p.source)?.tool.executable||p.next_executable||'程序';
   const site=T.sites[MODEL.serviceKeyOf(p.brand||p.provider)];
-  const text=p.source_kind==='cli'?`来自 ${exe} 程序`:p.source==='tripo.server.account'?'来自服务器上的 Tripo Studio':`来自 ${site?.name||p.label} 网站（你的 Chrome 登录）`;
+  const text=p.source_kind==='cli'?zh`来自 ${exe} 程序`:p.source==='tripo.server.account'?'来自服务器上的 Tripo Studio':zh`来自 ${site?.name||p.label} 网站（你的 Chrome 登录）`;
   return el('small',{class:'credit-source',title:p.source},text);
 }
 function creditCard(p) {
@@ -620,7 +622,7 @@ function creditCard(p) {
   const head=el('div',{class:'card-head'},brandIdentity(p.brand,[el('h3',{},el('button',{type:'button',class:'plain',onclick:()=>go('services/'+key)},p.label)),creditSource(p)],p.source||''));
   if(!p.installed) // Compact: where to set it up, and the owner-set renewal day.
     return el('article',{class:'credit-card','data-provider':p.provider},head,
-      el('p',{class:'quiet'},`还不能读取：先在“${name}”页完成设置。`,' ',go_({label:'去设置',kind:'nav',target:'services/'+key})),cycle,el('div',{class:'card-actions'},cycleButton));
+      el('p',{class:'quiet'},zh`还不能读取：先在“${name}”页完成设置。`,' ',go_({label:'去设置',kind:'nav',target:'services/'+key})),cycle,el('div',{class:'card-actions'},cycleButton));
   const stale=p.last_ok_at&&Date.now()/1000-p.last_ok_at>86400;
   const amount=typeof p.credits==='number'?creditNumber(p.credits):'—';
   const site=T.sites[key], exe=sourceTool?.tool.executable||p.next_executable;
@@ -630,8 +632,8 @@ function creditCard(p) {
     el('div',{class:'credit-meta'},p.plan?el('span',{class:'badge'},p.plan):null,el('small',{},p.last_ok_at?'上次读取 '+relativeTime(p.last_ok_at):'尚未读取'),
       stale?el('span',{class:'badge warn'},'超过 24 小时，可能已变化'):null,
       p.status==='error'&&p.error?creditError(p.error):null),
-    login?el('p',{class:'quiet'},'需要登录：'+(p.source_kind==='cli'?`用 ${exe} 自己的登录命令登录`:`在 Chrome 里登录 ${site?.name||name}`),' ',go_({...routeOf(),label:'怎么登录'})):null,
-    p.bound?null:el('p',{class:'quiet'},`还不能读取：需要先绑定 ${p.next_executable} 程序。`,' ',go_(routeOf())),
+    login?el('p',{class:'quiet'},'需要登录：'+(p.source_kind==='cli'?zh`用 ${exe} 自己的登录命令登录`:zh`在 Chrome 里登录 ${site?.name||name}`),' ',go_({...routeOf(),label:'怎么登录'})):null,
+    p.bound?null:el('p',{class:'quiet'},zh`还不能读取：需要先绑定 ${p.next_executable} 程序。`,' ',go_(routeOf())),
     cycle,
     el('div',{class:'card-actions'},p.bound?creditsButton('刷新',[p.provider],'secondary','refresh',p.provider):null,
       p.bound&&p.next_source!==p.source?el('small',{class:'credit-next',title:p.next_source},'下次刷新读取'+(p.next_source_kind==='cli'?' CLI':'网站')):null,
@@ -660,7 +662,7 @@ const STATUS_FILTER=[['','全部状态'],['on','已允许'],['ready','可以使�
 function renderServices(sub) {
   if (sub) return renderService(sub);
   const c=model.counts, out=[];
-  out.push(pageTitle('服务',`每个服务一页：怎么连接、能不能用、Agent 可以用它做什么。${c.servicesReady} 个可以使用 · ${c.servicesAttention} 个需要处理 · ${c.servicesSetup} 个还没设置（用到时再设置，不必全部连接）。`,
+  out.push(pageTitle('服务',zh`每个服务一页：怎么连接、能不能用、Agent 可以用它做什么。${c.servicesReady} 个可以使用 · ${c.servicesAttention} 个需要处理 · ${c.servicesSetup} 个还没设置（用到时再设置，不必全部连接）。`,
     btn('添加自定义 Key',()=>declareDialog(),'secondary',{'data-key':'services:declare'}),btn('安装工具定义',()=>extensionDialog(),'secondary',{'data-key':'services:install'})));
   const q=el('input',{type:'search',id:'services-q',ariaLabel:'搜索服务或工具',placeholder:'搜索服务、工具 ID 或能力，例如 elevenlabs、3d、speech',value:serviceFilters.q,'data-key':'services-q',autocomplete:'off'});
   const route=el('select',{id:'services-route',ariaLabel:'连接方式','data-key':'services-route'},...ROUTE_FILTER.map(([v,t])=>el('option',{value:v},t)));
@@ -686,7 +688,7 @@ function renderServices(sub) {
 function servicesView() {
   const q=serviceFilters.q.trim().toLowerCase();
   const list=model.services.filter(s=>(!q||s.haystack.includes(q))&&(!serviceFilters.route||s.routes.some(r=>r.kind===serviceFilters.route)));
-  if(!list.length) return [el('div',{class:'panel'},el('p',{},`没有找到“${serviceFilters.q}”。可以搜服务名（如 ElevenLabs）、工具 ID（如 elevenlabs.tts）或能力（如 speech）。`),
+  if(!list.length) return [el('div',{class:'panel'},el('p',{},zh`没有找到“${serviceFilters.q}”。可以搜服务名（如 ElevenLabs）、工具 ID（如 elevenlabs.tts）或能力（如 speech）。`),
     el('div',{},btn('清除搜索',()=>{serviceFilters.q='';serviceFilters.route='';render();$('#services-q')?.focus();})))];
   const handoffOnly=s=>s.routes.length>0&&s.routes.every(r=>['agent_browser','desktop','human','workflow','catalog'].includes(r.kind));
   const groups=[
@@ -721,7 +723,7 @@ function toolsView() {
   queueMicrotask(()=>{const n=$('#tools-count');if(n)n.textContent=list.length+' 个工具';});
   if(!list.length)return [el('div',{class:'panel'},el('p',{},'没有符合条件的工具。'))];
   const shown=list.slice(0,ui.toolLimit), rest=list.length-shown.length;
-  const more=rest>0?el('button',{type:'button',class:'more','data-key':'tools:more',onclick:()=>{ui.toolLimit+=100;render();}},`再显示 100 个（还有 ${rest} 个）`):null;
+  const more=rest>0?el('button',{type:'button',class:'more','data-key':'tools:more',onclick:()=>{ui.toolLimit+=100;render();}},zh`再显示 100 个（还有 ${rest} 个）`):null;
   const reason=v=>v.state!=='ready'?el('div',{class:'why'},el('span',{},v.sentence),v.fix?actionButton(v.fix,'plain','fix:'+v.id):null):null;
   if(wide.matches) return [el('table',{class:'tools'},el('thead',{},el('tr',{},...['工具','服务','连接方式','状态','允许 Agent 使用'].map(h=>el('th',{scope:'col'},h)))),
     el('tbody',{},...shown.map(v=>{const s=model.byKey.get(v.serviceKey);return el('tr',{'data-tool-id':v.id,class:v.enabled?'':'disabled'},
@@ -744,7 +746,7 @@ function toolSwitch(v) {
     try{
       await api('/api/tools/toggle',{tool:v.id,enabled:!on,expected_enabled:on});
       await refresh();
-      const message=on?`已停用 ${v.id}。Claude Code 和 Codex 都不能再调用它。`:`已允许 ${v.id}。`;
+      const message=on?zh`已停用 ${v.id}。Claude Code 和 Codex 都不能再调用它。`:zh`已允许 ${v.id}。`;
       // The tool dialog's own switch is not part of #main: show the new state there too.
       if(node.isConnected&&$('#modal').contains(node)&&model.tools.get(v.id))node.replaceWith(toolSwitch(model.tools.get(v.id)));
       announce(message);toast(message);
@@ -762,7 +764,7 @@ function renderService(key) {
   const primary=s.primary?actionButton(s.primary,'primary','service:primary:'+s.key):null;
   out.push(el('section',{class:'page-title service-head'},serviceMark(s,48),el('div',{},el('h1',{tabIndex:-1},s.name),el('p',{class:'lede'},s.lead),routeStrip(s.routes,true)),
     primary?el('div',{class:'page-actions'},primary):null));
-  out.push(el('section',{id:'routes'},el('div',{class:'section-head'},el('div',{},el('h2',{},'连接方式'),el('small',{},`Agent 可以通过下面任一方式使用 ${s.name}。每种方式各自设置。`))),
+  out.push(el('section',{id:'routes'},el('div',{class:'section-head'},el('div',{},el('h2',{},'连接方式'),el('small',{},zh`Agent 可以通过下面任一方式使用 ${s.name}。每种方式各自设置。`))),
     el('ul',{class:'routes'},...s.routes.map(r=>routeRow(r,s)))));
   if(s.credits){const panel=creditsPanel(s.credits);if(panel)out.push(panel);}
   if(s.tools.length)out.push(serviceTools(s));
@@ -818,7 +820,7 @@ function serviceTools(s) {
       return el('div',{class:'tool-group'},el('div',{class:'group-head'},el('strong',{},r.title),el('span',{class:'count-line'},tools.length+' 个 · '+r.word),
           enabled.length>=2?el('button',{type:'button',class:'plain','data-key':'bulk:off:'+gid,onclick:()=>bulkDialog(enabled,false,r.title,s.name)},'全部停用…'):null,
           disabled.length>=2?el('button',{type:'button',class:'plain','data-key':'bulk:on:'+gid,onclick:()=>bulkDialog(disabled,true,r.title,s.name)},'全部允许…'):null),
-        el('ul',{class:'rows'},...shown.map(toolRow),tools.length>shown.length?el('li',{class:'more-row'},el('button',{type:'button',class:'more','data-key':'more:'+gid,'aria-expanded':'false',onclick:()=>{st.open.add(gid);draw();}},`显示其余 ${tools.length-shown.length} 个工具`)):null));
+        el('ul',{class:'rows'},...shown.map(toolRow),tools.length>shown.length?el('li',{class:'more-row'},el('button',{type:'button',class:'more','data-key':'more:'+gid,'aria-expanded':'false',onclick:()=>{st.open.add(gid);draw();}},zh`显示其余 ${tools.length-shown.length} 个工具`)):null));
     }):[el('div',{class:'panel'},el('p',{},'没有符合条件的工具。'))]));
   };
   const controls=[segmented('筛选工具',[['all','全部 · '+n],['paid','可能扣费 · '+p],['off','已停用 · '+d]],st.filter,v=>{st.filter=v;render();})];
@@ -827,7 +829,7 @@ function serviceTools(s) {
   draw();
   return el('section',{id:'tools'},el('div',{class:'section-head'},el('div',{},el('h2',{},'Agent 可以使用的工具'),el('small',{},n+' 个 · 关掉后 Claude Code 和 Codex 都不能再调用'))),
     el('div',{class:'toolbar'},...controls),host,
-    el('p',{class:'footnote'},`开关对 Claude Code 和 Codex 同时生效。停用只阻止新的调用，已经提交给 ${s.name} 的任务不会被取消。允许使用不等于允许扣费：每次扣费都要 Agent 在调用时明确声明。`));
+    el('p',{class:'footnote'},zh`开关对 Claude Code 和 Codex 同时生效。停用只阻止新的调用，已经提交给 ${s.name} 的任务不会被取消。允许使用不等于允许扣费：每次扣费都要 Agent 在调用时明确声明。`));
 }
 function toolRow(v) {
   return el('li',{class:'tool-row'+(v.enabled?'':' disabled'),'data-tool-id':v.id,id:'tool-'+T.slug(v.id)},
@@ -843,10 +845,10 @@ function renderAgents() {
   out.push(pageTitle('Agent 与权限','Claude Code 和 Codex 只能用你允许的工具和 Key。需要 Key 时，Agent 会在本机打开授权窗口请你确认；Agent 不能自己批准，管理台也不能替它批准。'));
   const projects=m.grants.active.filter(g=>g.kind==='project_session');
   out.push(el('section',{id:'reach'},el('div',{class:'section-head'},el('div',{},el('h2',{},'Agent 现在能用什么'))),el('div',{class:'reach'},facts([
-    ['Key',!vault.backend?'还没设置 Key 保管方式。':session.unlocked?`已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定。获准的项目可以使用 Key。`:'已锁定。Agent 现在拿不到任何 Key；需要时会打开授权窗口请你确认。'],
-    ['项目',projects.length?`${projects.length} 个项目获准使用 Key：${projects.map(g=>g.title.replace(/^项目 /,'').replace(/ · 由授权窗口批准$/,'')).join('、')}`:'还没有获准的项目'],
-    ['工具',el('span',{},`${m.counts.toolsEnabled} / ${m.counts.toolsTotal} 个工具允许使用 `,el('button',{type:'button',class:'plain','data-key':'reach:disabled',onclick:()=>{Object.assign(serviceFilters,{view:'tools',status:'off',q:'',route:'',paidOnly:false});go('services');}},'查看已停用的工具'))],
-    ['扣费',`其中 ${m.counts.toolsPaidEnabled} 个可能扣费。每次扣费都要 Agent 在调用时明确声明；ATM 不设金额上限。`]]))));
+    ['Key',!vault.backend?'还没设置 Key 保管方式。':session.unlocked?zh`已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定。获准的项目可以使用 Key。`:'已锁定。Agent 现在拿不到任何 Key；需要时会打开授权窗口请你确认。'],
+    ['项目',projects.length?zh`${projects.length} 个项目获准使用 Key：${projects.map(g=>g.title.replace(/^项目 /,'').replace(/ · 由授权窗口批准$/,'')).join('、')}`:'还没有获准的项目'],
+    ['工具',el('span',{},zh`${m.counts.toolsEnabled} / ${m.counts.toolsTotal} 个工具允许使用 `,el('button',{type:'button',class:'plain','data-key':'reach:disabled',onclick:()=>{Object.assign(serviceFilters,{view:'tools',status:'off',q:'',route:'',paidOnly:false});go('services');}},'查看已停用的工具'))],
+    ['扣费',zh`其中 ${m.counts.toolsPaidEnabled} 个可能扣费。每次扣费都要 Agent 在调用时明确声明；ATM 不设金额上限。`]]))));
   if(m.requests.length)out.push(requestsSection('requests'));
   out.push(el('section',{id:'agents-list'},el('div',{class:'section-head'},el('div',{},el('h2',{},'你的 Agent'),el('small',{},'两个 Agent 共用同一套工具、Key 和记录'))),
     rows(...m.agents.map(a=>el('li',{class:'agent-row','data-agent':a.agent},brandMark(brandOf(a.agent),32),
@@ -875,7 +877,7 @@ function jobItem(j) {
   const button=el('button',{type:'button',class:'job-row','aria-expanded':String(open),'aria-controls':id,'data-key':'job:'+j.id,title:j.full,
     onclick:()=>{if(ui.jobs.has(j.id))ui.jobs.delete(j.id);else ui.jobs.add(j.id);render();}},
     el('time',{},j.time),brandMark(brandOf(j.brand,j.tool),28),el('span',{class:'what'},mono(j.tool),j.title&&j.title!==j.tool?el('small',{},j.title):null),
-    stateWord(j.state,j.word),el('span',{class:'line'},`${j.verification} · ${j.files} 个文件 · ${j.cost}`,j.kind==='credits_refresh'?' · 读取额度':''));
+    stateWord(j.state,j.word),el('span',{class:'line'},zh`${j.verification} · ${j.files} 个文件 · ${j.cost}`,j.kind==='credits_refresh'?' · 读取额度':''));
   const copy=el('button',{type:'button',class:'plain'},'复制');copy.addEventListener('click',()=>copyText(j.id,copy,null));
   const panel=el('div',{class:'job-panel',id,hidden:!open},facts([['任务编号',el('span',{},el('code',{},j.id),' ',copy)],['创建',j.createdText],['更新',j.updatedText],['结果检查',j.verification],['费用',j.cost],...(j.sentence?[['状态说明',j.sentence]]:[])]),
     commandBox(`atm jobs get ${j.id} --refresh`,'需要继续时，由 Agent 运行：'));
@@ -897,7 +899,7 @@ function renderJobs() {
   const show=el('input',{type:'checkbox',checked:jobFilters.showCredits,'data-key':'jobs-credits'});
   show.addEventListener('change',()=>{jobFilters.showCredits=show.checked;render();});
   out.push(el('div',{class:'toolbar'},segmented('按状态筛选',[['all','全部 · '+count('all')],['needsYou','需要你 · '+count('needsYou')],['running','进行中 · '+count('running')],['failed','失败 · '+count('failed')]],jobFilters.group,v=>{jobFilters.group=v;render();}),
-    sel,el('label',{class:'check'},show,`显示额度读取（${credits.length}）`)));
+    sel,el('label',{class:'check'},show,zh`显示额度读取（${credits.length}）`)));
   const list=inService.filter(j=>jobFilters.group==='all'||(jobFilters.group==='needsYou'?j.needsYou:j.group===jobFilters.group));
   if(!all.length)out.push(el('div',{class:'panel'},el('p',{},'还没有记录。Agent 通过 ATM 运行工具后会出现在这里。')));
   else if(!list.length)out.push(el('div',{class:'panel'},el('p',{},'没有符合条件的记录。')));
@@ -920,10 +922,10 @@ function settingsKeys() {
       :[facts([['方式',T.backend[vault.backend]||vault.backend],['状态',MODEL.say(T.vault,vault.state==='needs_unlock'&&session.unlocked?'unlock_not_checked':vault.state,'{code}')]]),el('p',{},'已设置。不要重新设置：已保存的 Key 会一直保留。'),
         vault.next_action?el('p',{class:'quiet'},'在终端解锁或修复现有的保管库；不要重置，也不用重新填写每个服务的 Key。'):null]))));
   out.push(el('section',{id:'unlock-panel'},el('div',{class:'section-head'},el('div',{},el('h2',{},'解锁'))),el('div',{class:'panel'},
-    el('p',{},'当前：'+(session.unlocked?`Key 已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定`:'Key 已锁定')+'。用右上角的按钮解锁或锁定。'),
+    el('p',{},'当前：'+(session.unlocked?zh`Key 已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定`:'Key 已锁定')+'。用右上角的按钮解锁或锁定。'),
     el('p',{class:'quiet'},'每次解锁固定 30 分钟，不会因为 Agent 使用而延长。由管理台解锁的会话，会在管理台进程结束时一起结束（关闭标签页不会）。'))));
   const reason=!vault.backend?'先设置 Key 的保管方式。':!pk.dependency_present?'需要先安装 ATM 的 Passkey 组件（passkey 扩展）。':!pk.origin_supported?'请从 atm ui 打开的 localhost 地址使用 Passkey。'
-    :!window.ATM_PASSKEY?.supported()?'这个浏览器不支持带加密扩展（PRF）的 Passkey。':!pk.available?'Passkey 暂时不可用。':pk.state_error?`Passkey 记录校验失败（${pk.state_error.code}）。ATM 主密码仍然可以解锁。`:'';
+    :!window.ATM_PASSKEY?.supported()?'这个浏览器不支持带加密扩展（PRF）的 Passkey。':!pk.available?'Passkey 暂时不可用。':pk.state_error?zh`Passkey 记录校验失败（${pk.state_error.code}）。ATM 主密码仍然可以解锁。`:'';
   const bind=el('button',{type:'button',class:'secondary','data-key':'passkey:bind'},'绑定 Passkey');
   if(reason){bind.setAttribute('aria-disabled','true');bind.setAttribute('aria-describedby','passkey-reason');bind.addEventListener('click',()=>{$('#passkey-reason').focus();announce(reason);});}
   else bind.addEventListener('click',action(()=>passkeyDialog()));
@@ -938,7 +940,7 @@ function settingsKeys() {
   out.push(el('section',{id:'web-sessions'},el('div',{class:'section-head'},el('div',{},el('h2',{},'ATM 网页登录'),el('small',{},'只在本机加密保存，不随 Key 同步'))),
     rows(...(sessions.length?sessions.map(s=>{
       const tool=[...model.tools.values()].find(v=>v.tool.session===s.name)?.id||'<工具 ID>';
-      return el('li',{class:'panel-row'},el('strong',{},s.name),el('p',{class:'quiet'},`网站：${(s.origins||[]).join('、')} · 保存于 ${T.date(s.saved_at)} · ${s.expired?'已过期':s.expires_at?'到期 '+T.date(s.expires_at):'没有设置到期'}`),
+      return el('li',{class:'panel-row'},el('strong',{},s.name),el('p',{class:'quiet'},zh`网站：${(s.origins||[]).join('、')} · 保存于 ${T.date(s.saved_at)} · ${s.expired?'已过期':s.expires_at?'到期 '+T.date(s.expires_at):'没有设置到期'}`),
         commandBox(`atm web login ${tool} --replace`,'续期：'),commandBox(`atm web remove-session ${s.name} --apply`,'删除本机登录：'));
     }):[el('li',{class:'empty'},'还没有 ATM 网页登录。')]))));
   return out;
@@ -966,7 +968,7 @@ function allKeysSection() {
   };
   q.addEventListener('input',()=>{st.q=q.value;draw();});
   draw();
-  return el('section',{id:'all-keys'},el('div',{class:'section-head'},el('div',{},el('h2',{},'所有 Key'),el('small',{},`${saved.length} 个已保存 · 共 ${keys.length} 个`)),
+  return el('section',{id:'all-keys'},el('div',{class:'section-head'},el('div',{},el('h2',{},'所有 Key'),el('small',{},zh`${saved.length} 个已保存 · 共 ${keys.length} 个`)),
     el('div',{class:'page-actions head-actions'},btn('添加 Key',()=>keyDialog({mode:'add',picker:true}),'secondary',{'data-key':'keys:add'}),btn('添加自定义 Key',()=>declareDialog(),'secondary',{'data-key':'keys:declare'}))),
     el('div',{class:'toolbar'},el('div',{class:'search'},q)),host);
 }
@@ -990,7 +992,7 @@ function settingsSync() {
   }
   const conflicts=(sync.records||[]).filter(r=>r.state==='conflict');
   if(conflicts.length)out.push(el('section',{id:'sync-conflicts'},el('div',{class:'section-head'},el('div',{},el('h2',{},'冲突 · '+conflicts.length),el('small',{},'不会按时间自动选择'))),
-    rows(...conflicts.map(r=>el('li',{class:'key-row'},brandMark(brandOf(r.provider),28),el('span',{},`${model.byKey.get(MODEL.serviceKeyOf(r.provider))?.name||r.provider} 的 Key（${r.provider}）有 ${r.heads.length} 个版本，相关工具已暂停。`),
+    rows(...conflicts.map(r=>el('li',{class:'key-row'},brandMark(brandOf(r.provider),28),el('span',{},zh`${model.byKey.get(MODEL.serviceKeyOf(r.provider))?.name||r.provider} 的 Key（${r.provider}）有 ${r.heads.length} 个版本，相关工具已暂停。`),
       el('div',{class:'actions'},btn('选择版本',()=>resolveDialog(r.provider),'secondary',{'data-key':'conflict:'+r.provider})))))));
   out.push(el('section',{id:'sync-commands'},details('sync-commands','同步命令',commandBox('atm sync exchange --directory /path/to/encrypted-sync\natm sync exchange --directory /path/to/encrypted-sync --apply'),
     el('p',{},'可以用 rsync、SFTP 或同步盘传递加密包。每次运行一次 exchange，或者显式启动有时限的 sync watch；ATM 不会自己部署云同步。旧包重放不会覆盖已知的较新版本；整库恢复、丢失设备和离线撤销仍需人工处理。'))));
@@ -1006,7 +1008,7 @@ function settingsTools() {
   out.push(el('section',{id:'installed-tools'},el('div',{class:'section-head'},el('div',{},el('h2',{},'已安装的工具定义 · '+custom.length))),
     custom.length?el('div',{},...[...groups].map(([key,items])=>{
       const s=model.byKey.get(key), name=s?.name||key;
-      const d=detailsOpen('installed:'+key,custom.length<=5,`${name} · ${items.length} 个`,rows(...items.map(({t,v})=>el('li',{},el('div',{},mono(t.id),' ',el('span',{},t.title)),
+      const d=detailsOpen('installed:'+key,custom.length<=5,zh`${name} · ${items.length} 个`,rows(...items.map(({t,v})=>el('li',{},el('div',{},mono(t.id),' ',el('span',{},t.title)),
         el('p',{class:'quiet'},'运行方式：'+(v?routeTitleOf(v):t.adapter),(t.permissions||[]).length?' · '+(t.permissions||[]).map(p=>MODEL.say(T.permission,p,'{code}')).join('、'):''),
         el('div',{class:'tags'},t.paid?tagNode('可能扣费'):null,el('span',{class:'quiet'},'定义指纹 '),el('code',{},String(t.sha256||'').slice(0,16)))))),
         el('div',{class:'actions'},el('button',{type:'button',class:'plain',onclick:()=>go('services/'+key)},'打开 '+name)));
@@ -1023,12 +1025,12 @@ function settingsTools() {
 }
 function programInfo(c) {
   const exe=c.name, path=c.path||'';
-  const table={executable_changed:['blocked','程序已更新',`${path} 的内容和你上次确认的不一样（可能刚升级）。`],executable_missing:['blocked','程序不见了',`${path} 不存在，可能已卸载或移动。`],
-    executable_not_executable:['blocked','不能运行',`${path} 没有执行权限。`],executable_unreadable:['blocked','无法读取',`无法读取 ${path}。`],executable_unpinned:['attention','需要重新绑定',`${exe} 已绑定，但没有记录程序指纹。`]};
+  const table={executable_changed:['blocked','程序已更新',zh`${path} 的内容和你上次确认的不一样（可能刚升级）。`],executable_missing:['blocked','程序不见了',zh`${path} 不存在，可能已卸载或移动。`],
+    executable_not_executable:['blocked','不能运行',zh`${path} 没有执行权限。`],executable_unreadable:['blocked','无法读取',zh`无法读取 ${path}。`],executable_unpinned:['attention','需要重新绑定',zh`${exe} 已绑定，但没有记录程序指纹。`]};
   if(Object.hasOwn(table,c.state))return {group:'attention',state:table[c.state][0],word:table[c.state][1],sentence:table[c.state][2],command:`atm cli bind ${exe} ${quote(path)}`};
   if(c.state==='configured_not_verified'&&path)return {group:'bound',state:'ready',word:'已绑定',sentence:'已记录程序位置和指纹。'};
-  if(c.detected_path)return {group:'found',state:'setup',word:'待设置',sentence:`在 ${c.detected_path} 找到了 ${exe}，确认后即可使用。`,bind:true};
-  return {group:'missing',state:'setup',word:'待设置',sentence:`本机没有找到 ${exe}。`,command:`atm cli bind ${exe} '<${exe} 程序的完整路径>'`};
+  if(c.detected_path)return {group:'found',state:'setup',word:'待设置',sentence:zh`在 ${c.detected_path} 找到了 ${exe}，确认后即可使用。`,bind:true};
+  return {group:'missing',state:'setup',word:'待设置',sentence:zh`本机没有找到 ${exe}。`,command:`atm cli bind ${exe} '<${exe} 程序的完整路径>'`};
 }
 function settingsPrograms() {
   const clis=data.clis||[], st=ui.programs||(ui.programs={filter:'all'});
@@ -1169,7 +1171,7 @@ function keyDialog({mode='add', name=null, picker=false, intro=null, laterToast=
     const hint=el('span',{class:'hint'},formatHint());secret.node.append(hint);
     const expiry=field('到期日（可选）',el('input',{type:'date'}),'服务告诉了你到期日的话就填上，ATM 会提前 7 天提醒。按本机时区当天 23:59 计算。');
     const pass=perRequestPassword()?masterPasswordField('只用于这一次请求，不写入文件。'):null;
-    const replaceText=()=>`保存后会替换现在的 Key，旧 Key 无法恢复。${serviceNameOf(name)} 那边的旧 Key 不会自动作废。`;
+    const replaceText=()=>zh`保存后会替换现在的 Key，旧 Key 无法恢复。${serviceNameOf(name)} 那边的旧 Key 不会自动作废。`;
     const replaceNote=el('p',{hidden:mode!=='replace'},replaceText());
     nodes.push(secret.node,expiry.node,pass?pass.node:null,replaceNote);
     const save=btn('加密保存',async()=>{
@@ -1185,7 +1187,7 @@ function keyDialog({mode='add', name=null, picker=false, intro=null, laterToast=
         if(r.status==='already_configured'){showAlert('这个 Key 已经保存过，没有改动。要换新的，请用“更换”。');return;}
       }finally{value=null;password=null;secret.input.value='';if(pass)pass.input.value='';}
       ui.successor=['route:key:'+name+':更换','route:key:'+name+':更换 API Key','key:replace:'+name,'slot:'+name];
-      closeModal();await refresh();toast(`已加密保存 ${serviceNameOf(name)} 的 API Key。`);
+      closeModal();await refresh();toast(zh`已加密保存 ${serviceNameOf(name)} 的 API Key。`);
     },'primary');
     openModal({title:titleFor(),steps,body:nodes,actions:[closer(),save]});
   };
@@ -1200,20 +1202,20 @@ function removeDialog(name) {
   const fill=steps=>{
     const confirm=field('确认 Key 名称',el('input',{placeholder:'输入 '+name,autocomplete:'off'}));
     const pass=perRequestPassword()?masterPasswordField('只用于这一次请求，不写入文件。'):null;
-    const reason=el('p',{class:'reason',id:'remove-reason'},`请输入 ${name} 确认。`);
+    const reason=el('p',{class:'reason',id:'remove-reason'},zh`请输入 ${name} 确认。`);
     const go_=el('button',{type:'button',class:'primary danger','aria-disabled':'true','aria-describedby':'remove-reason'},'移除 Key');
     const sync=()=>{const ok=confirm.input.value===name;go_.setAttribute('aria-disabled',String(!ok));reason.hidden=ok;};
     confirm.input.addEventListener('input',sync);
     go_.addEventListener('click',action(async()=>{
-      if(confirm.input.value!==name){showAlert(`请输入 ${name} 确认。`,{field:confirm.input});return;}
+      if(confirm.input.value!==name){showAlert(zh`请输入 ${name} 确认。`,{field:confirm.input});return;}
       let password=pass?.input.value||'';
       try{await api('/api/connections/remove',withSecret({provider:name,confirm:confirm.input.value},{value:password}));}finally{password=null;if(pass)pass.input.value='';}
       ui.successor=['route:key:'+name+':添加 API Key','keys:add'];
-      closeModal();await refresh();toast(`已移除本机保存的 ${svc} Key。`);
+      closeModal();await refresh();toast(zh`已移除本机保存的 ${svc} Key。`);
     }));
-    openModal({title:`移除 ${svc} 的 API Key`,steps,body:[el('p',{},`只删除这台电脑上保存的 ${name}，不会在 ${svc} 那边作废它。备份里可能还有加密副本。`),confirm.node,pass?pass.node:null,reason],actions:[cancel(),go_]});
+    openModal({title:zh`移除 ${svc} 的 API Key`,steps,body:[el('p',{},zh`只删除这台电脑上保存的 ${name}，不会在 ${svc} 那边作废它。备份里可能还有加密副本。`),confirm.node,pass?pass.node:null,reason],actions:[cancel(),go_]});
   };
-  if(needsUnlockStep()){const steps={items:['解锁 Key','移除 Key'],current:0},body=unlockBlock(async()=>fill({items:steps.items,current:1}));openModal({title:`移除 ${svc} 的 API Key`,steps,body,actions:[cancel()],focus:body.focus});}
+  if(needsUnlockStep()){const steps={items:['解锁 Key','移除 Key'],current:0},body=unlockBlock(async()=>fill({items:steps.items,current:1}));openModal({title:zh`移除 ${svc} 的 API Key`,steps,body,actions:[cancel()],focus:body.focus});}
   else fill(null);
 }
 async function verifyDialog(name) {
@@ -1221,7 +1223,7 @@ async function verifyDialog(name) {
   const plan=await api('/api/verify',{provider:name});
   const done=()=>el('button',{type:'button',class:'primary',onclick:()=>closeModal()},'完成');
   if(plan.status!=='planned'){
-    openModal({title:`联网测试 ${svc} 的 Key`,body:[el('p',{},plan.status==='unsupported_probe'?`${svc} 暂时没有安全的联网测试方法。Key 是否有效，只能在 Agent 实际使用时确认。`:T.errorText(plan.status)),raw('verify-plan',plan)],actions:[done()]});
+    openModal({title:zh`联网测试 ${svc} 的 Key`,body:[el('p',{},plan.status==='unsupported_probe'?zh`${svc} 暂时没有安全的联网测试方法。Key 是否有效，只能在 Agent 实际使用时确认。`:T.errorText(plan.status)),raw('verify-plan',plan)],actions:[done()]});
     return;
   }
   let host='';try{host=new URL(plan.url).host;}catch{}
@@ -1230,9 +1232,9 @@ async function verifyDialog(name) {
     let password=pass?.input.value||'';
     let r;try{r=await api('/api/verify',withSecret({provider:name,allow_network:true},{value:password}));}finally{password=null;if(pass)pass.input.value='';}
     await refresh();
-    openModal({title:`联网测试 ${svc} 的 Key`,body:[el('p',{},'测试结果：'+T.verifyText(r.status)+(r.http_status?`（HTTP ${r.http_status}）`:'')),raw('verify-result',r)],actions:[done()]});
+    openModal({title:zh`联网测试 ${svc} 的 Key`,body:[el('p',{},'测试结果：'+T.verifyText(r.status)+(r.http_status?`（HTTP ${r.http_status}）`:'')),raw('verify-result',r)],actions:[done()]});
   },'primary');
-  openModal({title:`联网测试 ${svc} 的 Key`,body:[el('p',{},`ATM 会联网向 ${svc} 发送一次只读的账户检查请求，确认这个 Key 是否有效。不会生成内容，也不会扣费；服务商的限流可能适用。通过也不代表所有工具都能用。`),
+  openModal({title:zh`联网测试 ${svc} 的 Key`,body:[el('p',{},zh`ATM 会联网向 ${svc} 发送一次只读的账户检查请求，确认这个 Key 是否有效。不会生成内容，也不会扣费；服务商的限流可能适用。通过也不代表所有工具都能用。`),
     facts([['请求',`${plan.method||'GET'} ${host}`]]),pass?pass.node:null,raw('verify-plan',plan)],actions:[cancel(),start]});
 }
 async function toolDialog(id) {
@@ -1244,8 +1246,8 @@ async function toolDialog(id) {
   if(!$('#modal').open)return;
   const view=model.tools.get(id)||v, s=view?model.byKey.get(view.serviceKey):null, route=s?.routes.find(r=>r.tools.includes(view));
   const needs=[];
-  for(const n of [...(d.credentials||[]),...(d.optional_credentials||[])]){const k=model.keys.get(n);needs.push(el('li',{},`${n} 的 API Key · ${k?.word||'待设置'}`,' ',el('button',{type:'button',class:'plain',onclick:()=>{closeModal();openRoute({service:view.serviceKey,kind:'key',id:n,anchor:'route-key-'+T.slug(n)});}},k?.state==='ready'?'查看':'去设置')));}
-  if(d.executable)needs.push(el('li',{},`本机程序 ${d.executable} · ${programInfo((data.clis||[]).find(c=>c.name===d.executable)||{name:d.executable,state:'cli_not_configured'}).word}`));
+  for(const n of [...(d.credentials||[]),...(d.optional_credentials||[])]){const k=model.keys.get(n);needs.push(el('li',{},zh`${n} 的 API Key · ${k?.word||'待设置'}`,' ',el('button',{type:'button',class:'plain',onclick:()=>{closeModal();openRoute({service:view.serviceKey,kind:'key',id:n,anchor:'route-key-'+T.slug(n)});}},k?.state==='ready'?'查看':'去设置')));}
+  if(d.executable)needs.push(el('li',{},zh`本机程序 ${d.executable} · ${programInfo((data.clis||[]).find(c=>c.name===d.executable)||{name:d.executable,state:'cli_not_configured'}).word}`));
   if(d.url){let host='';try{host=new URL(d.url).host;}catch{}needs.push(el('li',{},'网站 '+host));}
   if(d.server)needs.push(el('li',{},'MCP 服务 '+d.server));
   if(d.session)needs.push(el('li',{},'ATM 网页登录 '+d.session));
@@ -1263,7 +1265,7 @@ async function toolDialog(id) {
       el('tbody',{},...props.map(([k,p])=>el('tr',{},el('td',{},el('code',{},k)),el('td',{},String(p?.type||'')),el('td',{},req.has(k)?'是':''),el('td',{},limit(p||{})))))):el('p',{},'没有输入参数。'),
     d.notes?[el('h3',{},'说明'),el('p',{},d.notes)]:null,
     el('h3',{},'给 Agent'),commandBox('atm describe '+d.id),raw('tool:'+d.id,d),
-    el('p',{class:'quiet'},`以上来自本机定义，不是对 ${s?.name||'服务'} 账户的实时检查。`)];
+    el('p',{class:'quiet'},zh`以上来自本机定义，不是对 ${s?.name||'服务'} 账户的实时检查。`)];
   $('#modal-body').replaceChildren(...body.flat(2).filter(Boolean));
   $('#modal-actions').replaceChildren(...(view?[toolSwitch(view)]:[]));
 }
@@ -1275,7 +1277,7 @@ function declareDialog() {
     if(!/^[a-z][a-z0-9_.-]{1,79}$/.test(value)){showAlert('Key 名称格式不对。小写字母开头，只能用小写字母、数字和 . _ -。',{field:name.input});return;}
     await api('/api/credentials/declare',{name:value,label:label.input.value.trim()||value,apply:true});
     await refresh();
-    keyDialog({mode:'add',name:value,intro:`已登记 ${value}。现在保存它的 Key 吗？`,laterToast:`已登记 ${value}。之后可以在“设置 › Key 保管”里填写 Key。`});
+    keyDialog({mode:'add',name:value,intro:zh`已登记 ${value}。现在保存它的 Key 吗？`,laterToast:zh`已登记 ${value}。之后可以在“设置 › Key 保管”里填写 Key。`});
   },'primary');
   openModal({title:'添加自定义 Key',body:[el('p',{},'给 ATM 还不认识的服务（例如公司内部 API）登记一个 Key 名称。只登记名称，不需要先有工具定义。'),name.node,label.node],actions:[cancel(),submit]});
 }
@@ -1297,14 +1299,14 @@ function extensionDialog() {
     summary.replaceChildren(el('dl',{class:'summary'},...[['工具',value.id],['服务',brandOf(manifest.provider,manifest.id).name],['运行方式',T.kinds[MODEL.routeKindOf(view)]],
       ['权限',(value.permissions||[]).map(p=>MODEL.say(T.permission,p,'{code}')+'（'+p+'）').join('、')||'只读'],['可能扣费',value.paid?'是':'否'],['会访问的网站',(value.origins||[]).join('、')||'无'],
       ['需要的 Key',(value.credential_references||[]).join('、')||'无'],['定义指纹',String(value.sha256).slice(0,16)],
-      ['变化',value.action==='update'?(value.previous_sha256===value.sha256?'和已安装的相同':`更新：指纹 ${String(value.previous_sha256).slice(0,12)} → ${String(value.sha256).slice(0,12)}`):'新安装'],['结构检查',String(value.validation)]].flatMap(([k,v])=>[el('dt',{},k),el('dd',{},v)])),raw('extension',value));
+      ['变化',value.action==='update'?(value.previous_sha256===value.sha256?'和已安装的相同':zh`更新：指纹 ${String(value.previous_sha256).slice(0,12)} → ${String(value.sha256).slice(0,12)}`):'新安装'],['结构检查',String(value.validation)]].flatMap(([k,v])=>[el('dt',{},k),el('dd',{},v)])),raw('extension',value));
     apply.setAttribute('aria-disabled','false');reason.hidden=true;status('检查通过，可以批准安装。');
   });
   apply.addEventListener('click',action(async()=>{
     if(!approved){$('#install-reason').focus?.();status('先检查定义，通过后才能安装。');return;}
     const manifest=parse();if(!manifest)return;
     await api('/api/extensions/install',{manifest,approved_sha256:approved.sha256,...(approved.previous_sha256?{expected_sha256:approved.previous_sha256}:{})});
-    const id=approved.id;closeModal();await refresh();toast(`已安装 ${id}。它还没有真正运行过，也没有在真实网站上验收。`);
+    const id=approved.id;closeModal();await refresh();toast(zh`已安装 ${id}。它还没有真正运行过，也没有在真实网站上验收。`);
   }));
   openModal({title:'安装工具定义',wide:true,body:[el('p',{},'粘贴 Agent 起草的工具定义（JSON，不含任何 Key）。ATM 先检查结构，你确认后才安装。修改定义会让旧的受限授权失效。'),input.node,file.node,summary,reason],actions:[cancel(),check,apply]});
 }
@@ -1326,12 +1328,12 @@ function setupDialog({agents=[], clis=[], replace=false}) {
     plan=p;$('#modal-title').textContent=title();
     const items=[];
     for(const s of p.skills||[]){
-      const text={create:`新建 ${s.path}`,unchanged:`${s.path} 已是最新，不改动`,replace:`备份后替换 ${s.path}`,conflict:`${s.path} 和 ATM 的版本不同，需要你确认`}[s.action]||`${s.action}：${s.path}`;
+      const text={create:zh`新建 ${s.path}`,unchanged:zh`${s.path} 已是最新，不改动`,replace:zh`备份后替换 ${s.path}`,conflict:zh`${s.path} 和 ATM 的版本不同，需要你确认`}[s.action]||`${s.action}：${s.path}`;
       const extra=s.action==='conflict'?el('label',{class:'check'},el('input',{type:'checkbox',checked:replaceSkills,onchange:e=>{replaceSkills=e.target.checked;preview();}}),'允许备份并替换这个文件（我已经看过它）'):null;
       items.push(el('li',{},el('span',{class:'glyph','data-state':s.action==='conflict'?'attention':s.action==='unchanged'?'ready':'setup',ariaHidden:'true'}),el('div',{},el('span',{},labels[s.agent]+'：',breakable(text)),extra)));
     }
     for(const c of p.clis||[]){
-      const text={bind:`绑定 ${c.path}（指纹 ${String(c.sha256||'').slice(0,12)}）`,unchanged:`${c.name} 已绑定，不改动`,review_required:`${c.name} 和上次确认的不同，需要在终端重新绑定：`,missing_program:`本机没有找到 ${c.name}`}[c.action]||c.action;
+      const text={bind:zh`绑定 ${c.path}（指纹 ${String(c.sha256||'').slice(0,12)}）`,unchanged:zh`${c.name} 已绑定，不改动`,review_required:zh`${c.name} 和上次确认的不同，需要在终端重新绑定：`,missing_program:zh`本机没有找到 ${c.name}`}[c.action]||c.action;
       items.push(el('li',{},el('span',{class:'glyph','data-state':c.action==='bind'?'setup':c.action==='unchanged'?'ready':'attention',ariaHidden:'true'}),el('div',{},el('span',{},breakable(text)),c.action==='review_required'?commandBox(`atm cli bind ${c.name} ${quote(c.path||'<'+c.name+' 程序的完整路径>')}`):null)));
     }
     out.replaceChildren(el('ul',{class:'plan'},...items),raw('setup-plan',p));
@@ -1339,7 +1341,7 @@ function setupDialog({agents=[], clis=[], replace=false}) {
     apply.removeAttribute('aria-describedby');reason.hidden=true;apply.setAttribute('aria-disabled','false');
     apply.textContent=all.length&&all.every(x=>x.action==='unchanged')?'完成':cliMode?'确认绑定':'确认安装';
     if(p.status==='needs_review')block('有需要你确认的变化。确认前不会修改任何文件。');
-    else if(cliMode&&!(p.clis||[]).some(c=>c.action==='bind'||c.action==='unchanged'))block(`本机没有找到 ${clis.join('、')}，没有可以绑定的程序。`);
+    else if(cliMode&&!(p.clis||[]).some(c=>c.action==='bind'||c.action==='unchanged'))block(zh`本机没有找到 ${clis.join('、')}，没有可以绑定的程序。`);
     else if(!all.length)block('请至少选择一个 Agent。');
   };
   apply.addEventListener('click',action(async()=>{
@@ -1351,7 +1353,7 @@ function setupDialog({agents=[], clis=[], replace=false}) {
       throw e;
     }
     closeModal();await refresh();
-    toast(cliMode?`已绑定 ${clis.join('、')}。`:`已安装到 ${chosen().map(n=>labels[n]).join('和')}。在新会话里生效。`);
+    toast(cliMode?zh`已绑定 ${clis.join('、')}。`:zh`已安装到 ${chosen().map(n=>labels[n]).join('和')}。在新会话里生效。`);
   }));
   for(const b of Object.values(boxes))b.addEventListener('change',()=>{$('#modal-title').textContent=title();preview();});
   const fields=cliMode?null:el('fieldset',{},el('legend',{},'安装到'),...Object.entries(boxes).map(([k,b])=>el('label',{class:'check'},b,labels[k])));
@@ -1372,7 +1374,7 @@ function disablePasskeyDialog(credential){
   const pass=data.connections.vault.backend==='passphrase'?masterPasswordField('','ATM 主密码（确认停用）'):null;
   openModal({title:'停用 '+credential.label,body:[el('p',{},'停用后不能再用它解锁；ATM 主密码照常可用。1Password 里的 Passkey 和已经解锁的会话不受影响；需要马上停止新的 Key 使用时，点右上角的“立即锁定”。'),pass?pass.node:null],
     actions:[cancel(),btn('确认停用',async()=>{let password=pass?pass.input.value:'';if(pass)pass.input.value='';
-      try{await api('/api/passkeys/disable',{credential_id:credential.id,confirm:credential.id,...(password?{passphrase:password}:{})});ui.successor=['passkey:bind'];closeModal();await refresh();toast(`已停用 ${credential.label}。`);}
+      try{await api('/api/passkeys/disable',{credential_id:credential.id,confirm:credential.id,...(password?{passphrase:password}:{})});ui.successor=['passkey:bind'];closeModal();await refresh();toast(zh`已停用 ${credential.label}。`);}
       finally{password=null;}
     },'primary danger')]});
 }
@@ -1400,18 +1402,18 @@ function oauthDialog({keep=false}={}) {
 function confirmDialog({title, body, label, danger=true, run, detail=null}) {
   openModal({title,body:[detail,el('p',{},body)],actions:[cancel(),btn(label,async()=>{await run();},danger?'primary danger':'primary')]});
 }
-const unregisterConfirm=(agent,label)=>confirmDialog({title:`从 ${label} 移除 ATM？`,body:`会把 ATM 说明文件改名备份，不删除任何 Key 或工具。之后新开的 ${label} 会话不再加载 ATM。`,label:'移除',
-  run:async()=>{await api('/api/agents/unregister',{agent,confirm:agent});ui.successor=['agent:'+agent+':安装到 '+label];closeModal();await refresh();toast(`已从 ${label} 移除 ATM；Key 和工具没有改变。`);}});
-const revokeDeviceConfirm=p=>confirmDialog({title:`撤销对 ${p.card.name} 的信任？`,body:'之后不再和它同步。它已经收到的 Key 无法收回；担心泄露的话，请到对应服务那边更换 Key。',label:'撤销信任',
-  run:async()=>{await api('/api/sync/revoke',{device:p.card.id,confirm:p.card.id});ui.successor=['sync:trust'];closeModal();await refresh();toast(`已撤销对 ${p.card.name} 的信任。`);}});
+const unregisterConfirm=(agent,label)=>confirmDialog({title:zh`从 ${label} 移除 ATM？`,body:zh`会把 ATM 说明文件改名备份，不删除任何 Key 或工具。之后新开的 ${label} 会话不再加载 ATM。`,label:'移除',
+  run:async()=>{await api('/api/agents/unregister',{agent,confirm:agent});ui.successor=['agent:'+agent+':安装到 '+label];closeModal();await refresh();toast(zh`已从 ${label} 移除 ATM；Key 和工具没有改变。`);}});
+const revokeDeviceConfirm=p=>confirmDialog({title:zh`撤销对 ${p.card.name} 的信任？`,body:'之后不再和它同步。它已经收到的 Key 无法收回；担心泄露的话，请到对应服务那边更换 Key。',label:'撤销信任',
+  run:async()=>{await api('/api/sync/revoke',{device:p.card.id,confirm:p.card.id});ui.successor=['sync:trust'];closeModal();await refresh();toast(zh`已撤销对 ${p.card.name} 的信任。`);}});
 // The dialog names the grant (title, its lines and id), so the owner can confirm the target among several.
-const revokeConfirm=g=>confirmDialog({title:`撤销「${g.title}」？`,
+const revokeConfirm=g=>confirmDialog({title:zh`撤销「${g.title}」？`,
   detail:el('div',{class:'grant-detail'},...g.lines.map(l=>el('span',{},l)),g.kind==='project_session'?mono(g.workspace,'path'):null,el('span',{},'授权 ID ',el('code',{title:g.id},g.short)),el('span',{},g.time)),
-  body:g.kind==='project_session'?`项目 ${g.title.replace(/^项目 /,'').replace(/ · 由授权窗口批准$/,'')} 会立刻停止取用 Key。已经在运行的程序可能仍持有取到的 Key。`:`${g.agentLabel} 将不能再用这份授权调用工具。已经提交的任务不会被取消。`,
+  body:g.kind==='project_session'?zh`项目 ${g.title.replace(/^项目 /,'').replace(/ · 由授权窗口批准$/,'')} 会立刻停止取用 Key。已经在运行的程序可能仍持有取到的 Key。`:zh`${g.agentLabel} 将不能再用这份授权调用工具。已经提交的任务不会被取消。`,
   label:'撤销授权',run:async()=>{await api('/api/access/revoke',{id:g.id,confirm:g.id});ui.successor=['grants:new'];closeModal();await refresh();toast('授权已撤销。');}});
 function stopRenewConfirm(){
   const o=(data.connections?.oauth||[])[0]||{};
-  confirmDialog({title:'停止 Higgsfield 自动续期？',body:`当前登录到期（${o.expires_at?T.datetime(o.expires_at):'到期时'}）后需要你重新登录。`,label:'停止自动续期',
+  confirmDialog({title:'停止 Higgsfield 自动续期？',body:zh`当前登录到期（${o.expires_at?T.datetime(o.expires_at):'到期时'}）后需要你重新登录。`,label:'停止自动续期',
     run:async()=>{await api('/api/oauth/keep-login',{provider:o.provider||'higgsfield',enabled:false});closeModal();await refresh();toast('已停止自动续期。');}});
 }
 // Switch a group of tools one at a time; stops at the first error.
@@ -1422,14 +1424,14 @@ function bulkDialog(tools, enable, routeTitle, serviceName) {
     for(const v of list){
       i++;status(`${i} / ${list.length}`);
       try{await api('/api/tools/toggle',{tool:v.id,enabled:enable,expected_enabled:!enable});}
-      catch(e){if(e.gated)return;await refresh().catch(()=>{});showAlert(`有工具的状态刚被改动，已停在第 ${i} 个。已完成的改动保留，请刷新后再试。`);return;}
+      catch(e){if(e.gated)return;await refresh().catch(()=>{});showAlert(zh`有工具的状态刚被改动，已停在第 ${i} 个。已完成的改动保留，请刷新后再试。`);return;}
     }
-    closeModal();await refresh();const message=enable?`已允许 ${list.length} 个工具。`:`已停用 ${list.length} 个工具。`;toast(message);announce(message);
+    closeModal();await refresh();const message=enable?zh`已允许 ${list.length} 个工具。`:zh`已停用 ${list.length} 个工具。`;toast(message);announce(message);
   },enable?'primary':'primary danger');
   // Enabling paid tools says how many may charge (S9: 可能扣费 wherever a paid tool is listed).
   const paid=enable?list.filter(v=>v.paid).length:0;
-  openModal({title:`${enable?'允许':'停用'} ${routeTitle} 的 ${list.length} 个工具？`,body:[el('p',{},enable?'Claude Code 和 Codex 都可以调用它们。允许使用不等于允许扣费。':`Claude Code 和 Codex 都不能再调用它们。已经提交给 ${serviceName} 的任务不会被取消。`),
-    paid?el('p',{class:'paid-line'},tagNode('可能扣费'),` 其中 ${paid} 个可能扣费：每次扣费都要 Agent 在调用时明确声明。`):null],actions:[cancel(),go_]});
+  openModal({title:zh`${enable?'允许':'停用'} ${routeTitle} 的 ${list.length} 个工具？`,body:[el('p',{},enable?'Claude Code 和 Codex 都可以调用它们。允许使用不等于允许扣费。':zh`Claude Code 和 Codex 都不能再调用它们。已经提交给 ${serviceName} 的任务不会被取消。`),
+    paid?el('p',{class:'paid-line'},tagNode('可能扣费'),zh` 其中 ${paid} 个可能扣费：每次扣费都要 Agent 在调用时明确声明。`):null],actions:[cancel(),go_]});
 }
 function downloadJson(value,name){const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=el('a',{href:url,download:name});a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 const syncPassword=()=>vaultInfo().backend==='passphrase'?masterPasswordField('只用于这一次请求，不写入文件。'):null;
@@ -1455,11 +1457,11 @@ function trustDialog(){
   const values=()=>{let c;try{c=JSON.parse(card.input.value);}catch{showAlert('公开身份不是有效的 JSON。',{field:card.input});return null;}return {card:c,fingerprint:fp.input.value.trim(),send:send.values(),receive:receive.values()};};
   const changed=()=>{if(reviewed){status('内容已变化，请重新检查。');}reviewed=null;apply.setAttribute('aria-disabled','true');reason.hidden=false;};
   const check=btn('检查配对内容',async()=>{const v=values();if(!v)return;const r=await api('/api/sync/trust',v);reviewed=JSON.stringify(v);
-    view.replaceChildren(el('p',{},`${r.peer?.card?.name||v.card.name||''} · 指纹 ${String(r.peer?.fingerprint||v.fingerprint).slice(0,16)}… · 发给它：${v.send.join('、')||'无'} · 接收它发来的：${v.receive.join('、')||'无'}`),
+    view.replaceChildren(el('p',{},zh`${r.peer?.card?.name||v.card.name||''} · 指纹 ${String(r.peer?.fingerprint||v.fingerprint).slice(0,16)}… · 发给它：${v.send.join('、')||'无'} · 接收它发来的：${v.receive.join('、')||'无'}`),
       el('p',{},{planned:'将新增这个配对',unchanged:'已经是这样，不会改变',trusted:'已配对'}[r.status]||String(r.status||'')),raw('trust',r));
     apply.setAttribute('aria-disabled','false');reason.hidden=true;});
   apply.addEventListener('click',action(async()=>{const v=values();if(!v)return;if(!reviewed||JSON.stringify(v)!==reviewed){changed();return;}
-    await api('/api/sync/trust',{...v,apply:true});closeModal();await refresh();toast(`已配对 ${v.card.name||''}。`);}));
+    await api('/api/sync/trust',{...v,apply:true});closeModal();await refresh();toast(zh`已配对 ${v.card.name||''}。`);}));
   // Any edit after the check needs a new check (listeners live on this dialog's own form only).
   const form=el('div',{class:'dialog-form'},card.node,fp.node,send.node,receive.node);
   form.addEventListener('input',changed);form.addEventListener('change',e=>{if(e.target.type==='checkbox')changed();});
@@ -1478,7 +1480,7 @@ function importDialog(){
     try{packet=JSON.parse(await f.text());}catch{showAlert('不是有效的加密包。',{field:file.input});return;}
     let r;try{r=await api('/api/sync/import',{packet,...(p?{passphrase:p}:{})});}finally{p=null;}
     view.replaceChildren(el('p',{},'来自 '+String(r.sender||r.from||'').slice(0,16)+'…'),
-      el('ul',{},...(r.changes||[]).map(c=>el('li',{},`${serviceNameOf(c.provider)}（${c.provider}）：${c.changed?(c.state==='conflict'?'冲突（相关调用会暂停）':c.state==='deleted'?'将删除':'将更新'):'没有变化'}`))),raw('import',r));
+      el('ul',{},...(r.changes||[]).map(c=>el('li',{},zh`${serviceNameOf(c.provider)}（${c.provider}）：${c.changed?(c.state==='conflict'?'冲突（相关调用会暂停）':c.state==='deleted'?'将删除':'将更新'):'没有变化'}`))),raw('import',r));
     apply.setAttribute('aria-disabled','false');reason.hidden=true;});
   apply.addEventListener('click',action(async()=>{if(!packet){announce('先检查内容。');return;}let p=pass?.input.value||'';
     try{const r=await api('/api/sync/import',{packet,apply:true,...(p?{passphrase:p}:{})});closeModal();await refresh();toast(r.conflicts?'存在冲突：已保留两个版本，并暂停相关调用。':'加密的 Key 已合并到本机。');}finally{p=null;if(pass)pass.input.value='';}}));
@@ -1486,7 +1488,7 @@ function importDialog(){
 }
 function resolveDialog(provider){
   const record=(data.sync?.records||[]).find(r=>r.provider===provider&&r.state==='conflict'), svc=serviceNameOf(provider);
-  if(!record){openModal({title:`${svc} 的 Key 选哪个版本？`,body:[el('p',{},'没有找到这个 Key 的版本记录。请刷新后再试。')],actions:[el('button',{type:'button',class:'primary',onclick:()=>closeModal()},'完成')]});return;}
+  if(!record){openModal({title:zh`${svc} 的 Key 选哪个版本？`,body:[el('p',{},'没有找到这个 Key 的版本记录。请刷新后再试。')],actions:[el('button',{type:'button',class:'primary',onclick:()=>closeModal()},'完成')]});return;}
   const pass=syncPassword();
   const radios=record.heads.map(h=>[h,el('input',{type:'radio',name:'resolve-head',value:h.revision})]);
   const apply=el('button',{type:'button',class:'primary','aria-disabled':'true','aria-describedby':'resolve-reason'},'使用这个版本');
@@ -1495,9 +1497,9 @@ function resolveDialog(provider){
   apply.addEventListener('click',action(async()=>{const choice=radios.find(([,r])=>r.checked);if(!choice){announce('先选择一个版本。');return;}let p=pass?.input.value||'';
     try{await api('/api/sync/resolve',{provider,choose:choice[0].revision,expected:record.expected,apply:true,...(p?{passphrase:p}:{})});}finally{p=null;if(pass)pass.input.value='';}
     ui.successor=['route:key:'+provider+':更换','key:replace:'+provider];
-    closeModal();await refresh();toast(`已选择 ${svc} 的 Key 版本，相关工具恢复使用。`);}));
-  openModal({title:`${svc} 的 Key 选哪个版本？`,body:[el('p',{},'选择的是这个 Key 的一个完整版本，不能拼接。不会按时间自动选择；如果这期间又收到新的修改，这次选择会被拒绝。'),
-    el('fieldset',{},el('legend',{},'版本'),...radios.map(([h,r])=>choice(r,`来自 ${String(h.author).slice(0,10)} · 修订 ${String(h.revision).slice(0,12)}`,h.deleted?'删除这个 Key':'保留这个 Key'))),pass?pass.node:null,reason],
+    closeModal();await refresh();toast(zh`已选择 ${svc} 的 Key 版本，相关工具恢复使用。`);}));
+  openModal({title:zh`${svc} 的 Key 选哪个版本？`,body:[el('p',{},'选择的是这个 Key 的一个完整版本，不能拼接。不会按时间自动选择；如果这期间又收到新的修改，这次选择会被拒绝。'),
+    el('fieldset',{},el('legend',{},'版本'),...radios.map(([h,r])=>choice(r,zh`来自 ${String(h.author).slice(0,10)} · 修订 ${String(h.revision).slice(0,12)}`,h.deleted?'删除这个 Key':'保留这个 Key'))),pass?pass.node:null,reason],
     actions:[cancel(),apply]});
 }
 function grantDialog(){
@@ -1515,7 +1517,7 @@ function grantDialog(){
   // Ids the catalogue does not know cannot be checked: 检查授权内容 stays focusable but sends nothing, with the reason shown.
   const recognise=()=>{const list=ids(),found=list.filter(id=>model.tools.has(id)),gone=missing();
     known.replaceChildren(found.length?'已识别：':'',...found.flatMap((id,i)=>[i?'、':'',id,model.tools.get(id).paid?el('span',{class:'tag paid'},'可能扣费'):'']));
-    unknown.textContent=gone.length?`不在目录中：${gone.join('、')}。删掉这些工具 ID 后才能检查。`:'';unknown.hidden=!gone.length;
+    unknown.textContent=gone.length?zh`不在目录中：${gone.join('、')}。删掉这些工具 ID 后才能检查。`:'';unknown.hidden=!gone.length;
     if(gone.length){check.setAttribute('aria-disabled','true');check.setAttribute('aria-describedby','grant-unknown');}
     else{check.removeAttribute('aria-disabled');check.removeAttribute('aria-describedby');}
     paidHint.textContent=found.length&&!found.some(id=>model.tools.get(id).paid)?'所选工具都不会扣费。':'';};
@@ -1530,13 +1532,13 @@ function grantDialog(){
     if(missing().length){announce(unknown.textContent);tools.input.focus();return;}
     const v=values();let r;
     try{r=await api('/api/access/grant',v);}
-    catch(e){if(e.code==='profile_exists'){showAlert(`${agentLabel()} 已经有一份受限授权的配置文件，旧授权被保留。先在“正在生效的授权”里撤销那一份再新建；如果两份都要保留，请在终端用 atm access grant 为新授权指定另一个配置文件位置。`);return;}throw e;}
+    catch(e){if(e.code==='profile_exists'){showAlert(zh`${agentLabel()} 已经有一份受限授权的配置文件，旧授权被保留。先在“正在生效的授权”里撤销那一份再新建；如果两份都要保留，请在终端用 atm access grant 为新授权指定另一个配置文件位置。`);return;}throw e;}
     reviewed=JSON.stringify(v);hash=r.approval_sha256;
-    view.replaceChildren(el('p',{},`${agentLabel()} 可以在 ${v.workspace} 中使用 ${v.tools.length} 个工具：${v.tools.join('、')}，到 ${r.expires_at?T.datetime(r.expires_at):T.datetime(Date.now()/1000+v.ttl_hours*3600)} 失效；${v.allow_paid?'会':'不会'}消耗额度。`),
+    view.replaceChildren(el('p',{},zh`${agentLabel()} 可以在 ${v.workspace} 中使用 ${v.tools.length} 个工具：${v.tools.join('、')}，到 ${r.expires_at?T.datetime(r.expires_at):T.datetime(Date.now()/1000+v.ttl_hours*3600)} 失效；${v.allow_paid?'会':'不会'}消耗额度。`),
       el('p',{},'授权指纹 ',el('code',{},String(hash).slice(0,12))),raw('grant',r));
     apply.setAttribute('aria-disabled','false');reason.hidden=true;});
   apply.addEventListener('click',action(async()=>{const v=values();if(!reviewed||JSON.stringify(v)!==reviewed){changed();return;}
-    await api('/api/access/grant',{...v,apply:true,approved_sha256:hash});closeModal();await refresh();toast(`已创建 ${agentLabel()} 的受限授权。`);}));
+    await api('/api/access/grant',{...v,apply:true,approved_sha256:hash});closeModal();await refresh();toast(zh`已创建 ${agentLabel()} 的受限授权。`);}));
   const form=el('div',{class:'dialog-form'},el('fieldset',{},el('legend',{},'给哪个 Agent'),...agents.map(([a,r])=>el('label',{class:'check'},r,a==='claude'?'Claude Code':'Codex'))),
     tools.node,known,unknown,workspace.node,ttl.node,hours.node,
     el('fieldset',{},el('legend',{},'额外权限（只勾选所选工具需要的）'),...perms.map(([,b,l])=>el('label',{class:'check'},b,l))),

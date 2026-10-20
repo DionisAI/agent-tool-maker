@@ -308,7 +308,7 @@ def test_switches_bulk_changes_and_paid_tags(browser, tmp_path, monkeypatch):
         group = page.locator('.tool-group', has=page.locator('.group-head', has_text='你的 Chrome 登录'))
         before = len(posts(log))
         group.get_by_role('button', name='全部允许…').click()
-        expect(page.locator('#modal-title')).to_have_text('允许 你的 Chrome 登录 · Tripo Studio 的 2 个工具？')
+        expect(page.locator('#modal-title')).to_have_text('允许你的 Chrome 登录 · Tripo Studio 的 2 个工具？')
         expect(page.locator('#modal-body .tag.paid')).to_have_text('可能扣费')
         k = page.evaluate("['tripo.studio.generate', '%s'].filter(id => model.tools.get(id).paid).length" % other)
         assert k >= 1
@@ -357,7 +357,7 @@ def test_switches_bulk_changes_and_paid_tags(browser, tmp_path, monkeypatch):
                 inflight[0] -= 1
         page.on('request', started); page.on('requestfinished', finished)
         group.get_by_role('button', name='全部停用…').click()
-        expect(page.locator('#modal-title')).to_have_text(re.compile(r'^停用 你的 Chrome 登录 · 小云雀 的 \d+ 个工具？$'))
+        expect(page.locator('#modal-title')).to_have_text(re.compile(r'^停用你的 Chrome 登录 · 小云雀的 \d+ 个工具？$'))
         before = len(posts(log))
         page.locator('#modal').get_by_role('button', name='全部停用', exact=True).click()
         expect(page.locator('#modal')).to_be_hidden()
@@ -497,7 +497,7 @@ DIALOGS = [
     ('C1', 'agents', lambda p: p.locator('[data-agent=claude]').get_by_role('button', name='移除', exact=True), '从 Claude Code 移除 ATM？'),
     ('C2', 'settings/sync', lambda p: p.get_by_role('button', name='撤销信任', exact=True), '撤销对 build-server 的信任？'),
     ('C3', 'agents', lambda p: p.locator('#grants').get_by_role('button', name='撤销', exact=True), '撤销「项目 demo-video · 由授权窗口批准」？'),
-    ('C4', 'services/xyq', lambda p: p.get_by_role('button', name='全部停用…').first, re.compile(r'^停用 .+ 的 \d+ 个工具？$')),
+    ('C4', 'services/xyq', lambda p: p.get_by_role('button', name='全部停用…').first, re.compile(r'^停用.+的 \d+ 个工具？$')),
     ('C5', 'services/higgsfield', lambda p: p.get_by_role('button', name='停止自动续期', exact=True), '停止 Higgsfield 自动续期？'),
 ]
 

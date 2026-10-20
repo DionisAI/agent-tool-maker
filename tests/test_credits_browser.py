@@ -258,7 +258,7 @@ def test_credits_refreshes_are_serialized_and_keep_focus(tmp_path, width):
             expect(higgsfield.locator(".badge.bad")).to_have_attribute("title", "Fixture: log in to the CLI first.")
             expect(tripo.locator(".badge.bad")).to_have_text("读取失败 · constructor")  # Own keys only.
             expect(tripo.locator(".credit-meta .badge").first).to_have_text("toString")
-            expect(xyq.locator(".credit-source")).to_have_text("来自 小云雀 网站（你的 Chrome 登录）")
+            expect(xyq.locator(".credit-source")).to_have_text("来自小云雀网站（你的 Chrome 登录）")
             expect(xyq.locator(".credit-source")).to_have_attribute("title", "xyq.web.account")
             expect(xyq.locator(".credit-next")).to_have_text("下次刷新读取 CLI")
             expect(xyq.locator(".credit-next")).to_have_attribute("title", "pippit.cli.credit_balance")

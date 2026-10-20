@@ -69,12 +69,12 @@ test('every health state maps to one readiness state, word, sentence and fix', (
     missing_credential: ['setup', '待设置', '缺少 Key：elevenlabs', '添加 API Key'],
     credential_expired: ['blocked', 'Key 已过期', 'elevenlabs 的 Key 已过期。', '更换 API Key'],
     sync_conflict: ['blocked', 'Key 冲突', 'elevenlabs 的 Key 在两台设备上不一致，已暂停。', '选择版本'],
-    cli_not_configured: ['setup', '待设置', '需要本机程序 程序。', '查看设置步骤'],
-    executable_unpinned: ['attention', '需要处理', '程序 已绑定，但没有记录程序指纹。', '查看确认方法'],
-    executable_changed: ['blocked', '程序已更新', '程序 已更新，需要你重新确认。', '查看确认方法'],
-    executable_missing: ['blocked', '程序不见了', '找不到之前绑定的 程序。', '查看确认方法'],
-    executable_not_executable: ['blocked', '不能运行', '程序 没有执行权限。', '查看确认方法'],
-    executable_unreadable: ['blocked', '无法读取', '无法读取 程序。', '查看确认方法'],
+    cli_not_configured: ['setup', '待设置', '需要先绑定一个本机程序。', '查看设置步骤'],
+    executable_unpinned: ['attention', '需要处理', '程序已绑定，但没有记录程序指纹。', '查看确认方法'],
+    executable_changed: ['blocked', '程序已更新', '程序已更新，需要你重新确认。', '查看确认方法'],
+    executable_missing: ['blocked', '程序不见了', '找不到之前绑定的程序。', '查看确认方法'],
+    executable_not_executable: ['blocked', '不能运行', '程序没有执行权限。', '查看确认方法'],
+    executable_unreadable: ['blocked', '无法读取', '无法读取程序。', '查看确认方法'],
     mcp_not_configured: ['setup', '待设置', 'MCP 服务 elevenlabs 还没设置。', '查看设置命令'],
     missing_origin: ['setup', '待设置', '需要先设置服务地址。', '查看设置命令'],
     browser_dependency_missing: ['setup', '待设置', '需要安装 ATM 的网页组件。', '查看安装方法'],
@@ -198,7 +198,7 @@ test('route and service states aggregate, and the lead sentence follows them', (
   service = M.derive(data({tools: eleven, connections: [conn('elevenlabs', {configured: true, configured_at: NOW - 86400})]}), NOW).byKey.get('elevenlabs');
   assert.equal(service.state, 'ready');
   assert.equal(service.primary, null);
-  assert.equal(service.lead, '可以使用。Agent 可以通过 API Key、交给 Agent 的浏览器 使用 2 个工具。');
+  assert.equal(service.lead, '可以使用。Agent 可以通过 API Key、交给 Agent 的浏览器使用 2 个工具。');
   // A working Key: the Agent-browser route no longer suggests saving one.
   assert.ok(!service.routes.find(r => r.kind === 'agent_browser').info.some(line => line.includes('保存 Key')));
   assert.deepEqual(plain(service.routes[0].facts[0]), ['用于', 'elevenlabs.tts']);
@@ -337,7 +337,7 @@ test('every inbox rule fires from its own fixture, in severity order, with stabl
   assert.equal(byId['job-needs:job-human'].title, 'tripo.studio.generate：等人工处理');
   assert.equal(byId['agent-missing:codex'].title, '检测到 Codex，还没安装 ATM');
   assert.equal(byId['passkey:state'].detail, 'ATM 主密码仍然可以解锁。错误代码：passkey_state_digest');
-  assert.equal(byId['slot:acme.production'].title, 'Acme 生产环境 还没有填写 Key');
+  assert.equal(byId['slot:acme.production'].title, 'Acme 生产环境还没有填写 Key');
   // Ids are stable across derivations (focus restoration).
   assert.deepEqual(plain(M.derive(inboxFixture(), NOW + 1).inbox.map(i => i.id).sort()), [...ids].sort());
 });
@@ -448,12 +448,14 @@ function richFixture() {
   const statuses = Object.keys(M.T.job).concat(['fixture_new_status']);
   base.jobs.push(...statuses.map((status, i) => ({id: 'job-' + status, tool: i % 2 ? 'tripo.studio.generate' : 'fal.generate', status, kind: 'tool',
     created: NOW - 86400 * (i % 3) - 60, updated: NOW - 30, verification: i % 2 ? null : 'ffprobe', cost_usd: i % 2 ? null : 0.18, cost_status: 'provider_report', artifact_count: i})),
-  {id: 'job-orphan', tool: 'gone.tool', status: 'login_required', kind: 'tool', created: NOW - 5, updated: NOW - 5});
+  {id: 'job-orphan', tool: 'gone.tool', status: 'login_required', kind: 'tool', created: NOW - 5, updated: NOW - 5},
+  {id: 'job-xyq', tool: 'xyq.image', status: 'submission_unknown', kind: 'tool', created: NOW - 7, updated: NOW - 7});
   base.tools.push(
     tool('elevenlabs.tts', 'elevenlabs', 'elevenlabs', 'missing_credential', {credentials: ['elevenlabs'], paid: true, health: {credential: 'elevenlabs'}}),
     tool('elevenlabs.web', 'browser', 'elevenlabs', 'browser_login_unknown', {url: 'https://elevenlabs.io/app/', paid: true}),
     tool('xyq.web.account', 'command', 'xyq', 'configured_not_verified', {executable: 'opencliapp'}),
     tool('pippit.cli.credit_balance', 'xyq', 'xyq', 'configured_not_verified', {executable: 'xyq'}),
+    tool('xyq.image', 'xyq', 'xyq', 'configured_not_verified', {executable: 'xyq', paid: true}),
     tool('higgsfield.mcp', 'mcp', 'higgsfield', 'configured_not_verified', {server: 'higgsfield', oauth: 'higgsfield'}),
     tool('comfyui.queue', 'rest', 'comfyui', 'missing_origin'),
     tool('clo.handoff', 'desktop', 'clo', 'host_desktop_required'), tool('upwork.handoff', 'human', 'upwork', 'host_human_required'),
@@ -498,7 +500,8 @@ test('no rendered sentence, inbox detail, lead or job sentence from derive() con
   assert.deepEqual(raw, []);
   const unknown = model.jobs.find(j => j.status === 'submission_unknown' && j.serviceKey === 'tripo');
   assert.equal(unknown.sentence, 'ATM 不能确定这次提交是否到达了 Tripo3D。请先到 Tripo3D 网站核对结果，不要让 Agent 重新提交，以免重复扣费。');
-  assert.equal(model.jobs.find(j => j.id === 'job-orphan').sentence, '需要先登录 服务。登录后让 Agent 继续这个任务。');
+  assert.equal(model.jobs.find(j => j.id === 'job-orphan').sentence, '需要先登录服务。登录后让 Agent 继续这个任务。');
+  assert.equal(model.jobs.find(j => j.id === 'job-xyq').sentence, 'ATM 不能确定这次提交是否到达了小云雀。请先到小云雀网站核对结果，不要让 Agent 重新提交，以免重复扣费。');
 });
 
 test('a bound MCP service missing its Key is in use, needs the owner, and offers one Key to add', () => {
@@ -565,7 +568,7 @@ test('a working ATM login can be replaced: 重新登录 sits next to 刷新状�
 test('a site whose credits come from a CLI explains the Chrome login and still offers the website', () => {
   const model = M.derive(richFixture(), NOW);
   const chrome = model.byKey.get('xyq').routes.find(r => r.kind === 'chrome');
-  assert.equal(chrome.steps[2].text, '积分从 xyq 程序读取，不会检查 Chrome。Chrome 里是否已登录 小云雀，在 Agent 使用时确认；可以先在 Chrome 里打开网站登录好。');
+  assert.equal(chrome.steps[2].text, '积分从 xyq 程序读取，不会检查 Chrome。Chrome 里是否已登录小云雀，在 Agent 使用时确认；可以先在 Chrome 里打开网站登录好。');
   assert.equal(chrome.check, undefined);
   assert.deepEqual(plain(chrome.open), {host: 'xyq.jianying.com', name: '小云雀'});
   // Credits failure codes read in Chinese; a translated code stays in the badge title.
@@ -576,10 +579,19 @@ test('a site whose credits come from a CLI explains the Chrome login and still o
   assert.equal(M.T.errorText('unknown_tool'), '有工具 ID 不在目录中，删掉后再检查。');
 });
 
-test('generated copy keeps a space between Chinese and Latin words', () => {
+test('generated copy keeps a space between Chinese and Latin words, and none between two Chinese words', () => {
+  // The copy template itself: names may be Chinese or Latin.
+  for (const [name, text] of [['小云雀', '与小云雀共用'], ['Tripo Studio', '与 Tripo Studio 共用'], ['a、b 等 4 个工具', '与 a、b 等 4 个工具共用']])
+    assert.equal(M.T.zh`与 ${name} 共用`, text);
+  assert.equal(M.T.zh`（${'3 天前'}）`, '（3 天前）');
+  assert.equal(M.T.zh`${'2 小时前'}检查`, '2 小时前检查');
   const model = M.derive(richFixture(), NOW);
   const texts = [...model.services.flatMap(s => [s.lead, ...s.routes.flatMap(r => [r.summary, r.sub, ...r.body, ...(r.info || []), ...(r.steps || []).map(x => x.text)])]),
     ...model.inbox.flatMap(i => [i.title, i.detail]), ...model.jobs.map(j => j.sentence)].filter(Boolean);
   const tight = texts.filter(t => /[一-鿿][A-Za-z0-9]|[A-Za-z0-9][一-鿿]/.test(t.replace(/\d+ (月|日|年)/g, '')));
   assert.deepEqual(tight, []);
+  const loose = texts.filter(t => /[\u4e00-\u9fff] [\u4e00-\u9fff]/.test(t));
+  assert.deepEqual(loose, []);
+  // A Chinese service name gets no stray spaces either.
+  assert.match(model.byKey.get('xyq').routes.find(r => r.kind === 'chrome').steps[0].text, /^已安装 \d+ 个小云雀工具$/);
 });
