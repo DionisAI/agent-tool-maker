@@ -88,7 +88,7 @@ const toast = (message, error=false) => {
 };
 const action = fn => async event => {
   const b=event?.currentTarget; if (b?.tagName==='BUTTON') b.disabled=true;
-  try { await fn(event); } catch(e) { toast(e.message || '操作失败，请检查本地状态。',true); }
+  try { await fn(event); } catch(e) { if(!e?.gated) toast(e.message || '操作失败，请检查本地状态。',true); }
   finally { if (b?.isConnected) b.disabled=false; }
 };
 function showGate(reason='') {
@@ -109,9 +109,11 @@ async function api(path, body) {
   if (body !== undefined) {opts.method='POST';opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(body);}
   const r=await fetch(path,opts); const value=await r.json();
   if (!r.ok) {
+    const error=new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成'));
     // Only an answer for the current bearer ends the session; a late reply for an old one must not.
-    if(r.status===401&&sent===token) forget(value.error?.code==='session_expired'?'session_expired':sent===typed?'rejected':'unauthorized');
-    throw new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成'));
+    // The gate then says why in Chinese, so callers do not repeat it in a toast.
+    if(r.status===401&&sent===token) {forget(value.error?.code==='session_expired'?'session_expired':sent===typed?'rejected':'unauthorized');error.gated=true;}
+    throw error;
   }
   return value;
 }
@@ -385,7 +387,7 @@ async function start() {
   if (!token) {showGate();return;}
   await refresh();  // The page-title placeholder stays while the bearer is checked; the gate does not flash.
 }
-start().catch(e=>{toast(e.message,true);if($('#gate').hidden)showGate();});  // A 401 already showed why.
+start().catch(e=>{if(!e?.gated)toast(e.message,true);if($('#gate').hidden)showGate();});  // A 401 already shows why on the gate.
 
 function renderExtensions(main) {
   main.append(heading('扩展工坊','列表不是能力上限。独立管理新 Key，安装经审阅的 API、CLI 或网页配方。',btn('新增凭证槽',credentialSlotDialog,'primary')));

@@ -80,6 +80,8 @@ def locked(page, expect, reason=None):
         expect(page.locator('#gate-reason')).to_be_hidden()
     assert stored(page) is None and page.locator('#main').inner_text() == ''
     assert not page.evaluate("document.getElementById('modal').open")
+    # Only the gate's own reason: no toast repeats the request error (checked now, not polled until it fades).
+    assert page.evaluate("document.getElementById('toast').hidden")
 
 
 def stored(page, key=KEY):
@@ -123,8 +125,7 @@ def test_token_survives_reload_but_not_new_tab_lock_or_expiry(console):
 
     server.expires_at = time.monotonic() - 1
     page.get_by_role('button', name='刷新状态 ↻').click()
-    expect(page.locator('#gate')).to_be_visible()
-    assert stored(page) is None
+    locked(page, expect, EXPIRED)
     server.expires_at = time.monotonic() + 3600
     page.reload(); expect(page.locator('#gate')).to_be_visible()
     assert stored(page) is None
