@@ -95,7 +95,7 @@ def test_console_identity_requires_bearer_and_is_non_secret(ui):
 
 
 @pytest.mark.parametrize('extra', [(), ('--no-browser',), ('--port', 'SAME')], ids=['browser', 'no-browser', 'same-port'])
-def test_running_console_of_this_home_is_reused(ui, capsys, extra):
+def test_running_console_of_this_home_is_reused(ui, extra):
     with running(ui.home) as server:
         before = server.token_path.read_bytes()
         extra = tuple(str(server.server_port) if x == 'SAME' else x for x in extra)

@@ -6,6 +6,7 @@ import time
 import pytest
 from agent_tool_maker.webapp import Console
 
+pytestmark = pytest.mark.browser
 KEY = 'atm-console-token'
 BLOCK_STORAGE = """Object.defineProperty(window,'sessionStorage',{configurable:true,
   get(){throw new DOMException('storage disabled for this test','SecurityError');}});"""
