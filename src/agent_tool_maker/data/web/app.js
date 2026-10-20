@@ -1499,6 +1499,9 @@ $('#global-search').addEventListener('submit',e=>{
   const q=$('#global-q').value, target=searchTarget(q);
   $('#global-q').value='';
   if(target?.tool){
+    // A tool past the first eight of its group: show the whole group first.
+    const st=ui.service.get(target.service)||{filter:'all',q:'',open:new Set()};ui.service.set(target.service,st);
+    st.filter='all';st.q='';for(const r of model.byKey.get(target.service).routes)st.open.add(r.anchor);
     go('services/'+target.service,{focus:false});
     const row=$('#tool-'+CSS.escape(T.slug(target.tool)));
     if(row){row.scrollIntoView({block:'center'});row.querySelector('.tool-title')?.focus({preventScroll:true});row.classList.add('flash');setTimeout(()=>row.classList.remove('flash'),2000);}

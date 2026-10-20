@@ -117,7 +117,7 @@ small{font-size:13px}
 .key-pill[data-state=unlocked]::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:calc(var(--lease,1) * 100%);background:var(--ok)}
 
 /* Page frame */
-main{flex:1;width:100%;max-width:calc(1120px + 2 * var(--gutter));margin:0 auto;padding:var(--gutter);outline:none}
+main{flex:1;width:100%;max-width:calc(1120px + 2 * var(--gutter));margin:0 auto;padding:var(--gutter);outline:none;overflow-wrap:anywhere}
 main[data-width=narrow]{max-width:calc(960px + 2 * var(--gutter))}
 .foot{padding:0 var(--gutter) 24px;color:var(--ink-3);font-size:12px;text-align:center}
 .page-title{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:var(--s6)}
@@ -400,7 +400,7 @@ table.tools .svc,.tool-list .svc{display:flex;align-items:center;gap:8px}
 .key-row .meta{grid-column:2;color:var(--ink-2);font-size:13px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
 .key-row .actions{grid-column:3;grid-row:1 / span 2;margin:0}
 .program-row{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:4px 12px;align-items:start}
-.program-row .detail{grid-column:2;display:grid;gap:4px;font-size:13px;color:var(--ink-2)}
+.program-row .detail{grid-column:2;display:grid;gap:4px;font-size:13px;color:var(--ink-2);min-width:0}
 .program-row>.secondary,.program-row>.primary{grid-column:3;grid-row:1 / span 2}
 
 /* Forms */
@@ -554,8 +554,8 @@ table.schema th{color:var(--ink-2);font-weight:500;border-top:0}
 @media (max-width:359px){#nav button{font-size:11px}}
 @media (pointer:coarse){
   :root{--control-h:44px}
-  .icon-button{height:44px;min-width:44px}
-  .key-pill{height:44px}
+  .icon-button,.topbar .icon-button{height:44px;min-width:44px}
+  .key-pill{height:46px}
   .plain,.tool-title,.switch,details>summary,.context a{min-height:44px}
   .plain,.tool-title{min-width:44px}
   .service-index button,.more,.job-mini,.subnav button{min-height:44px}

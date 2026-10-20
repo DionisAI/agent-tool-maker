@@ -436,3 +436,466 @@ def test_every_api_endpoint_has_a_caller():
                  '/api/sync/resolve', '/api/access/grant', '/api/access/revoke']:
         assert path in app, path
     assert "'/api/agents'" not in app and "'/api/credits'" not in app and '/api/desktop' not in (WEB / 'app.js').read_text()
+
+
+# ---------------------------------------------------------------- A-MAP-02: every dialog from its opener
+
+def mock(page, path, change):
+    """Serve one bootstrap payload with a change (to reach a state the fixture does not hold)."""
+    def handle(route):
+        response = route.fetch()
+        body = response.json()
+        change(body)
+        route.fulfill(response=response, body=json.dumps(body), headers={**response.headers, 'content-type': 'application/json'})
+    page.route('**' + path, handle)
+
+
+def opener(page, section, locate):
+    go(page, section)
+    node = locate(page)
+    node.scroll_into_view_if_needed()
+    return node
+
+
+DIALOGS = [
+    ('D1', 'agents', lambda p: p.get_by_role('button', name='安装到 Codex', exact=True), '安装 ATM 到 Codex'),
+    ('D1-cli', 'settings/programs', lambda p: p.locator('[data-program=blender]').get_by_role('button', name='绑定', exact=True), '绑定 blender'),
+    ('D2', 'overview', lambda p: p.get_by_role('button', name='解锁 30 分钟', exact=True), '解锁 Key 30 分钟'),
+    ('D3', 'overview', lambda p: p.locator('.credit-card[data-provider=tripo_studio] [data-credit-action=cycle]'), '设置续期日 · Tripo Studio'),
+    ('D4', 'services/tripo', lambda p: p.locator('[data-key="tool:tripo.text_to_3d"]'), re.compile(r'.+')),
+    ('D5', 'services', lambda p: p.get_by_role('button', name='添加自定义 Key', exact=True), '添加自定义 Key'),
+    ('D6', 'services', lambda p: p.get_by_role('button', name='安装工具定义', exact=True), '安装工具定义'),
+    ('D7', 'services/elevenlabs', lambda p: p.locator('li.route[data-kind=key]').get_by_role('button', name='添加 API Key'), '添加 ElevenLabs 的 API Key'),
+    ('D9', 'settings/keys', lambda p: p.get_by_role('button', name='绑定 Passkey', exact=True), '绑定 Passkey'),
+    ('D12', 'services/tripo', lambda p: p.locator('li.route[data-kind=key]').get_by_role('button', name='联网测试', exact=True), '联网测试 Tripo3D 的 Key'),
+    ('D13', 'services/tripo', lambda p: p.locator('li.route[data-kind=key]').get_by_role('button', name='移除', exact=True), '移除 Tripo3D 的 API Key'),
+    ('D14', 'settings/sync', lambda p: p.get_by_role('button', name='导入加密包', exact=True), '导入加密同步包'),
+    ('D16', 'settings/sync', lambda p: p.get_by_role('button', name='配对另一台设备', exact=True), '配对另一台设备'),
+    ('D17', 'settings/sync', lambda p: p.get_by_role('button', name='导出加密包', exact=True), '导出给 build-server'),
+    ('D18', 'services/exa', lambda p: p.locator('li.route[data-kind=key]').get_by_role('button', name='选择版本', exact=True), 'Exa 的 Key 选哪个版本？'),
+    ('D19', 'agents', lambda p: p.get_by_role('button', name='新建受限授权', exact=True), '新建受限授权'),
+    ('D20', 'settings/sync', lambda p: p.get_by_role('button', name='查看公开身份', exact=True), '本机公开身份（不含任何秘密）'),
+    ('C1', 'agents', lambda p: p.locator('[data-agent=claude]').get_by_role('button', name='移除', exact=True), '从 Claude Code 移除 ATM？'),
+    ('C2', 'settings/sync', lambda p: p.get_by_role('button', name='撤销信任', exact=True), '撤销对 build-server 的信任？'),
+    ('C3', 'agents', lambda p: p.locator('#grants').get_by_role('button', name='撤销', exact=True), '撤销这份授权？'),
+    ('C4', 'services/xyq', lambda p: p.get_by_role('button', name='全部停用…').first, re.compile(r'^停用 .+ 的 \d+ 个工具？$')),
+    ('C5', 'services/higgsfield', lambda p: p.get_by_role('button', name='停止自动续期', exact=True), '停止 Higgsfield 自动续期？'),
+]
+
+
+def check_dialog(page, expect, name, node, title):
+    from playwright.sync_api import expect as _
+    key = node.get_attribute('data-key')
+    node.click()
+    modal = page.locator('#modal')
+    expect(modal).to_be_visible()
+    expect(page.locator('#modal-title')).to_have_text(title)
+    labelled = page.evaluate("document.getElementById(document.getElementById('modal').getAttribute('aria-labelledby')).textContent.trim()")
+    assert labelled, name
+    assert modal.get_by_role('button', name='关闭', exact=True).count() == 1, name
+    page.keyboard.press('Escape')
+    expect(modal).to_be_hidden()
+    if key:
+        expect(page.locator(f'#main [data-key="{key}"]')).to_be_focused()
+    else:
+        expect(node).to_be_focused()
+
+
+def test_every_dialog_opens_from_its_opener_and_returns_focus(browser, tmp_path, monkeypatch):
+    from playwright.sync_api import expect
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        ctx, page, log = open_page(browser, server, info)
+        for name, section, locate, title in DIALOGS:
+            check_dialog(page, expect, name, opener(page, section, locate), title)
+        # The two plans previewed on open are read-only (no network, no change).
+        verify = [json.loads(b) for m, u, b in log['requests'] if u.endswith('/api/verify')]
+        assert verify and all('allow_network' not in body for body in verify)
+        assert set(posts(log)) <= {'/api/setup/preview', '/api/verify'}, posts(log)
+        assert not log['errors'], log['errors']
+        ctx.close()
+        # D10 needs a bound Passkey and D11 a missing ATM login: served as such to this page only.
+        ctx, page, log = open_page(browser, server, info)
+        mock(page, '/api/passkeys', lambda b: b.update(credentials=[{'id': 'fake-credential', 'label': '1Password', 'disabled': False, 'created_at': 0}]))
+        mock(page, '/api/connections', lambda b: b['oauth'][0].update(status='missing', keep_login=False))
+        page.get_by_role('button', name='刷新状态').click()
+        expect(page.locator('#announce')).to_have_text('已刷新')
+        check_dialog(page, expect, 'D10', opener(page, 'settings/keys', lambda p: p.get_by_role('button', name='停用 1Password', exact=True)), '停用 1Password')
+        check_dialog(page, expect, 'D11', opener(page, 'services/higgsfield', lambda p: p.locator('li.route[data-kind=oauth]').get_by_role('button', name='登录 Higgsfield', exact=True)),
+                     '登录 Higgsfield（ATM 登录）')
+        assert posts(log) == []
+        ctx.close()
+    with console(tmp_path, monkeypatch, empty=True) as (server, info):
+        ctx, page, log = open_page(browser, server, info)
+        check_dialog(page, expect, 'D8', page.locator('#session-action'), '设置 Key 的保管方式')
+        # M39: from the first-run step, both Agents are offered.
+        node = page.locator('[data-key="first:agents"]')
+        node.click()
+        expect(page.locator('#modal fieldset input[type=checkbox]')).to_have_count(2)
+        page.keyboard.press('Escape')
+        # A-A11Y-08: D8 validation stays inside the dialog: no request and no toast.
+        page.locator('#session-action').click()
+        page.locator('#modal').get_by_label('ATM 主密码', exact=True).check()
+        page.get_by_label('设置 ATM 主密码（至少 12 个字符）', exact=True).fill('fake-long-password-1')
+        page.get_by_label('再输入一次', exact=True).fill('fake-long-password-2')
+        before = len(posts(log))
+        page.get_by_role('button', name='确认设置', exact=True).click()
+        expect(page.locator('#modal [role=alert]')).to_have_text('两次输入的 ATM 主密码不一致。')
+        expect(page.get_by_label('再输入一次', exact=True)).to_have_attribute('aria-invalid', 'true')
+        assert len(posts(log)) == before and page.locator('#toast').is_hidden()
+        page.get_by_label('再输入一次', exact=True).fill('fake-long-password-1')
+        expect(page.locator('#modal-alert')).to_be_hidden()  # Any change clears it.
+        page.keyboard.press('Escape')
+        ctx.close()
+    with console(tmp_path, monkeypatch, sync=False, request=False) as (server, info):
+        ctx, page, log = open_page(browser, server, info)
+        check_dialog(page, expect, 'D15', opener(page, 'settings/sync', lambda p: p.get_by_role('button', name='生成本机身份', exact=True)), '生成本机同步身份')
+        ctx.close()
+
+
+# ---------------------------------------------------------------- A-A11Y
+
+CONTRAST = """([fg, bg]) => {
+  const rgb = c => { const x = document.createElement('canvas').getContext('2d'); x.fillStyle = '#000'; x.fillStyle = c; x.fillRect(0, 0, 1, 1); return [...x.getImageData(0, 0, 1, 1).data].slice(0, 3); };
+  const lum = c => { const [r, g, b] = rgb(c).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * r + .7152 * g + .0722 * b; };
+  const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x); return (a + .05) / (b + .05); }"""
+COLOR = "([selector, prop]) => getComputedStyle(document.querySelector(selector))[prop]"
+TOKEN = "name => getComputedStyle(document.documentElement).getPropertyValue(name).trim()"
+
+
+def test_accessibility_rules(browser, tmp_path, monkeypatch):
+    from playwright.sync_api import expect
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        ctx, page, log = open_page(browser, server, info)
+        # A-A11Y-01: no live #main; focus moves to the heading and the title follows the page.
+        assert page.locator('#main').get_attribute('aria-live') is None
+        assert page.locator('#announce').get_attribute('aria-live') == 'polite'
+        titles = {'overview': '首页 · ATM', 'services': '服务 · ATM', 'agents': 'Agent 与权限 · ATM', 'jobs': '记录 · ATM', 'settings': 'Key 保管 · 设置 · ATM'}
+        for section, title in titles.items():
+            page.locator(f'[data-nav={section}]').click()
+            assert page.evaluate("document.activeElement === document.querySelector('#main .page-title h1')"), section
+            assert page.title() == title
+            # A-A11Y-02: exactly one current nav item, marked both ways.
+            assert page.locator('[data-nav][aria-current=page]').count() == 1
+            assert page.locator('[data-nav].active').get_attribute('data-nav') == section
+        go(page, 'services/tripo'); assert page.title() == 'Tripo3D · 服务 · ATM'
+        for tab in TABS:
+            go(page, tab)
+            assert page.locator('nav.subnav [aria-current=page]').count() == 1
+        unnamed = """() => [...document.querySelectorAll('#main input, #main select, #main textarea, #modal input, #modal select, #modal textarea')]
+            .filter(x => x.type !== 'hidden' && !(x.labels && [...x.labels].some(l => l.textContent.trim())) && !(x.getAttribute('aria-label') || '').trim())
+            .map(x => x.outerHTML.slice(0, 80))"""
+        nameless = """() => [...document.querySelectorAll('button')].filter(b => !(b.getAttribute('aria-label') || b.textContent).trim()).map(b => b.outerHTML.slice(0, 80))"""
+        glyphless = """() => [...document.querySelectorAll('#main .glyph, #modal .glyph')].filter(g => {
+              const host = g.closest('li, .state, .route-chip, .keychip, p, .choice, .credit-card'); return !host || !host.textContent.trim(); }).length"""
+        disabled = """() => [...document.querySelectorAll('[aria-disabled=true]')].filter(x => x.offsetParent !== null).filter(x => {
+              const id = x.getAttribute('aria-describedby'), t = id && document.getElementById(id); return !t || !t.textContent.trim() || t.offsetParent === null; }).map(x => x.textContent)"""
+        for section in SECTIONS + TABS + ['services/tripo', 'services/higgsfield', 'services/elevenlabs']:
+            go(page, section)
+            assert page.evaluate(unnamed) == [], section
+            assert page.evaluate(nameless) == [], section
+            assert page.evaluate(glyphless) == 0, section
+            assert page.evaluate(disabled) == [], section
+            for chip in page.locator('#main .route-strip:not(.large) .route-chip').all():
+                assert '：' in chip.text_content()  # A-A11Y-04: the word is there, visually hidden.
+        for name, section, locate, title in [d for d in DIALOGS if d[0] in ('D7', 'D16', 'D19', 'D6', 'D13')]:
+            opener(page, section, locate).click()
+            expect(page.locator('#modal')).to_be_visible()
+            assert page.evaluate(unnamed) == [], name
+            labels = page.evaluate("() => [...document.querySelectorAll('#modal-body input, #modal-body select, #modal-body textarea')].filter(x => x.offsetParent !== null).every(x => x.labels && x.labels.length && [...x.labels].every(l => l.offsetParent !== null))")
+            assert labels, name  # Dialog fields have visible labels.
+            assert page.evaluate(disabled) == [], name
+            page.keyboard.press('Escape')
+        # A-A11Y-07: the focus ring is a solid 2 px outline on buttons, links, inputs and switches.
+        go(page, 'services/tripo')
+        ring = "e => { const s = getComputedStyle(e); return e.matches(':focus-visible') && s.outlineStyle === 'solid' && parseFloat(s.outlineWidth) >= 2; }"
+        page.keyboard.press('Tab')
+        for _ in range(80):
+            tag = page.evaluate('document.activeElement.tagName + "." + (document.activeElement.getAttribute("role") || document.activeElement.className)')
+            assert page.evaluate('() => document.activeElement === document.body') or page.evaluate(f'({ring})(document.activeElement)'), tag
+            page.keyboard.press('Tab')
+        ctx.close()
+        # A-JOB-14 / A-A11Y-06: an unavailable Passkey stays focusable with a visible reason.
+        ctx, page, log = open_page(browser, server, info, init='delete window.PublicKeyCredential;')
+        go(page, 'settings/keys')
+        bind = page.get_by_role('button', name='绑定 Passkey', exact=True)
+        expect(bind).to_have_attribute('aria-disabled', 'true')
+        expect(bind).to_have_attribute('aria-describedby', 'passkey-reason')
+        expect(page.locator('#passkey-reason')).to_have_text('这个浏览器不支持带加密扩展（PRF）的 Passkey。')
+        bind.click(force=True)  # Still focusable and clickable: it only points at the reason.
+        expect(page.locator('#modal')).to_be_hidden()
+        expect(page.locator('#passkey-reason')).to_be_focused()
+        assert page.evaluate(disabled) == []
+        ctx.close()
+        # A-A11Y-10: reduced motion turns every transition and animation off.
+        ctx, page, log = open_page(browser, server, info, reduced_motion='reduce')
+        assert page.evaluate(COLOR, ['#refresh', 'transitionDuration']) in ('0s',)
+        assert page.evaluate(COLOR, ['#nav button', 'transitionDuration']) == '0s'
+        page.evaluate("document.getElementById('refresh').setAttribute('aria-busy','true')")
+        assert page.evaluate(COLOR, ['#refresh svg', 'animationDuration']) == '0s'
+        page.get_by_role('button', name='解锁 30 分钟', exact=True).click()
+        assert page.evaluate(COLOR, ['#modal', 'animationDuration']) == '0s'
+        ctx.close()
+        # A-A11Y-11: text and control colours meet the contrast targets in light and dark.
+        for scheme in ('light', 'dark'):
+            ctx, page, log = open_page(browser, server, info, color_scheme=scheme)
+            go(page, 'services/higgsfield')
+            ratio = lambda fg, bg: page.evaluate(CONTRAST, [fg, bg])
+            paper, surface = page.evaluate(TOKEN, '--paper'), page.evaluate(TOKEN, '--surface')
+            assert ratio(page.evaluate(COLOR, ['body', 'color']), page.evaluate(COLOR, ['body', 'backgroundColor'])) >= 7
+            assert ratio(page.evaluate(COLOR, ['.lede', 'color']), paper) >= 4.5
+            for state in ('ready', 'attention', 'blocked', 'setup', 'handoff'):
+                selector = f'#main .state[data-state={state}]'
+                if page.locator(selector).count():
+                    assert ratio(page.evaluate(COLOR, [selector, 'color']), surface) >= 4.5, (scheme, state)
+            go(page, 'services/tripo')
+            assert ratio(page.evaluate(COLOR, ['.tag.paid', 'color']), page.evaluate(COLOR, ['.tag.paid', 'backgroundColor'])) >= 4.5
+            assert ratio(page.evaluate(COLOR, ['#main .plain', 'color']), paper) >= 4.5
+            go(page, 'services/elevenlabs')
+            assert ratio(page.evaluate(COLOR, ['#main .primary', 'color']), page.evaluate(COLOR, ['#main .primary', 'backgroundColor'])) >= 4.5
+            assert ratio(page.evaluate(TOKEN, '--control'), surface) >= 3 and ratio(page.evaluate(TOKEN, '--focus'), paper) >= 3
+            ctx.close()
+
+
+def test_keyboard_only_path_saves_a_key(browser, tmp_path, monkeypatch):
+    """A-A11Y-09: skip link → search → service page → 添加 API Key → save, without a pointer."""
+    from playwright.sync_api import expect
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        ctx, page, log = open_page(browser, server, info)
+        page.keyboard.press('Tab')
+        assert page.evaluate('document.activeElement.className') == 'skip-link'
+        page.keyboard.press('Enter')
+        assert page.evaluate("document.activeElement.id") == 'main'
+        page.keyboard.press('/')
+        assert page.evaluate("document.activeElement.id") == 'global-q'
+        page.keyboard.type('elevenlabs'); page.keyboard.press('Enter')
+        expect(page.locator('#main .page-title h1')).to_have_text('ElevenLabs')
+        for _ in range(60):
+            page.keyboard.press('Tab')
+            if page.evaluate('document.activeElement.textContent') == '添加 API Key':
+                break
+        assert page.evaluate('document.activeElement.textContent') == '添加 API Key'
+        page.keyboard.press('Enter')
+        expect(page.locator('#modal-title')).to_have_text('添加 ElevenLabs 的 API Key')
+        assert page.evaluate('document.activeElement.type') == 'password'
+        page.keyboard.type(fx.SECRET + '-keyboard')
+        for _ in range(8):
+            page.keyboard.press('Tab')
+            if page.evaluate("document.activeElement.autocomplete") == 'current-password':
+                break
+        page.keyboard.type(fx.PASSWORD)
+        for _ in range(8):
+            page.keyboard.press('Tab')
+            if page.evaluate('document.activeElement.textContent') == '加密保存':
+                break
+        page.keyboard.press('Enter')
+        expect(page.locator('#modal')).to_be_hidden()
+        expect(page.locator('li.route[data-kind=key]')).to_contain_text('可以使用')
+        assert fx.SECRET + '-keyboard' not in page.content()
+        ctx.close()
+
+
+# ---------------------------------------------------------------- A-RESP
+
+ONE_LINE = "e => { const r = document.createRange(); r.selectNodeContents(e.firstChild); return r.getClientRects().length === 1; }"
+FILLS_ROW = "g => Math.abs(g.lastElementChild.getBoundingClientRect().right - g.getBoundingClientRect().right) < 2"
+ONE_ROW = "g => new Set([...g.children].map(c => Math.round(c.getBoundingClientRect().top))).size === 1"
+
+
+@pytest.mark.parametrize('width', [1440, 1024, 768, 390, 320])
+def test_layout_at_every_width(browser, tmp_path, monkeypatch, width):
+    from playwright.sync_api import expect
+    with console(tmp_path, monkeypatch) as (server, info):
+        ctx, page, log = open_page(browser, server, info, width=width, height=900 if width > 500 else 780)
+        wider = ("() => [...document.querySelectorAll('body *')].filter(e => e.getBoundingClientRect().right > innerWidth + 0.5 && e.offsetParent !== null)"
+                 ".map(e => e.tagName + '.' + e.className + ':' + (e.textContent || '').slice(0, 40)).slice(0, 5)")
+        fits = lambda: page.evaluate('document.documentElement.scrollWidth <= innerWidth') or pytest.fail('wider than the page: ' + str(page.evaluate(wider)))
+        credits = page.locator('#credits-panel .credits-grid')
+        assert credits.evaluate(FILLS_ROW) or width == 768  # Two columns at tablet width: the third card wraps.
+        assert credits.evaluate(ONE_ROW) is (width >= 1024)
+        for amount in page.locator('.credit-amount').all():
+            assert amount.evaluate(ONE_LINE)
+        pages = SECTIONS + TABS + ['services/tripo', 'services/elevenlabs']
+        for section in pages:
+            go(page, section)
+            assert fits(), section
+            if width < 768:
+                assert page.locator('#main table').evaluate_all('xs => xs.filter(x => x.offsetParent !== null).length') == 0, section
+        go(page, 'services')
+        page.get_by_role('button', name='按工具', exact=True).click()
+        assert fits()
+        assert (page.locator('#main table.tools').count() == 1) is (width >= 768)
+        page.get_by_role('button', name='按服务', exact=True).click()
+        go(page, 'jobs')
+        page.locator('button.job-row').first.click()
+        assert fits()
+        if width < 768:  # A-RESP-02: every tab is on screen without scrolling.
+            for nav in page.locator('#nav button').all():
+                box = nav.bounding_box()
+                assert box and box['x'] >= 0 and box['x'] + box['width'] <= width + 1
+        for name, section, locate, title in [d for d in DIALOGS if d[0] in ('D7', 'D19')]:
+            opener(page, section, locate).click()
+            expect(page.locator('#modal')).to_be_visible()
+            page.wait_for_timeout(250)
+            assert fits(), name
+            if width < 768:  # A bottom sheet.
+                box = page.locator('#modal').bounding_box()
+                assert abs(box['y'] + box['height'] - page.viewport_size['height']) <= 1, box
+            page.keyboard.press('Escape')
+        assert not log['errors'], log['errors']
+        ctx.close()
+
+
+def test_touch_targets_under_a_coarse_pointer(browser, tmp_path, monkeypatch):
+    """A-RESP-04: at 390 px with touch, every visible button and switch is at least 44 x 44."""
+    with console(tmp_path, monkeypatch) as (server, info):
+        ctx, page, log = open_page(browser, server, info, width=390, height=844, has_touch=True, is_mobile=True)
+        assert page.evaluate("matchMedia('(pointer: coarse)').matches")
+        small = """() => [...document.querySelectorAll('button, [role=switch]')].filter(b => b.offsetParent !== null && !b.closest('dialog:not([open])'))
+            .map(b => [b.textContent.trim() || b.getAttribute('aria-label'), b.getBoundingClientRect()]).filter(([, r]) => r.width && (r.width < 43.5 || r.height < 43.5))
+            .map(([t, r]) => t + ' ' + Math.round(r.width) + 'x' + Math.round(r.height))"""
+        for section in SECTIONS + ['services/tripo', 'settings/sync', 'settings/programs']:
+            go(page, section)
+            assert page.evaluate(small) == [], section
+        ctx.close()
+
+
+# ---------------------------------------------------------------- A-MAP-01: nothing from the old console is unreachable
+
+# (probe id, click path from 首页, selector, text that must be there). Probes that need an action
+# are checked by the named tests in this file and in the suites listed in SPEC §18.
+PROBES = [
+    ('M01', 'overview', '[aria-label="Agent Tool Maker"]', None),
+    ('M04', 'overview', '#version', 'ATM v'),
+    ('M05', 'overview', '#origin', 'localhost'),
+    ('M06', 'overview', '#lock', '退出管理台'),
+    ('M07', 'overview', '#refresh', '刷新'),
+    ('M08', 'overview', 'footer.foot', 'ATM 本地管理 · CLI 与网页共用状态 · 不提供云端远程控制'),
+    ('M10', 'jobs', '#main .page-title h1', '记录'),
+    ('M17', 'overview', '#credential-session', '已锁定'),
+    ('M18', 'agents', '#session-action', '解锁 30 分钟'),
+    ('M22', 'settings/keys', '#unlock-panel', '固定 30 分钟'),
+    ('M23', 'services', '#main .page-title .lede', '个可以使用'),
+    ('M23', 'agents', '#reach', '个工具允许使用'),
+    ('M23', 'settings/keys', '#all-keys', '个已保存'),
+    ('M23', 'jobs', '#main .segmented', '全部 · '),
+    ('M24', 'overview', '#credits-panel', '与开发者 API 余额分开计费'),
+    ('M24', 'overview', '#credits-panel', '网站来源会读取本机已登录的浏览器'),
+    ('M26', 'overview', '.credit-card[data-provider=tripo_studio] .credit-source[title="tripo.studio.account"]', None),
+    ('M27', 'overview', '.credit-card[data-provider=higgsfield] .credit-meta', '超过 24 小时'),
+    ('M29', 'overview', '[data-credit-action=cycle]', '设置续期日'),
+    ('M30', 'overview', '[data-credit-action=refresh]', '刷新'),
+    ('M33', 'jobs', '#main .toolbar', '显示额度读取'),
+    ('M34', 'overview', '#home-agents', 'Codex'),
+    ('M34', 'agents', '#agents-list', 'Claude Code'),
+    ('M35', 'overview', '#main .footnote', '查看本页不会调用任何服务，也不会运行工具。'),
+    ('M36', 'services/tripo', '#main .page-title h1', 'Tripo3D'),
+    ('M38', 'settings/advanced', '#about', '/atm'),
+    ('M40', 'agents', '#agents-list [data-brand=claude]', None),
+    ('M41', 'agents', '#agents-list', '已安装 ATM · 新开的会话会加载'),
+    ('M41', 'agents', '#agents-list', '还没安装 ATM'),
+    ('M42', 'agents', '#agents-list', '已在本机找到'),
+    ('M43', 'agents', '#agents-list', 'agent-tool-maker/SKILL.md'),
+    ('M46', 'agents', '#agent-commands', 'atm setup --apply'),
+    ('M48', 'settings/programs', '[data-program=claude]', 'claude'),
+    ('M48', 'settings/programs', '[data-program=codex]', 'codex'),
+    ('M49', 'settings/programs', '[data-program=ffmpeg] [data-brand=ffmpeg] img', None),
+    ('M50', 'services/tripo', '#tools', '停用只阻止新的调用'),
+    ('M64', 'services', '#main .page-actions', '添加自定义 Key'),
+    ('M66', 'services', '#main .page-actions', '安装工具定义'),
+    ('M67', 'settings/tools', '#make-tools', 'atm make pack'),
+    ('M68', 'settings/tools', '#installed-tools', 'tripo.studio.account'),
+    ('M69', 'settings/keys', '#web-sessions', 'fixture-login'),
+    ('M70', 'settings/tools', '#custom-keys', 'acme.production'),
+    ('M72', 'settings/keys', '#vault-panel', '已设置。不要重新设置'),
+    ('M73', 'settings/keys', '#passkeys-panel', '绑定 Passkey'),
+    ('M74', 'services/higgsfield', 'li.route[data-kind=oauth]', 'ATM 登录 · Higgsfield MCP'),
+    ('M76', 'services/exa', 'li.route[data-kind=key]', '版本冲突'),
+    ('M81', 'services/tripo', 'li.route[data-kind=key] dl.facts', '到期'),
+    ('M84', 'settings/sync', '#sync-device', 'laptop'),
+    ('M86', 'settings/sync', '#sync-device', '配对另一台设备'),
+    ('M87', 'settings/sync', '#sync-peers', 'build-server'),
+    ('M88', 'settings/sync', '#sync-peers', '导出加密包'),
+    ('M90', 'settings/sync', '#sync-conflicts', '选择版本'),
+    ('M91', 'settings/sync', '#sync-commands', 'atm sync exchange'),
+    ('M92', 'agents', '#grants', '新建受限授权'),
+    ('M93', 'settings/advanced', '#broker', 'atm broker serve'),
+    ('M94', 'agents', '#grants', '可用 Key：'),
+    ('M95', 'agents', '#agent-commands', '不是系统级隔离'),
+    ('M96', 'jobs', '#main .page-title .lede', '最近 50 个任务'),
+]
+COVERED = {  # Action probes: where they are exercised.
+    'M02 English decor gone': 'test_probes_from_home', 'M03 legacy sections': 'test_console_token_browser legacy test',
+    'M09 phone tabs': 'test_layout_at_every_width', 'M11 gate reasons': 'test_console_token_browser', 'M12 placeholder': 'test_console_token_browser',
+    'M13 no aria-live': 'test_accessibility_rules', 'M14 Esc focus': 'test_every_dialog_opens_from_its_opener_and_returns_focus',
+    'M15 no confirm()': 'test_shell_headers_markup_and_frozen_assets', 'M19-M21 countdown and lock': 'test_saved_key_unlock_lock_and_save_in_one_dialog',
+    'M25 M28 M31 M32 credits': 'test_credits_browser', 'M39 M44 M45 M100-M114 dialogs': 'test_every_dialog_opens_from_its_opener_and_returns_focus',
+    'M47 programs listed': 'test_probes_from_home', 'M51-M63 tool views': 'test_probes_from_home', 'M71 picker': 'test_owner_jobs_from_home_without_any_write',
+    'M75 Key search': 'test_brand_logos_browser', 'M79 verify plan': 'test_every_dialog_opens_from_its_opener_and_returns_focus',
+    'M97-M99 records': 'test_owner_jobs_from_home_without_any_write', 'M115 M116 toasts and gate': 'test_console_token_browser',
+    'M117 approval window': 'test_quickstart_v08 / test_passkeys_browser / acceptance',
+}
+
+
+def click_path(page, path):
+    page.locator('[data-nav=overview]').click()
+    top, _, sub = path.partition('/')
+    page.locator(f'[data-nav={top}]').click()
+    if top == 'services' and sub:
+        page.locator(f'#main [data-key="service:{sub}"]').first.click()
+    if top == 'settings' and sub:
+        label = {'keys': 'Key 保管', 'sync': '设备同步', 'tools': '添加工具', 'programs': '本机程序', 'advanced': '高级'}[sub]
+        page.locator('nav.subnav').get_by_role('button', name=label, exact=True).click()
+
+
+def test_probes_from_home(browser, tmp_path, monkeypatch):
+    from playwright.sync_api import expect
+    assert COVERED
+    with console(tmp_path, monkeypatch) as (server, info):
+        ctx, page, log = open_page(browser, server, info)
+        for probe, path, selector, text in PROBES:
+            click_path(page, path)
+            node = page.locator(selector).first
+            expect(node, probe).to_be_attached()
+            if text:
+                expect(node, probe).to_contain_text(text)
+        # M02: none of the old English decoration is left.
+        for section in SECTIONS + TABS:
+            go(page, section)
+            text = page.locator('#main').inner_text() + page.locator('#gate').text_content()
+            for decor in ['WORKSPACE', 'LOCAL FIRST', 'AGENT TOOL MAKER / YOUR LOCAL WORKSHOP', 'YOUR CONTROL LOOP', 'PRIVATE SESSION', 'SECRETS FIRST', 'LOCKED', 'DEVICE IDENTITY', 'READY', 'CLAUDE CODE / CODEX']:
+                assert decor not in text, (section, decor)
+        # M47: every known program is listed on 设置 › 本机程序.
+        click_path(page, 'settings/programs')
+        names = page.evaluate('data.clis.map(c => c.name)')
+        listed = page.locator('[data-program]').evaluate_all('xs => xs.map(x => x.dataset.program)')
+        assert sorted(names) == sorted(listed)
+        # M51-M63: search by capability, the route filter, the disabled filter, five columns, no raw adapter ids as status.
+        click_path(page, 'services')
+        page.locator('#services-q').fill('speech')
+        expect(page.locator('#services-results')).to_contain_text('ElevenLabs')
+        page.locator('#services-q').fill('')
+        page.locator('#services-route').select_option('chrome')
+        expect(page.locator('#services-results')).to_contain_text('Tripo3D')
+        expect(page.locator('#services-results')).to_contain_text('小云雀')
+        page.locator('#services-route').select_option('')
+        page.get_by_role('button', name='按工具', exact=True).click()
+        page.get_by_label('工具状态').select_option('off')
+        expect(page.locator('#services-results [data-tool-id]')).to_have_count(1)
+        expect(page.locator('#services-results [data-tool-id="tripo.studio.generate"]')).to_have_class(re.compile('disabled'))
+        expect(page.locator('#tools-count')).to_have_text('1 个工具')
+        page.get_by_label('工具状态').select_option('')
+        expect(page.locator('table.tools thead th')).to_have_count(5)
+        states = page.locator('table.tools tbody td:nth-child(4) .state').all_inner_texts()
+        assert states and not set(states) & {'command', 'rest', 'browser', 'mcp', 'web_recipe', 'configured_not_verified'}
+        page.locator('#services-q').fill('no-such-tool-anywhere')
+        expect(page.locator('#services-results')).to_contain_text('没有符合条件的工具。')
+        page.locator('#services-q').fill('tripo.studio')
+        click_path(page, 'jobs'); click_path(page, 'services')  # M55: filters survive navigation in this tab.
+        expect(page.locator('#services-q')).to_have_value('tripo.studio')
+        expect(page.get_by_role('button', name='按工具', exact=True)).to_have_attribute('aria-pressed', 'true')
+        # M98: no raw job status code is visible.
+        click_path(page, 'jobs')
+        for raw in ['submission_unknown', 'requires_browser', 'completed', 'failed']:
+            expect(page.locator('#main')).not_to_contain_text(raw)
+        assert posts(log) == [] and not log['errors'], (posts(log), log['errors'])
+        ctx.close()
