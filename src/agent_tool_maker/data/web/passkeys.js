@@ -51,6 +51,7 @@
     return new Error('passkey_browser_' + (error?.name || 'error') + ': 浏览器验证未完成，请使用主密码或检查 Passkey / PRF 支持。');
   }
   async function cancelled(api, path, error) {
+    if (error?.gated) throw error;  // The console session ended; its gate says why and no bearer is left to cancel with.
     try { await api(path,{}); }
     catch { throw new Error('passkey_cancel_cleanup_failed: 本机连接已中断；临时验证状态将于三分钟内过期。'); }
     throw diagnostic(error);

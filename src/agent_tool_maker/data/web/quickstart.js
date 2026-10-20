@@ -1,9 +1,11 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
-  const fragment = new URLSearchParams(location.hash.slice(1));
-  const token = fragment.get('token') || sessionStorage.getItem('atm-window-token') || '';
+  // The window opens at #launch=<one-time code>; #token= is still read for already-open links.
+  const fragment = new URLSearchParams(location.hash.slice(1)), launch = fragment.get('launch') || '';
+  let token = fragment.get('token') || (launch ? '' : sessionStorage.getItem('atm-window-token') || '');
   if (token) sessionStorage.setItem('atm-window-token', token);
+  // The fragment leaves the address bar and this history entry before any request is made.
   history.replaceState(null, '', location.pathname);
   let view;
   function showError(message) { $('error').textContent = message; $('error').hidden = false; }
@@ -25,6 +27,17 @@
     $('remaining').textContent = '本次剩余约 ' + Math.max(0, Math.ceil(data.seconds_remaining / 60)) + ' 分钟。';
   }
   async function load() {
+    if (launch) {
+      // Exact-origin exchange of the one-time code: the bearer never enters a URL or a history entry.
+      const response = await fetch('/api/console/redeem', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({code: launch}), cache: 'no-store'});
+      const data = await response.json();
+      if (!response.ok || typeof data.token !== 'string') {
+        sessionStorage.removeItem('atm-window-token');
+        throw new Error('这个授权链接已使用或已过期。请让 Agent 重新打开本地授权窗口；不要在聊天里发送密码或会话令牌。');
+      }
+      token = data.token; sessionStorage.setItem('atm-window-token', token);
+    }
     if (!token) throw new Error('请让 Agent 使用 ATM 打开本地授权窗口。不要在聊天里发送密码或复制会话令牌。');
     view = await api('/api/desktop'); $('loading').hidden = true;
     if (view.status === 'ready') { done(view.session); return; }
