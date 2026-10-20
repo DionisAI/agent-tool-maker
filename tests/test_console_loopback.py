@@ -2,6 +2,7 @@
 import errno
 import http.client
 import json
+import os
 import socket
 import threading
 import time
@@ -44,13 +45,15 @@ def refused(address, port):
         return s.connect_ex((address, port)) == errno.ECONNREFUSED
 
 
-def squat_ipv6():
+def squat_ipv6(reuse=False):
     """[::1]:P held by another program while 127.0.0.1:P is free."""
     with socket.socket() as ipv4:
         ipv4.bind(('127.0.0.1', 0))
         port = ipv4.getsockname()[1]
     squatter = socket.socket(socket.AF_INET6)
     squatter.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+    if reuse:
+        squatter.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     squatter.bind(('::1', port)); squatter.listen()
     return port, squatter
 
@@ -124,9 +127,10 @@ def test_squatter_on_the_ipv6_twin_moves_the_console_to_a_port_it_holds_on_both(
         squatter.close()
 
 
-def test_explicit_port_with_a_squatted_ipv6_twin_fails_clearly(tmp_path, capsys):
+@pytest.mark.parametrize('reuse', [False, True], ids=['plain', 'squatter-reuseaddr'])
+def test_explicit_port_with_a_squatted_ipv6_twin_fails_clearly(tmp_path, capsys, reuse):
     require_ipv6_loopback()
-    taken, squatter = squat_ipv6()
+    taken, squatter = squat_ipv6(reuse)
     exe = tmp_path/'atm'; exe.write_text('#!/bin/sh\nexit 0\n'); exe.chmod(0o700)
     try:
         with pytest.raises(RouterError) as error:
@@ -139,6 +143,71 @@ def test_explicit_port_with_a_squatted_ipv6_twin_fails_clearly(tmp_path, capsys)
         assert not list((tmp_path/'state').glob('ui-session-*.token'))
     finally:
         squatter.close()
+
+
+@pytest.mark.parametrize('reuse', [False, True], ids=['plain', 'squatter-reuseaddr'])
+def test_explicit_port_with_a_live_ipv4_listener_fails_clearly(tmp_path, reuse):
+    squatter = socket.socket()
+    if reuse:
+        squatter.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    squatter.bind(('127.0.0.1', 0)); squatter.listen()
+    taken = squatter.getsockname()[1]
+    try:
+        with pytest.raises(RouterError) as error:
+            Console(tmp_path/'state', port=taken, localhost=True)
+        assert error.value.code == 'port_in_use' and f'127.0.0.1:{taken}' in str(error.value)
+        assert squatter.getsockname()[1] == taken and not list((tmp_path/'state').glob('ui-session-*.token'))
+    finally:
+        squatter.close()
+
+
+@pytest.mark.parametrize('family,address', [(socket.AF_INET, '0.0.0.0'), (socket.AF_INET6, '::')], ids=['ipv4-any', 'ipv6-any'])
+def test_a_wildcard_listener_never_receives_the_consoles_loopback_connections(tmp_path, family, address):
+    require_ipv6_loopback()
+    squatter = socket.socket(family)
+    squatter.bind((address, 0)); squatter.listen()
+    taken = squatter.getsockname()[1]
+    try:
+        try:
+            server = Console(tmp_path/'state', port=taken, localhost=True)
+        except RouterError as error:  # Linux refuses beside any listener on the port.
+            assert error.code == 'port_in_use'
+            return
+        thread = serving(server)
+        try:  # BSD/macOS binds the more specific loopback addresses, which take every loopback connection.
+            for loop in ('127.0.0.1', '::1'):
+                status, raw = request(loop, server, headers={'Authorization': 'Bearer ' + server.token})
+                assert status == 200 and json.loads(raw)['service'] == 'atm-console'
+            squatter.setblocking(False)
+            with pytest.raises(BlockingIOError):
+                squatter.accept()
+        finally:
+            server.shutdown(); thread.join(5); server.server_close()
+    finally:
+        squatter.close()
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='SO_REUSEADDR is set on POSIX only; on Windows it lets another socket share the port')
+def test_immediate_restart_on_the_same_port_after_browser_connections(tmp_path):
+    require_ipv6_loopback()
+    server = Console(tmp_path/'state', localhost=True)
+    port = server.server_port
+    thread = serving(server)
+    try:
+        for address in ('127.0.0.1', '::1'):  # The server closes each connection first: TIME_WAIT on port.
+            assert request(address, server, path='/')[0] == 200
+    finally:
+        server.shutdown(); thread.join(5); server.server_close()
+    again = Console(tmp_path/'state', port=port, localhost=True)
+    thread = serving(again)
+    try:
+        assert again.server_port == port and again.loopback6.server_address[:2] == ('::1', port)
+        for address in ('127.0.0.1', '::1'):
+            status, raw = request(address, again, headers={'Authorization': 'Bearer ' + again.token})
+            assert status == 200 and json.loads(raw)['service'] == 'atm-console'
+            assert request(address, again, headers={'Authorization': 'Bearer ' + server.token})[0] == 401
+    finally:
+        again.shutdown(); thread.join(5); again.server_close()
 
 
 @pytest.mark.parametrize('missing', [errno.EADDRNOTAVAIL, errno.EAFNOSUPPORT], ids=['no-address', 'no-family'])

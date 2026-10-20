@@ -96,7 +96,10 @@ def probe_proof(token, challenge):
 
 class Console(ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = False
+    # POSIX SO_REUSEADDR lets `atm ui --port P` restart while P's closed connections sit in TIME_WAIT,
+    # but never binds beside a live listener on the same address. On Windows it would let a second
+    # socket share the port, so it stays off there.
+    allow_reuse_address = os.name == "posix"
     # The shell bootstraps ten metadata requests concurrently. Python 3.13's
     # default backlog of five resets a queued browser burst before accept runs.
     request_queue_size = 32
@@ -231,7 +234,7 @@ class Loopback6(socketserver.ThreadingTCPServer):
     """[::1] twin of a localhost console. Requests are handled by, and with the state of, the IPv4 server."""
     address_family = socket.AF_INET6
     daemon_threads = True
-    allow_reuse_address = False
+    allow_reuse_address = Console.allow_reuse_address
     request_queue_size = Console.request_queue_size
 
     def __init__(self, primary):

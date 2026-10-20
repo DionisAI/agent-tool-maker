@@ -333,6 +333,32 @@ def test_launch_link_opened_in_an_already_open_tab_is_redeemed(console):
     context.close()
 
 
+def test_restart_on_the_same_port_right_after_the_browser_used_it(console, tmp_path):
+    _, browser, expect = console
+    first = Console(tmp_path/'restart', localhost=True, user_home=tmp_path/'user')
+    thread = threading.Thread(target=first.serve_forever, daemon=True); thread.start()
+    context = browser.new_context()
+    page = context.new_page(); errors, _ = watch(page, first)
+    try:
+        page.goto(first.origin + '/#launch=' + first.launch_code())
+        ready(page, expect)
+    finally:
+        first.shutdown(); thread.join(5); first.server_close()
+    # At once, on the same port: its closed browser connections are still in TIME_WAIT.
+    second = Console(tmp_path/'restart', port=first.server_port, localhost=True, user_home=tmp_path/'user')
+    thread = threading.Thread(target=second.serve_forever, daemon=True); thread.start()
+    try:
+        page.reload()
+        locked(page, expect, RESTARTED)  # The old bearer ended with the old process.
+        with page.expect_event('load'):  # The new console's launch link, opened in this same tab.
+            page.goto(second.origin + '/#launch=' + second.launch_code())
+        ready(page, expect)
+        assert page.url == second.origin + '/' and stored(page) == second.token and not errors, errors
+    finally:
+        second.shutdown(); thread.join(5); second.server_close()
+    context.close()
+
+
 def test_unavailable_storage_falls_back_to_page_memory(console):
     server, browser, expect = console
     context = browser.new_context()
