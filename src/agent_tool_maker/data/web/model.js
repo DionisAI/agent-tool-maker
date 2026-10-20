@@ -451,7 +451,9 @@
         || service.routes.some(r => !HANDOFF_KINDS.has(r.kind) && r.state === 'ready' && r.kind !== 'key')
         // Something needs the owner, or a reviewed MCP configuration is bound (its Key may still be missing).
         || service.routes.some(r => ['attention', 'blocked'].includes(r.state))
-        || service.tools.some(v => v.route === 'mcp' && str(v.tool.health?.state) && v.tool.health.state !== 'mcp_not_configured');
+        || service.tools.some(v => v.route === 'mcp' && str(v.tool.health?.state) && v.tool.health.state !== 'mcp_not_configured')
+        // A Key name the owner declared (its inbox line says it still needs a Key).
+        || arr(ext.credential_slots).some(name => typeof name === 'string' && service.keyNames.has(name));
       service.toolIds = toolIds;
       service.haystack = [service.key, service.name, ...service.tools.flatMap(v => [v.id, v.title, ...arr(v.tool.capabilities)])].join('\n').toLowerCase();
     }

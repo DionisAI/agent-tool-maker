@@ -522,6 +522,9 @@ test('a bound MCP service missing its Key is in use, needs the owner, and offers
   assert.ok(!key.actions[0].primary);
   assert.ok(model.services.filter(s => s.inUse && ['blocked', 'attention'].includes(s.state)).some(s => s.key === 'linear'));
   assert.ok(model.inbox.some(i => i.id === 'mcp-key:linear:linear'));
+  // A declared Key name is something the owner set up: in use, like its inbox line says.
+  assert.ok(model.byKey.get('acme.production').inUse);
+  assert.ok(model.inbox.some(i => i.id === 'slot:acme.production'));
   // The services list and the inbox agree.
   assert.equal(model.counts.servicesAttention, model.services.filter(s => s.inUse && ['blocked', 'attention'].includes(s.state)).length);
   // A tool whose MCP configuration is not bound is still only 待设置 and not in use.
