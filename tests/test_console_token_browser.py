@@ -247,6 +247,26 @@ def test_lock_and_401_forget_the_same_way(console):
     context.close()
 
 
+def test_a_401_during_a_passkey_step_keeps_its_reason_and_sends_nothing_more(console):
+    server, browser, expect = console
+    context = browser.new_context()
+    page = context.new_page(); errors, urls = watch(page, server)
+    page.goto(server.origin + '/#token=' + server.token)
+    ready(page, expect)
+    server.expires_at = time.monotonic() - 1
+    urls.clear()
+    # What the Passkey unlock button runs: its first request gets 401, then it would cancel the ceremony.
+    page.evaluate("action(()=>window.ATM_PASSKEY.authenticate(api,'/api/passkeys/auth/begin',"
+                  "{credential_id:'fake-credential'},'/api/passkeys/cancel'))()")
+    locked(page, expect, EXPIRED)
+    # Any later call finds no bearer: it is refused in the page, nothing is sent and the reason stays.
+    assert page.evaluate("api('/api/overview').then(()=>false,e=>e.gated===true)") is True
+    locked(page, expect, EXPIRED)
+    assert [url.removeprefix(server.origin) for url in urls] == ['/api/passkeys/auth/begin'], urls
+    assert not errors, errors
+    context.close()
+
+
 def test_lock_during_a_refresh_stays_locked(console, monkeypatch):
     server, browser, expect = console
     context = browser.new_context()

@@ -106,6 +106,8 @@ function go(section) {
 }
 async function api(path, body) {
   const sent=token, opts={headers:{Authorization:'Bearer '+sent},cache:'no-store'};
+  // Locked or ended: nothing is sent without the bearer, and the gate already says why.
+  if(!sent){const error=new Error('unauthorized: 会话已结束');error.gated=true;throw error;}
   if (body !== undefined) {opts.method='POST';opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(body);}
   const r=await fetch(path,opts); const value=await r.json();
   if (!r.ok) {
