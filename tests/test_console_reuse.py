@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import hashlib
 import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import io
 import json
 import os
 import re
@@ -10,6 +11,7 @@ import secrets
 import socket
 import threading
 import time
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
@@ -65,24 +67,41 @@ def running(home, **kw):
 
 
 @contextmanager
-def listener(answer):
-    """Another local HTTP program; records every request. answer(headers) -> (status, type, body, headers)."""
-    seen = []
+def listener(answer, length=True):
+    """Another local HTTP program; records each request's headers and every byte it received.
+
+    answer(headers) -> (status, type, body, headers). length=False answers without Content-Length.
+    """
+    seen, received = [], []
 
     class Other(BaseHTTPRequestHandler):
         def log_message(self, *args): pass
+        def setup(self):
+            # Every byte the client sends before it waits for the answer, then parsed from that copy.
+            super().setup()
+            self.rfile.close()
+            data = b''
+            self.connection.settimeout(.05)
+            try:
+                while chunk := self.connection.recv(4096):
+                    data += chunk
+            except TimeoutError:
+                pass
+            self.connection.settimeout(None)
+            received.append(data); self.rfile = io.BytesIO(data)
         def do_GET(self):
             seen.append(dict(self.headers))
             status, ctype, body, extra = answer(self.headers)
             raw = body.encode()
-            self.send_response(status); self.send_header('Content-Type', ctype); self.send_header('Content-Length', str(len(raw)))
+            self.send_response(status); self.send_header('Content-Type', ctype)
+            if length: self.send_header('Content-Length', str(len(raw)))
             for name, value in extra.items(): self.send_header(name, value)
             self.end_headers(); self.wfile.write(raw)
         do_POST = do_GET
     server = ThreadingHTTPServer(('127.0.0.1', 0), Other)
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     try:
-        yield SimpleNamespace(port=server.server_address[1], seen=seen)
+        yield SimpleNamespace(port=server.server_address[1], seen=seen, received=received)
     finally:
         server.shutdown(); server.server_close(); thread.join(5)
 
@@ -95,7 +114,7 @@ def proof(token, challenge):
     return hmac.new(token.encode(), b'atm-console-probe|' + challenge.encode(), hashlib.sha256).hexdigest()
 
 
-def impostor(token, identity, pad=0):
+def impostor(token, identity, pad=0, length=True):
     """Holds the token (so it passes the proof) but reports the given identity."""
     def answer(headers):
         if 'X-ATM-Challenge' in headers and 'Authorization' not in headers:
@@ -104,18 +123,33 @@ def impostor(token, identity, pad=0):
         if headers.get('Authorization') == 'Bearer ' + token:
             return 200, 'application/json', json.dumps(identity), {}
         return 401, 'application/json', '{"error":{"code":"unauthorized"}}', {}
-    return listener(answer)
+    return listener(answer, length)
 
 
 def bearer_sent(seen):
     return any(name.lower() == 'authorization' for headers in seen for name in headers)
 
 
+def leaked(token, other):
+    """Whether the token's value is anywhere in the bytes that listener received, not only as a bearer."""
+    return token.encode() in b''.join(other.received)
+
+
 @contextmanager
 def trickling(seconds=8):
-    """Accepts, then sends a response that never finishes, one byte every 50 ms."""
+    """Accepts, then sends a response that never finishes, one byte every 50 ms; records the bytes it received."""
     server = socket.create_server(('127.0.0.1', 0)); server.settimeout(.1)
-    stop, seen = threading.Event(), []
+    stop, received = threading.Event(), []
+
+    def record(connection):
+        connection.setblocking(False)  # Only what has already arrived; the trickle keeps its pace.
+        try:
+            while chunk := connection.recv(4096):
+                received.append(chunk)
+        except OSError:
+            pass
+        finally:
+            connection.settimeout(.5)
 
     def serve():
         end = time.monotonic() + seconds
@@ -127,7 +161,7 @@ def trickling(seconds=8):
             with connection:
                 connection.settimeout(.5)
                 try:
-                    seen.append(connection.recv(4096))
+                    received.append(connection.recv(4096))
                 except OSError:
                     pass
                 for byte in b'HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nX-Pad: ' + b'a' * 4000:
@@ -137,10 +171,24 @@ def trickling(seconds=8):
                         connection.sendall(bytes([byte]))
                     except OSError:
                         break
+                    record(connection)  # Anything sent later on this connection.
                     stop.wait(.05)
+                record(connection)
+        server.setblocking(False)  # Connections still waiting when it stops: their bytes count too.
+        while True:
+            try:
+                connection, _ = server.accept()
+            except OSError:
+                break
+            with connection:
+                connection.settimeout(.2)
+                try:
+                    received.append(connection.recv(4096))
+                except OSError:
+                    pass
     thread = threading.Thread(target=serve, daemon=True); thread.start()
     try:
-        yield SimpleNamespace(port=server.getsockname()[1], seen=seen)
+        yield SimpleNamespace(port=server.getsockname()[1], received=received)
     finally:
         stop.set(); thread.join(5); server.close()
 
@@ -307,7 +355,7 @@ def test_foreign_listener_is_not_reused_and_its_file_is_kept(ui, status, ctype, 
             fresh(ui, result)
             assert result['url'] != f'http://localhost:{other.port}'
             assert path.read_text() == server.token
-            assert other.seen and not bearer_sent(other.seen)
+            assert other.seen and not bearer_sent(other.seen) and not leaked(server.token, other)
 
 
 def test_perfect_shape_listener_without_the_token_never_receives_the_bearer(ui):
@@ -324,17 +372,19 @@ def test_perfect_shape_listener_without_the_token_never_receives_the_bearer(ui):
             atomic_write(path, server.token.encode())
             fresh(ui, ui.run(ui.home))
             assert other.seen and re.fullmatch('[0-9a-f]{64}', other.seen[0]['X-ATM-Challenge'])
-            assert not bearer_sent(other.seen) and path.read_text() == server.token
+            assert not bearer_sent(other.seen) and not leaked(server.token, other) and path.read_text() == server.token
 
 
 def test_trickling_listener_cannot_hold_atm_ui(ui):
+    token = secrets.token_urlsafe(32)
     with trickling() as other:
         path = ui.home/f'ui-session-{other.port}.token'
-        atomic_write(path, secrets.token_urlsafe(32).encode())
+        atomic_write(path, token.encode())
         began = time.monotonic()
         fresh(ui, ui.run(ui.home))
-        assert time.monotonic() - began < 3
-        assert other.seen and b'authorization' not in b''.join(other.seen).lower() and path.exists()
+        assert time.monotonic() - began < 3 and path.exists()
+    received = b''.join(other.received)  # Read once it stopped, so every connection is counted.
+    assert received and b'authorization' not in received.lower() and token.encode() not in received
 
 
 def test_expired_console_is_not_reused(ui):
@@ -362,19 +412,22 @@ def test_console_of_another_version_is_not_reused(ui, version, reused):
         atomic_write(path, token.encode())
         result = ui.run(ui.home, '--no-browser')
         assert result['reused'] is reused and len(ui.started) == (0 if reused else 1)
-        assert bearer_sent(other.seen) and path.exists()  # It proved the token; only the version differs.
+        assert bearer_sent(other.seen) and leaked(token, other) and path.exists()  # It proved the token; only the version differs.
 
 
-@pytest.mark.parametrize('pad,reused', [(0, True), (20000, False)], ids=['plain', 'padded'])
-def test_answer_beyond_a_few_kib_is_refused_before_the_bearer(ui, pad, reused):
+@pytest.mark.parametrize('pad,length,reused', [(0, True, True), (20000, True, False), (20000, False, False)],
+                         ids=['plain', 'padded', 'padded-without-length'])
+def test_answer_beyond_a_few_kib_is_refused_before_the_bearer(ui, pad, length, reused):
     token = secrets.token_urlsafe(32)
     identity = {'service': 'atm-console', 'version': __version__, 'home': str(ui.home), 'expires_in_seconds': 3600}
     ui.home.mkdir(mode=0o700)
-    with impostor(token, identity, pad) as other:  # Valid JSON either way; only its size differs.
+    # A valid proof either way; only its size differs, framed by Content-Length or by closing the connection.
+    with impostor(token, identity, pad, length) as other:
         path = ui.home/f'ui-session-{other.port}.token'
         atomic_write(path, token.encode())
         result = ui.run(ui.home, '--no-browser')
         assert result['reused'] is reused and bearer_sent(other.seen) is reused and path.exists()
+        assert leaked(token, other) is reused  # The value itself never reaches a refused listener.
 
 
 @pytest.mark.parametrize('left,reused', [(15 * 60 - 5, False), (15 * 60 + 30, True)], ids=['short', 'enough'])
@@ -417,8 +470,10 @@ def test_console_that_issues_no_launch_code_is_replaced_and_said_so(ui):
 
 
 @pytest.mark.parametrize('unsafe', ['symlink', 'mode', 'oversized', 'empty', 'hardlink'])
-def test_unsafe_token_files_are_ignored_and_never_deleted(ui, tmp_path, unsafe):
+def test_unsafe_token_files_are_ignored_and_never_deleted(ui, tmp_path, monkeypatch, unsafe):
     dead = ui.home/f'ui-session-{free_port()}.token'
+    if unsafe == 'oversized':  # Token characters past 256 bytes, with no length in the pattern: only the size bound is left.
+        monkeypatch.setattr(webapp, 'TOKEN_VALUE', re.compile(r'[A-Za-z0-9_-]+'))
     with running(ui.home) as server:
         for path in (server.token_path, dead):
             value = server.token if path == server.token_path else secrets.token_urlsafe(32)
@@ -429,7 +484,6 @@ def test_unsafe_token_files_are_ignored_and_never_deleted(ui, tmp_path, unsafe):
             elif unsafe == 'hardlink':
                 atomic_write(path, value.encode()); os.link(path, tmp_path/(path.name + '.link'))
             else:
-                # 'oversized' uses token characters, so only the size bound rejects it.
                 atomic_write(path, {'mode': value, 'oversized': value + 'A' * 512, 'empty': ''}[unsafe].encode())
                 if unsafe == 'mode': path.chmod(0o644)
         fresh(ui, ui.run(ui.home))
@@ -459,6 +513,24 @@ def test_home_writable_by_others_is_not_searched(ui, mode):
         finally:
             ui.home.chmod(0o700)
         assert server.token_path.exists() and not server.launch_codes
+
+
+def test_home_owned_by_another_account_is_never_probed(ui, monkeypatch):
+    calls, original = [], webapp.probe
+    monkeypatch.setattr(webapp, 'probe', lambda *args: calls.append(args[0]) or original(*args))
+    with running(ui.home) as server:
+        assert webapp.running_console(ui.home)[0] == server.server_port and calls == [server.server_port]
+        calls.clear(); home, real = ui.home.absolute(), os.lstat
+
+        def lstat(path, *args, **kwargs):  # Only the home itself appears to belong to another uid.
+            info = real(path, *args, **kwargs)
+            if Path(path) != home:
+                return info
+            return os.stat_result(info[:4] + (info.st_uid + 1,) + info[5:10])
+        with monkeypatch.context() as patched:
+            patched.setattr(webapp.os, 'lstat', lstat)
+            assert webapp.running_console(ui.home) is None
+        assert calls == [] and server.token_path.exists() and not server.launch_codes
 
 
 def test_explicit_different_port_starts_a_new_console(ui):
