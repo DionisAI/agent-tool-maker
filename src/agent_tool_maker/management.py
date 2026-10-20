@@ -147,13 +147,53 @@ def unregister(router, name: str, *, apply=False, user_home=None) -> dict:
     return result
 
 
+def setup_steps(state, tool, *, stored, sessions) -> list[dict]:
+    """Where the owner sets this tool up: from its definition and local state only.
+
+    Names, URLs from the definition and booleans; no secret, path or network call.
+    """
+    kind = tool["adapter"]
+    if kind in {"browser", "desktop", "human"}:
+        # A handoff: the login lives with the host Agent's browser/desktop or a person, not in ATM.
+        return [{"kind": kind, "url": tool.get("url")}]
+    if kind == "workflow":
+        return [{"kind": "workflow", "tools": [step["tool"] for step in tool.get("steps", [])]}]
+    if kind == "catalog_only":
+        return [{"kind": "catalog_only"}]  # Listed, never run by ATM.
+    # The same credentials as tool_health: an optional CLI credential overrides the CLI's own login.
+    command = tool.get("command", {})
+    env = list(command.get("credential_env", {}).values())
+    required = ([tool["credential"]] if tool.get("credential") else []) + (env if command.get("credential_required") else [])
+    steps = []
+    if kind == "web_recipe" and tool["recipe"].get("session"):
+        record = sessions.get(tool["recipe"]["session"])
+        steps.append({"kind": "web_login", "session": tool["recipe"]["session"],
+                      "saved": record is not None, "expired": bool(record and record["expired"])})
+    if kind == "mcp":
+        config = state.setting("mcp:" + tool["server"]) or {}
+        steps.append({"kind": "mcp", "server": tool["server"], "bound": bool(config)})
+        required += ([config["credential"]] if config.get("credential") else []) + list(config.get("env_credentials", {}).values())
+    if tool.get("executable"):
+        steps.append({"kind": "cli", "alias": tool["executable"], "bound": bool(state.setting("cli:" + tool["executable"]))})
+    for name in dict.fromkeys(required + env):
+        expiry = state.setting("credential_meta:" + name, {}).get("expires_at")
+        steps.append({"kind": "credential", "credential": name, "required": name in required,
+                      "configured": name in stored, "expired": name in stored and expiry is not None and expiry <= time.time()})
+    if tool.get("request", {}).get("origin_setting"):
+        steps.append({"kind": "origin", "provider": tool["provider"], "set": bool(state.setting("origin:" + tool["provider"]))})
+    return steps
+
+
 def tools(router, *, query="", capability=None) -> dict:
+    from .web_recipe import sessions
     selected = router.search(query, capability)
     report = doctor(router, tool_ids=[t["id"] for t in selected]) if selected else {"tools": []}
     health = {t["id"]: t for t in report["tools"]}
+    stored = set(router.state.secret_names())
+    saved = {s["name"]: s for s in sessions(router.state)["sessions"]}
     fields = ("id", "title", "provider", "adapter", "capabilities", "implementation", "permissions", "paid")
     rows = [{**{key: t.get(key) for key in fields}, "enabled": enabled(router.state, t["id"]),
-             "health": health[t["id"]]} for t in selected]
+             "health": health[t["id"]], "setup": setup_steps(router.state, t, stored=stored, sessions=saved)} for t in selected]
     return {"tools": rows, "count": len(rows), "scope": "shared_by_claude_and_codex", "network_calls": 0}
 
 
