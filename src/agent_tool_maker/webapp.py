@@ -9,16 +9,18 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 import hmac
+import http.client
 import json
 import os
 from pathlib import Path
 import re
 import secrets
+import stat
 import threading
 import time
 import webbrowser
 
-from . import management as mg
+from . import __version__, management as mg
 from .engine import Router
 from .errors import RouterError
 from .storage import State, atomic_write
@@ -31,6 +33,8 @@ STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/assets/brands.js": ("brands.js", "text/javascript; charset=utf-8"),
           "/assets/passkeys.js": ("passkeys.js", "text/javascript; charset=utf-8"),
           "/assets/app.css": ("app.css", "text/css; charset=utf-8")}
+TOKEN_FILE = re.compile(r"ui-session-([1-9][0-9]{3,4})\.token")
+TOKEN_VALUE = re.compile(r"[A-Za-z0-9_-]{32,128}")
 CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'"
 
 
@@ -188,6 +192,11 @@ class Handler(BaseHTTPRequestHandler):
             if static:
                 name, mime = STATIC[self.path]
                 self.respond(200, files("agent_tool_maker.data").joinpath("web").joinpath(name).read_bytes(), mime=mime)
+                return
+            if self.path == "/api/console" and not write:
+                # Non-secret identity: `atm ui` reopens this console, never a foreign listener or another home.
+                self.respond(200, {"service": "atm-console", "version": __version__, "home": str(self.server.home),
+                                   "expires_in_seconds": max(0, int(self.server.expires_at - time.monotonic()))})
                 return
             body = {}
             if write:
@@ -370,13 +379,94 @@ class Handler(BaseHTTPRequestHandler):
         raise RouterError("not_found", "No execution or arbitrary configuration endpoint is exposed.")
 
 
+def read_token_file(path):
+    """(token, lstat) of an owner-only regular token file, else None. Never follows a link."""
+    try:
+        info = os.lstat(path)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600 or not 0 < info.st_size <= 256:
+            return None
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        try:
+            opened = os.fstat(fd)
+            value = os.read(fd, 257).decode("ascii") if (opened.st_dev, opened.st_ino) == (info.st_dev, info.st_ino) else ""
+        finally:
+            os.close(fd)
+    except (OSError, UnicodeDecodeError):
+        return None
+    return (value, info) if TOKEN_VALUE.fullmatch(value) else None
+
+
+def probe(port, token, home):
+    """Identity of this home's console on port, else None. ConnectionRefusedError: nothing listens."""
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
+    try:
+        connection.request("GET", "/api/console", headers={"Host": f"localhost:{port}", "Authorization": "Bearer " + token})
+        response = connection.getresponse()  # http.client never follows redirects.
+        raw = response.read(MAX_BODY + 1)
+        if response.status != 200 or not response.getheader("Content-Type", "").startswith("application/json") or len(raw) > MAX_BODY:
+            return None
+        body = json.loads(raw)
+        if not isinstance(body, dict) or body.get("service") != "atm-console" or type(body.get("expires_in_seconds")) is not int \
+                or body["expires_in_seconds"] <= 0 or not isinstance(body.get("home"), str) or not os.path.samefile(body["home"], home):
+            return None
+        return body
+    except ConnectionRefusedError:
+        raise
+    except (OSError, ValueError, RecursionError, http.client.HTTPException):
+        return None
+    finally:
+        connection.close()
+
+
+def running_console(home, port=0):
+    """(origin, token, token file, identity) of this home's live console; removes files nothing listens on."""
+    home = Path(home).expanduser().absolute()
+    if os.name != "posix" or home.is_symlink():
+        return None
+    found = []
+    try:
+        for path in home.glob("ui-session-*.token"):
+            match = TOKEN_FILE.fullmatch(path.name)
+            number = int(match[1]) if match else 0
+            if 1024 <= number <= 65535 and port in (0, number) and (entry := read_token_file(path)):
+                found.append((entry[1].st_mtime, number, path, *entry))
+    except OSError:
+        return None
+    for _, number, path, token, info in sorted(found, key=lambda row: row[0], reverse=True):
+        try:
+            identity = probe(number, token, home)
+        except ConnectionRefusedError:
+            try:  # Stale: remove exactly the validated file, not one a new console wrote since.
+                now = os.lstat(path)
+                if (now.st_dev, now.st_ino, now.st_mtime_ns) == (info.st_dev, info.st_ino, info.st_mtime_ns):
+                    path.unlink()
+            except OSError:
+                pass
+            continue
+        if identity:
+            return f"http://localhost:{number}", token, path, identity
+    return None
+
+
+def announce(origin, token_path, hours, *, reused):
+    note = "Reused the console already running for this ATM home; its own terminal stops it. " if reused else "Ctrl-C stops the server. "
+    print(json.dumps({"url": origin, "session_token_file": str(token_path), "scope": "loopback_only",
+                      "expires_after_hours": hours, "reused": reused,
+                      "note": "Keep the session token private. " + note + "No secret is printed here."}), flush=True)
+
+
 def serve(home, *, port=0, open_browser=True, executable=None):
+    running = running_console(home, port)
+    if running:
+        origin, token, token_path, identity = running
+        announce(origin, token_path, round(identity["expires_in_seconds"] / 3600, 2), reused=True)
+        if open_browser:
+            webbrowser.open(origin + "/#token=" + token)
+        return 0
     from .onboarding import executable_path
     server = Console(home, port=port, executable=str(executable_path(executable)), localhost=True)
     try:
-        print(json.dumps({"url": server.origin, "session_token_file": str(server.token_path),
-                          "scope": "loopback_only", "expires_after_hours": 8,
-                          "note": "Keep the session token private. Ctrl-C stops the server. No secret is printed here."}), flush=True)
+        announce(server.origin, server.token_path, 8, reused=False)
         if open_browser:
             webbrowser.open(server.origin + "/#token=" + server.token)
         server.serve_forever(poll_interval=0.2)
