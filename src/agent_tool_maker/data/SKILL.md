@@ -537,4 +537,5 @@ Agents may read cached subscription credits with `atm credits` before proposing 
 the owner's logged-in browser for website sources, so only refresh when the owner asks (docs/SUBSCRIPTION_CREDITS.md).
 On `submission_unknown`, reconcile the upstream task before any new request; do not retry blindly.
 For management the Agent starts `atm ui`; the human enters secrets only in that local UI.
+`"reused": true` means it reopened this home's running console and exited; do not start another.
 No `.env` containing real Keys, no passwords/Keys in argv, no plaintext exports.
