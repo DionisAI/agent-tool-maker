@@ -691,7 +691,7 @@ function toolsView() {
     el('tbody',{},...shown.map(v=>{const s=model.byKey.get(v.serviceKey);return el('tr',{'data-tool-id':v.id,class:v.enabled?'':'disabled'},
       el('td',{},el('button',{type:'button',class:'tool-title','data-key':'tool:'+v.id,onclick:()=>toolDialog(v.id)},v.title),el('div',{},mono(v.id,'id')),el('div',{class:'tags'},...v.tags.map(tagNode))),
       el('td',{},el('span',{class:'svc'},serviceMark(s,20),el('button',{type:'button',class:'plain',onclick:()=>go('services/'+s.key)},s.name))),
-      el('td',{},routeTitleOf(v)),el('td',{},stateWord(v.state,v.word),reason(v)),el('td',{},toolSwitch(v)));}))),more];
+      el('td',{},routeTitleOf(v)),el('td',{},stateWord(v.state,v.word),el('div',{class:'fold-route'},routeTitleOf(v)),reason(v)),el('td',{},toolSwitch(v)));}))),more];
   return [el('ul',{class:'rows tool-list'},...shown.map(v=>{const s=model.byKey.get(v.serviceKey);return el('li',{'data-tool-id':v.id,class:v.enabled?'':'disabled'},
     el('div',{},el('button',{type:'button',class:'tool-title','data-key':'tool:'+v.id,onclick:()=>toolDialog(v.id)},v.title),el('div',{},mono(v.id,'id')),
       el('span',{class:'svc'},serviceMark(s,20),el('button',{type:'button',class:'plain',onclick:()=>go('services/'+s.key)},s.name))),

@@ -102,6 +102,8 @@ def test_native_prf_enrollment_management_and_project_unlock(tmp_path,plain_arra
             approval_thread=threading.Thread(target=approval.serve_forever,daemon=True);approval_thread.start()
             # Same browser authenticator, different process window/port; exact Origin bound per challenge.
             page.goto(approval.origin+'/#token='+approval.token)
+            expect(page.locator('label[for=passkey-select]')).to_be_visible()  # The Passkey choice is labelled and comes first.
+            assert page.locator('#passwords label').first.inner_text()=='选择 Passkey'
             page.get_by_role('button',name='用 Passkey 解锁并继续',exact=True).click()
             page.get_by_role('heading',name='已解锁，交给 Agent。').wait_for()
             assert ready(state,workspace,['fal'])['status']=='ready'

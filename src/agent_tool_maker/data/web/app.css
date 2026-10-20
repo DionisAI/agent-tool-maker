@@ -361,6 +361,7 @@ table.tools td{padding:12px;border-top:1px solid var(--line);vertical-align:top;
 table.tools th:nth-child(1){width:30%}table.tools th:nth-child(2){width:16%}table.tools th:nth-child(3){width:18%}table.tools th:nth-child(5){width:136px}
 table.tools td .why{display:grid;gap:4px;margin-top:4px;font-size:13px;color:var(--ink-2)}
 table.tools .svc,.tool-list .svc{display:flex;align-items:center;gap:8px}
+table.tools .fold-route{display:none;font-size:13px;color:var(--ink-2)}
 .tool-list .svc{margin-top:4px;font-size:13px}
 .tool-list>li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
 .tool-list .switch{grid-column:2;grid-row:1 / span 3;align-self:center}
@@ -486,6 +487,7 @@ table.schema th{color:var(--ink-2);font-weight:500;border-top:0}
   .icon-button .label{display:none}
   .service-head .page-actions{grid-column:2;grid-row:auto}
   table.tools th:nth-child(3),table.tools td:nth-child(3){display:none}
+  table.tools .fold-route{display:block}
   table.tools th:nth-child(1){width:38%}
 }
 @media (max-width:767px){
