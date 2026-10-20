@@ -15,15 +15,12 @@ from agent_tool_maker import credits
 from agent_tool_maker.engine import Router
 from agent_tool_maker.storage import State
 from agent_tool_maker.webapp import Console
-from test_subscription_credits import Fakes, HIGGSFIELD, HOLDER, definitions, install_tool
+from test_subscription_credits import Fakes, HIGGSFIELD, HOLDER, definitions, install_tool, tripo_row
 
 # The number's text node lays out on one line: large numbers shrink rather than break.
 ONE_LINE = "e => { const r = document.createRange(); r.selectNodeContents(e.firstChild); return r.getClientRects().length === 1; }"
 # The last card ends at the grid's right edge: the cards fill the row.
 FILLS_ROW = "g => Math.abs(g.lastElementChild.getBoundingClientRect().right - g.getBoundingClientRect().right) < 2"
-# Each text node lays out on one line: a tool id wraps only at its <wbr> after a dot.
-TEXT_UNBROKEN = ("e => [...e.childNodes].filter(n => n.nodeType === 3).every(n => {"
-                 " const r = document.createRange(); r.selectNodeContents(n); return r.getClientRects().length === 1; })")
 # Every card starts on the same line: one row of cards.
 ONE_ROW = "g => new Set([...g.children].map(c => Math.round(c.getBoundingClientRect().top))).size === 1"
 # Busy buttons keep full contrast; a focused one has a strong focus ring.
@@ -84,7 +81,9 @@ def test_credits_panel_refresh_busy_state_and_renewal_day(tmp_path, width):
             higgsfield = page.locator(".credit-card[data-provider=higgsfield]")
             expect(higgsfield.locator(".credit-amount")).to_contain_text("1,234,567")
             expect(higgsfield).to_contain_text("pro")
-            expect(higgsfield).to_contain_text("CLI · higgsfield.subscription.account")
+            # The source in words; its id stays available as the title.
+            expect(higgsfield.locator(".credit-source")).to_have_text("来自 higgsfield 程序")
+            expect(higgsfield.locator(".credit-source")).to_have_attribute("title", "higgsfield.subscription.account")
             expect(higgsfield).to_contain_text("上次读取 3 天前")
             expect(higgsfield).to_contain_text("超过 24 小时")
             # Short label for a known error code; the full message is the badge title.
@@ -100,10 +99,10 @@ def test_credits_panel_refresh_busy_state_and_renewal_day(tmp_path, width):
             assert higgsfield.locator("[data-brand=higgsfield] img").count() == 1
             assert page.locator(".credits-grid").evaluate(FILLS_ROW)
             assert page.locator(".credits-grid").evaluate(ONE_ROW) is (width >= 1024)  # Three cards fit from 1024.
-            assert higgsfield.locator(".provider-copy small").evaluate(TEXT_UNBROKEN)
-            # Not installed: a compact card with the tool to install and the renewal day only.
+            # Not installed: a compact card saying where to set it up, and the renewal day only.
             tripo = page.locator(".credit-card[data-provider=tripo_studio]")
-            expect(tripo).to_contain_text("tripo.studio.account / tripo.server.account")
+            expect(tripo).to_contain_text("还不能读取：先在“Tripo3D”页完成设置。")
+            expect(tripo.get_by_role("button", name="去设置", exact=True)).to_be_visible()
             expect(tripo).to_contain_text("未设置续期日")
             expect(tripo.get_by_role("button", name="设置续期日", exact=True)).to_be_visible()
             assert tripo.get_by_role("button", name="刷新", exact=True).count() == 0
@@ -112,7 +111,7 @@ def test_credits_panel_refresh_busy_state_and_renewal_day(tmp_path, width):
             expect(tripo).not_to_contain_text("—")
             xyq = page.locator(".credit-card[data-provider=xyq]")
             expect(xyq).to_contain_text("尚未读取")
-            expect(xyq).to_contain_text("CLI · pippit.cli.credit_balance")
+            expect(xyq.locator(".credit-source")).to_have_attribute("title", "pippit.cli.credit_balance")
             for card in (xyq, tripo):  # After the refresh button, and alone.
                 assert card.locator(".card-actions > .plain").evaluate(
                     "b => getComputedStyle(b).paddingLeft === '0px' && getComputedStyle(b).paddingRight === '0px'")
@@ -126,11 +125,12 @@ def test_credits_panel_refresh_busy_state_and_renewal_day(tmp_path, width):
             while not (fakes.root / "xyq.started").exists() and time.time() < deadline:
                 time.sleep(0.02)
             # The rest of the console keeps working while the account tool runs.
-            page.get_by_role("button", name="刷新状态 ↻", exact=True).click()
-            page.get_by_role("button", name="工具目录", exact=True).click()
-            page.get_by_label("搜索工具").fill("pippit.cli")
-            expect(page.locator("tbody tr")).to_have_count(1)
-            page.get_by_role("button", name="总览", exact=True).click()
+            page.get_by_role("button", name="刷新状态", exact=True).click()
+            page.get_by_role("button", name="服务", exact=True).click()
+            page.get_by_role("button", name="按工具", exact=True).click()
+            page.locator("#services-q").fill("pippit.cli")
+            expect(page.locator("#services-results [data-tool-id]")).to_have_count(1)
+            page.get_by_role("button", name="首页", exact=True).click()
             expect(page.locator(".credit-card[data-provider=xyq]").get_by_role("button", name="刷新中…", exact=True)).to_be_disabled()
             gate.unlink()
             xyq = page.locator(".credit-card[data-provider=xyq]")
@@ -258,14 +258,15 @@ def test_credits_refreshes_are_serialized_and_keep_focus(tmp_path, width):
             expect(higgsfield.locator(".badge.bad")).to_have_attribute("title", "Fixture: log in to the CLI first.")
             expect(tripo.locator(".badge.bad")).to_have_text("读取失败 · constructor")  # Own keys only.
             expect(tripo.locator(".credit-meta .badge").first).to_have_text("toString")
-            expect(xyq).to_contain_text("网站 · xyq.web.account")
+            expect(xyq.locator(".credit-source")).to_have_text("来自小云雀网站（你的 Chrome 登录）")
+            expect(xyq.locator(".credit-source")).to_have_attribute("title", "xyq.web.account")
             expect(xyq.locator(".credit-next")).to_have_text("下次刷新读取 CLI")
             expect(xyq.locator(".credit-next")).to_have_attribute("title", "pippit.cli.credit_balance")
             assert higgsfield.locator(".credit-next").count() == 0
             expect(xyq.locator(".credit-amount")).to_contain_text("123,456,789,012")
             assert xyq.locator(".credit-amount").evaluate(ONE_LINE)
-            # Installed but unbound: how to bind, and nothing to refresh.
-            expect(tripo).to_contain_text("先运行 atm cli bind opencliapp <path> 绑定 CLI")
+            # Installed but unbound: the program to bind (the exact command is on the service page), and nothing to refresh.
+            expect(tripo).to_contain_text("还不能读取：需要先绑定 opencliapp 程序。")
             assert tripo.locator("[data-credit-action=refresh]").count() == 0
             expect(refresh_all).to_have_text("全部刷新")
 
@@ -342,6 +343,73 @@ def test_credits_refreshes_are_serialized_and_keep_focus(tmp_path, width):
             assert not errors, errors
             # Only Chromium's own log line for the deliberately refused (409) request.
             assert console_errors == ["Failed to load resource: the server responded with a status of 409 (Conflict)"], console_errors
+
+            # A known CLI failure code reads as a Chinese reason on the card; the code stays in the title.
+            State(tmp_path / "state").set_setting("credits:tripo_studio", {
+                "provider": "tripo_studio", "status": "error", "credits": 7, "plan": None, "unit": "credits",
+                "source": "tripo.studio.account", "checked_at": now - 30, "last_ok_at": now - 120,
+                "error": {"code": "cli_protocol", "message": "Fixture: unreadable CLI output."}})
+            page.locator("#refresh").click()
+            expect(tripo.locator(".badge.bad")).to_have_text("程序返回的内容无法识别")
+            expect(tripo.locator(".badge.bad")).to_have_attribute("title", "Fixture: unreadable CLI output.（cli_protocol）")
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.browser
+def test_chrome_login_check_on_the_service_page_joins_the_same_queue(tmp_path):
+    from playwright.sync_api import sync_playwright, expect
+    chrome = chromium()
+    router = Router(tmp_path / "state")
+    fakes = Fakes(tmp_path)
+    tools = definitions(router.state.home)
+    for tool_id in ["tripo.studio.account", "higgsfield.subscription.account"]:
+        install_tool(router, tools[tool_id])
+    fakes.bind(router, "opencliapp")
+    fakes.bind(router, "higgsfield")
+    fakes.output("opencliapp", tripo_row(6396))
+    fakes.output("higgsfield", HIGGSFIELD)
+    router.close()
+    server = Console(tmp_path / "state", localhost=True, user_home=tmp_path / "user")
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(executable_path=chrome, headless=True)
+            page = browser.new_page(viewport={"width": 1280, "height": 1000})
+            page.set_default_timeout(15000)
+            expect.set_options(timeout=15000)
+            errors, requests = [], []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.on("request", lambda request: requests.append((request.method, request.url)))
+            page.goto(server.origin + "/#token=" + server.token)
+            page.get_by_role("heading", name="订阅额度").wait_for()
+            gate = fakes.root / "higgsfield.gate"
+            gate.write_text("hold")
+            page.locator(".credit-card[data-provider=higgsfield] [data-credit-action=refresh]").click()
+            deadline = time.time() + 15
+            while not (fakes.root / "higgsfield.started").exists() and time.time() < deadline:
+                time.sleep(0.02)
+            page.evaluate("go('services/tripo')")
+            route = page.locator("li.route[data-kind=chrome]")
+            expect(route).to_contain_text("你的 Chrome 登录")
+            expect(route).to_contain_text("还没检查过 Chrome 是否已登录。")
+            check = route.locator("[data-credit-action=check][data-credit-provider=tripo_studio]")
+            expect(check).to_have_text("检查 Chrome 登录")
+            check.click()
+            expect(check).to_have_text("排队中…")  # Waits behind the running Higgsfield refresh.
+            page.wait_for_timeout(400)
+            assert [c["exe"] for c in fakes.calls()] == ["higgsfield"]
+            gate.unlink()
+            expect(route).to_contain_text("Chrome 已登录 Tripo Studio（刚刚检查）")
+            expect(route.locator("[data-credit-action=check]")).to_have_text("检查 Chrome 登录")
+            assert [c["exe"] for c in fakes.calls()] == ["higgsfield", "opencliapp"]
+            assert [urlsplit(url).path for method, url in requests if method == "POST"] == ["/api/credits/refresh"] * 2
+            assert State(server.home).setting("credits:tripo_studio")["credits"] == 6396
+            assert not errors, errors
             browser.close()
     finally:
         server.shutdown()

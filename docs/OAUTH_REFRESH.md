@@ -3,7 +3,7 @@
 ## 用户体验
 
 告诉 Agent：**“打开 ATM，连接 Higgsfield 订阅并保持登录。”**
-Agent 打开本机管理页；在「连接与凭证 → Higgsfield 订阅 · ATM OAuth」中，
+Agent 打开本机管理页；在「服务 → Higgsfield → ATM 登录 · Higgsfield MCP」中，
 你勾选「保持登录」并打开官方登录窗口，自己完成登录/授权。密码和令牌不进入聊天。
 授权请求仅包含 `openid email offline_access`，绑定 `https://mcp.higgsfield.ai/mcp`。
 
@@ -24,7 +24,8 @@ Agent 打开本机管理页；在「连接与凭证 → Higgsfield 订阅 · ATM
 - 项目的 **30 分钟 Key 授权不延长**。`atm lock` 仍结束项目 Key 的新调用；
   不等于注销供应商登录或停止已明确批准的 OAuth 后台续期。
 - 「停止自动续期」关闭新刷新准入，不删除连接、供应商授权或服务文件；
-  已在途的一次刷新可能完成。重新登录需要明确勾选替换既有 ATM OAuth 连接。
+  已在途的一次刷新可能完成。重新登录需要明确勾选替换既有 ATM OAuth 连接；登录仍有效（含正在续期、
+  自动续期没有运行）时，这条连接方式上也有「重新登录」，用于换账号、重新授权或重装续期服务。
 - 供应商撤销授权、不给 refresh token、要求验证码或登录、keyring 被锁定时，状态会说明原因。
   保存状态不构成永久有效保证。
 

@@ -51,6 +51,20 @@ def test_public_shell_contains_no_local_data_or_token(console):
     if os.name=='posix':assert server.token_path.stat().st_mode & 0o777==0o600
 
 
+def test_model_asset_is_public_shell_with_the_same_headers(console):
+    server,client=console
+    shell=client.get('/')
+    r=client.get('/assets/model.js')
+    assert r.status_code==200 and r.headers['Content-Type']=='text/javascript; charset=utf-8'
+    assert r.headers['Cache-Control']=='no-store'
+    assert r.headers['Content-Security-Policy']==shell.headers['Content-Security-Policy']
+    assert 'ATM_MODEL = Object.freeze(' in r.text and server.token not in r.text and str(server.home) not in r.text
+    # The shell loads it before app.js, after the reviewed brand and Passkey scripts.
+    order=[shell.text.index('/assets/'+name) for name in ('brand-data.js','brands.js','passkeys.js','model.js','app.js')]
+    assert order==sorted(order)
+    assert client.post('/assets/model.js',json={},headers={'Origin':server.origin}).status_code!=200
+
+
 def test_bootstrap_connection_burst_is_queued_before_accept(tmp_path):
     """The UI opens ten metadata requests; accept scheduling must not reset them."""
     import http.client

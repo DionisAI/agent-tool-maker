@@ -44,7 +44,14 @@
     if (['denied','expired','locked'].includes(view.status)) throw new Error('这次请求已经结束。');
     $('request').hidden = false; $('workspace').textContent = view.plan.workspace;
     $('keys').replaceChildren();
-    for (const name of view.plan.credentials) { const x = document.createElement('span'); x.className='tag'; x.textContent=name; $('keys').append(x); }
+    // Each requested Key says whether it is already saved or will be filled in below.
+    const words = {configured_not_verified: '已保存', missing_credential: '需要填写', credential_expired: '已过期', sync_conflict: '版本冲突'};
+    for (const name of view.plan.credentials) {
+      const row = view.connections.find(c => c.name === name), state = row ? row.state : 'missing_credential';
+      const x = document.createElement('span'); x.className = 'tag'; x.dataset.state = state === 'configured_not_verified' ? 'ready' : 'setup';
+      const glyph = document.createElement('span'); glyph.className = 'glyph'; glyph.setAttribute('aria-hidden', 'true');
+      x.append(glyph, document.createTextNode(name + ' · ' + (Object.hasOwn(words, state) ? words[state] : state))); $('keys').append(x);
+    }
     $('passwords').replaceChildren(); $('missing').replaceChildren();
     if (!view.session.unlocked && view.backend === 'passphrase') {
       field($('passwords'), 'passphrase', view.initialized ? 'ATM 主密码' : '设置 ATM 主密码（至少 12 个字符）', view.initialized ? 'current-password' : 'new-password');
@@ -56,10 +63,14 @@
     for (const c of view.connections) if (c.state==='missing_credential') field($('missing'), 'key-'+c.name, c.name + ' 的 API Key（仅此连接尚未配置）', 'off');
     const credentials=view.passkeys?.credentials.filter(c=>!c.disabled) || [];
     if (!view.session.unlocked && view.passkeys?.available && credentials.length && window.ATM_PASSKEY?.supported()) {
-      const select=document.createElement('select');select.id='passkey-select';select.setAttribute('aria-label','解锁 Passkey');
+      // The Passkey comes first; the password below stays as the other way in.
+      const label=document.createElement('label');label.htmlFor='passkey-select';label.textContent='选择 Passkey';
+      const select=document.createElement('select');select.id='passkey-select';
       for(const c of credentials){const option=document.createElement('option');option.value=c.id;option.textContent=c.label;select.append(option);}
       const button=document.createElement('button');button.id='passkey-approve';button.type='button';button.textContent='用 Passkey 解锁并继续';
-      $('passwords').append(select,button);
+      const divider=document.createElement('p');divider.className='divider';divider.textContent='或者';
+      $('passwords').prepend(label,select,button,divider);
+      $('approve').classList.add('secondary');
       button.addEventListener('click',async()=>{
         if (!Array.from($('missing').querySelectorAll('input')).every(input=>input.reportValidity()))return;
         button.disabled=true;$('approve').disabled=true;$('error').hidden=true;

@@ -371,3 +371,59 @@ def test_readme_is_short_and_skill_owns_commands():
     assert 'ATR' not in readme and '`atr`' not in readme
     assert 'atm start' in skill and 'atm use' in skill and 'self-approve' in skill
     assert skill==(r/'src/agent_tool_maker/data/SKILL.md').read_text()
+
+
+def seed_requests(state, root, now):
+    """Approval-window records in every state; only fresh pending ones are still waiting for the human."""
+    made = {}
+    cases = [('fresh', 'needs_unlock', 60, 2), ('stale', 'needs_approval', 30, 45), ('denied', 'denied', 20, 1),
+             ('ready', 'ready', 10, 1), ('expired', 'expired', 5, 1), ('old', 'needs_unlock', 660, 1)]
+    for name, status_name, age, beat in cases:
+        workspace = root / ('project-' + name); workspace.mkdir()
+        plan = scope_plan(state, workspace, ['fal', 'replicate'])
+        ident = uuid.uuid4().hex
+        state.set_setting('desktop-request:' + ident, {'id': ident, **plan, 'status': status_name, 'created_at': now - age,
+                          'heartbeat': now - beat, 'approval_sha256': fingerprint(plan),
+                          'url': 'http://localhost:1/#launch=FAKE-LAUNCH-' + name, 'open_browser': True,
+                          'token': 'FAKE-WINDOW-TOKEN-' + name, 'origin': 'http://localhost:1'})
+        state.set_setting('desktop-active:' + uuid.uuid4().hex[:24], ident)
+        made[name] = (ident, workspace)
+    state.set_setting('desktop-active:' + 'f' * 24, 12345)  # A malformed pointer is ignored.
+    # Malformed records (wrong shapes, one per field) are skipped one by one; the rest still list.
+    for bad in ({'status': 'needs_unlock'}, ['not', 'a', 'record'],
+                {'id': 'x' * 32, 'workspace': '/w', 'credentials': [], 'status': 'needs_unlock', 'created_at': now},
+                {'id': 'a' * 32, 'workspace': 7, 'credentials': [], 'status': 'needs_unlock', 'created_at': now},
+                {'id': 'b' * 32, 'workspace': '/w', 'credentials': 'fal', 'status': 'needs_unlock', 'created_at': now},
+                {'id': 'c' * 32, 'workspace': '/w', 'credentials': [1], 'status': 'needs_unlock', 'created_at': now},
+                {'id': 'd' * 32, 'workspace': '/w', 'credentials': [], 'status': 'needs_unlock', 'created_at': 'now'},
+                {'id': 'e' * 32, 'workspace': '/w', 'credentials': [], 'status': 'needs_unlock', 'created_at': True}):
+        ident = uuid.uuid4().hex
+        state.set_setting('desktop-request:' + ident, bad)
+        state.set_setting('desktop-active:' + uuid.uuid4().hex[:24], ident)
+    # A well-formed record whose heartbeat is not a number lists, but not as live.
+    workspace = root / 'project-odd-beat'; workspace.mkdir()
+    plan = scope_plan(state, workspace, ['fal'])
+    ident = uuid.uuid4().hex
+    state.set_setting('desktop-request:' + ident, {'id': ident, **plan, 'status': 'needs_approval', 'created_at': now - 90, 'heartbeat': 'soon'})
+    state.set_setting('desktop-active:' + uuid.uuid4().hex[:24], ident)
+    made['odd-beat'] = (ident, workspace)
+    return made
+
+
+def test_pending_requests_lists_only_live_window_requests_newest_first(tmp_path):
+    from agent_tool_maker.quickstart import pending_requests
+    root = tmp_path.resolve(); state = State(root / 's'); now = time.time()
+    made = seed_requests(state, root, now)
+    rows = pending_requests(state)
+    assert [row['id'] for row in rows] == [made['stale'][0], made['fresh'][0], made['odd-beat'][0]]  # 30 s, 60 s, 90 s ago
+    assert [row['live'] for row in rows] == [False, True, False]
+    for row in rows:
+        assert set(row) == {'id', 'workspace', 'credentials', 'status', 'created_at', 'expires_at', 'live'}
+        assert row['expires_at'] == row['created_at'] + PENDING_SECONDS
+    assert rows[0]['credentials'] == rows[1]['credentials'] == ['fal', 'replicate'] and rows[2]['credentials'] == ['fal']
+    assert rows[1]['workspace'] == str(made['fresh'][1]) and rows[1]['status'] == 'needs_unlock'
+    text = json.dumps(rows)
+    for leak in ('FAKE-LAUNCH', 'FAKE-WINDOW-TOKEN', 'localhost:1', 'approval_sha256', 'launch', 'token', 'origin', 'url'):
+        assert leak not in text
+    record = state.setting('desktop-request:' + made['fresh'][0])
+    assert record['approval_sha256'] not in text

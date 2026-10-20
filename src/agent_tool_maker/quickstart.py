@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
+import math
 import os
 from pathlib import Path
+import re
 import secrets
 import subprocess
 import threading
@@ -27,6 +30,7 @@ from .storage import State, atomic_write, canonical
 from .sync import strict_json
 
 PENDING_SECONDS = 600
+PENDING_STATUSES = {'starting', 'needs_unlock', 'needs_approval'}
 CLIENT_LABEL = 'local-project'
 
 
@@ -132,6 +136,40 @@ def request_record(state, identifier):
     if not record:
         raise RouterError('request_missing', 'This local request no longer exists.')
     return record
+
+
+def pending_requests(state) -> list[dict]:
+    """Non-secret view of requests still waiting for the human in the local approval window.
+    Never the window URL, launch codes, bearer tokens or approval hashes. The console cannot approve."""
+    with state.db() as db:
+        identifiers = [json.loads(row[0]) for row in
+                       db.execute("SELECT value FROM settings WHERE name LIKE 'desktop-active:%'")]
+    now, rows = time.time(), []
+    for identifier in identifiers:
+        if not isinstance(identifier, str):
+            continue
+        record = state.setting('desktop-request:' + identifier)
+        # Each record is checked on its own: a malformed one is skipped, never listed, and never fails the page.
+        if not _pending_shape(record) or now - record['created_at'] >= PENDING_SECONDS:
+            continue
+        heartbeat = record.get('heartbeat', record['created_at'])
+        rows.append({'id': record['id'], 'workspace': record['workspace'],
+                     'credentials': list(record['credentials']), 'status': record['status'],
+                     'created_at': record['created_at'], 'expires_at': record['created_at'] + PENDING_SECONDS,
+                     'live': _number(heartbeat) and now - heartbeat < 10})
+    return sorted(rows, key=lambda row: row['created_at'], reverse=True)
+
+
+def _number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _pending_shape(record):
+    return (isinstance(record, dict) and record.get('status') in PENDING_STATUSES
+            and isinstance(record.get('id'), str) and re.fullmatch(r'[0-9a-f]{32}', record['id']) is not None
+            and isinstance(record.get('workspace'), str)
+            and isinstance(record.get('credentials'), list) and all(isinstance(name, str) for name in record['credentials'])
+            and _number(record.get('created_at')))
 
 
 def request_summary(record):

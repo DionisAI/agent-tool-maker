@@ -147,13 +147,40 @@ def unregister(router, name: str, *, apply=False, user_home=None) -> dict:
     return result
 
 
+def tool_references(state, tool) -> dict:
+    """Non-secret catalog references: Key names, program/server names, public hand-off URLs.
+    Never values, argv, headers, request bodies, examples or recipe steps."""
+    command = tool.get("command") if isinstance(tool.get("command"), dict) else {}
+    env_names = list(dict.fromkeys(command.get("credential_env", {}).values()))
+    required = [tool["credential"]] if tool.get("credential") else []
+    if command.get("credential_required"):
+        required += env_names
+    oauth = None
+    if tool.get("adapter") == "mcp" and tool.get("server"):
+        config = state.setting("mcp:" + tool["server"]) or {}
+        if config.get("credential"):
+            required.append(config["credential"])
+        required += list(config.get("env_credentials", {}).values())
+        oauth = config.get("oauth") if isinstance(config.get("oauth"), str) else None
+    recipe = tool.get("recipe") if isinstance(tool.get("recipe"), dict) else {}
+    required = list(dict.fromkeys(required))
+    return {"credentials": required,
+            "optional_credentials": [name for name in env_names if name not in required],
+            "executable": tool.get("executable"),
+            "server": tool.get("server"),
+            "oauth": oauth,
+            "url": tool.get("url") if tool.get("adapter") in {"browser", "desktop", "human"} else None,
+            "session": recipe.get("session"),
+            "origins": sorted(recipe.get("allowed_origins", [])) if recipe.get("session") else []}
+
+
 def tools(router, *, query="", capability=None) -> dict:
     selected = router.search(query, capability)
     report = doctor(router, tool_ids=[t["id"] for t in selected]) if selected else {"tools": []}
     health = {t["id"]: t for t in report["tools"]}
     fields = ("id", "title", "provider", "adapter", "capabilities", "implementation", "permissions", "paid")
-    rows = [{**{key: t.get(key) for key in fields}, "enabled": enabled(router.state, t["id"]),
-             "health": health[t["id"]]} for t in selected]
+    rows = [{**{key: t.get(key) for key in fields}, **tool_references(router.state, t),
+             "enabled": enabled(router.state, t["id"]), "health": health[t["id"]]} for t in selected]
     return {"tools": rows, "count": len(rows), "scope": "shared_by_claude_and_codex", "network_calls": 0}
 
 
@@ -168,6 +195,7 @@ def recent_jobs(router) -> dict:
                         cost_status=data.get("cost_status", "unknown"),
                         # A credits refresh never exposes raw account output, even after a crash.
                         artifact_count=0 if refresh_job(job) else len(data.get("artifacts", [])))
+        rows[-1]["kind"] = "credits_refresh" if refresh_job(job) else "tool"
     return {"jobs": rows, "limit": 50, "details_omitted": "Inputs, payloads, paths and signed URLs are available only through the existing local CLI, not this UI."}
 
 
