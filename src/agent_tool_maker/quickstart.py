@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 from pathlib import Path
 import secrets
@@ -27,6 +28,7 @@ from .storage import State, atomic_write, canonical
 from .sync import strict_json
 
 PENDING_SECONDS = 600
+PENDING_STATUSES = {'starting', 'needs_unlock', 'needs_approval'}
 CLIENT_LABEL = 'local-project'
 
 
@@ -132,6 +134,28 @@ def request_record(state, identifier):
     if not record:
         raise RouterError('request_missing', 'This local request no longer exists.')
     return record
+
+
+def pending_requests(state) -> list[dict]:
+    """Non-secret view of requests still waiting for the human in the local approval window.
+    Never the window URL, launch codes, bearer tokens or approval hashes. The console cannot approve."""
+    with state.db() as db:
+        identifiers = [json.loads(row[0]) for row in
+                       db.execute("SELECT value FROM settings WHERE name LIKE 'desktop-active:%'")]
+    now, rows = time.time(), []
+    for identifier in identifiers:
+        if not isinstance(identifier, str):
+            continue
+        record = state.setting('desktop-request:' + identifier)
+        if not record or record.get('status') not in PENDING_STATUSES:
+            continue
+        if now - record['created_at'] >= PENDING_SECONDS:
+            continue
+        rows.append({'id': record['id'], 'workspace': record['workspace'],
+                     'credentials': list(record['credentials']), 'status': record['status'],
+                     'created_at': record['created_at'], 'expires_at': record['created_at'] + PENDING_SECONDS,
+                     'live': now - record.get('heartbeat', record['created_at']) < 10})
+    return sorted(rows, key=lambda row: row['created_at'], reverse=True)
 
 
 def request_summary(record):

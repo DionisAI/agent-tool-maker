@@ -10,7 +10,9 @@ def read(router, path):
     if path == '/api/sync': return Sync(router.vault).status()
     if path == '/api/access':
         from .broker import list_grants
-        return {**list_grants(router.state), 'broker':router.state.setting('broker_status')}
+        from .quickstart import pending_requests
+        return {**list_grants(router.state), 'broker':router.state.setting('broker_status'),
+                'requests':pending_requests(router.state)}
     raise RouterError('not_found','Unknown multi-device endpoint.')
 
 

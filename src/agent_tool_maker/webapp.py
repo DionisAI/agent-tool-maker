@@ -404,7 +404,8 @@ class Handler(BaseHTTPRequestHandler):
             tool = router.catalog.get(self.path.removeprefix("/api/tools/"))
             # Public schemas only; arbitrary custom headers and example values are not exposed.
             keys = ("id", "title", "provider", "adapter", "capabilities", "schema", "permissions", "paid", "implementation", "notes")
-            return {**{key: tool.get(key) for key in keys}, "enabled": mg.enabled(router.state, tool["id"])}
+            return {**{key: tool.get(key) for key in keys}, **mg.tool_references(router.state, tool),
+                    "enabled": mg.enabled(router.state, tool["id"])}
         raise RouterError("not_found", "Unknown console endpoint.")
 
     def mutate(self, router, body):
