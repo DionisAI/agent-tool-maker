@@ -16,11 +16,11 @@ import httpx
 import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from agent_tool_maker import quickstart_web
+from agent_tool_maker import quickstart_web, webapp
 from agent_tool_maker.broker import call, revoke
 from agent_tool_maker.engine import Router
 from agent_tool_maker.errors import RouterError
-from agent_tool_maker.quickstart import (profile_path, scope_plan, ready, start, use, request_record)
+from agent_tool_maker.quickstart import (PENDING_SECONDS, profile_path, scope_plan, ready, start, use, request_record)
 from agent_tool_maker.quickstart_web import ApprovalWindow, serve_request
 from agent_tool_maker.secrets_provider import fingerprint
 from agent_tool_maker.session import owner_call, status, SecretSession, run_service
@@ -187,11 +187,17 @@ def test_agent_window_opens_a_one_time_launch_code_never_the_bearer(monkeypatch,
         seen['url']=url;threading.Thread(target=visit,daemon=True).start()
         return True
     monkeypatch.setattr(quickstart_web.webbrowser,'open',browser)
+    lifetimes=[];mint=webapp.Console.launch_code
+    def launch_code(server,seconds=webapp.LAUNCH_SECONDS):
+        lifetimes.append(seconds);return mint(server,seconds)
+    monkeypatch.setattr(webapp.Console,'launch_code',launch_code)
     try:
         assert serve_request(r.state.home,ident)==0
     finally:
         r.close()
     record=request_record(State(r.state.home),ident)
+    # Rerunning `atm start` reuses this window and mints no new code: a late browser must still get in, once.
+    assert len(lifetimes)==1 and webapp.LAUNCH_SECONDS<lifetimes[0]<=PENDING_SECONDS
     assert seen['url'].startswith(record['url']+'/#launch=') and seen['token'] not in seen['url']
     assert seen['redeem']=={'token':seen['token']} and seen['view']==200 and seen['again']==401
     assert record['status']=='denied' and record['browser_opened'] is True

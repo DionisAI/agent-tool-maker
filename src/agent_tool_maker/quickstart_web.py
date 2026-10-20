@@ -175,7 +175,10 @@ def serve_request(home, identifier):
         if server.record.get('open_browser'):
             # A one-time launch code, never the per-window bearer, goes into the browser's URL and history.
             # The page trades it at the exact Origin for the bearer. Neither goes to CLI JSON/logs.
-            opened = bool(webbrowser.open(server.origin + '/#launch=' + server.launch_code()))
+            # It lives as long as the request can be approved: rerunning `atm start` reuses this window
+            # and mints no new code, so a browser that opens late must still be let in (once).
+            left = PENDING_SECONDS - (time.time() - server.record['created_at'])
+            opened = bool(webbrowser.open(server.origin + '/#launch=' + server.launch_code(seconds=max(1, left))))
         server.update_record(status='needs_approval' if current['unlocked'] else 'needs_unlock', browser_opened=opened)
         thread = threading.Thread(target=server.serve_forever, kwargs={'poll_interval': .1}, daemon=True)
         thread.start()

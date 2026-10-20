@@ -387,8 +387,12 @@ async function start() {
     // Exact-origin exchange of the one-time code: the bearer never enters a URL or a history entry.
     const r=await fetch('/api/console/redeem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:launchCode}),cache:'no-store'});
     const value=await r.json();
-    if (!r.ok||typeof value.token!=='string') {forget(value.error?.code==='session_expired'?'session_expired':'launch_expired');return;}
-    token=value.token; tabToken.set(token);
+    const stored=tabToken.get();
+    if (r.ok&&typeof value.token==='string') {token=value.token; tabToken.set(token);}
+    // A used or stale link opened in a tab that is already connected keeps that tab's session;
+    // refresh() still checks it, and a 401 then forgets it as usual.
+    else if (stored&&value.error?.code!=='session_expired') token=stored;
+    else {forget(value.error?.code==='session_expired'?'session_expired':'launch_expired');return;}
   }
   if (!token) {showGate();return;}
   await refresh();  // The page-title placeholder stays while the bearer is checked; the gate does not flash.

@@ -352,6 +352,14 @@ def test_launch_link_opened_in_an_already_open_tab_is_redeemed(console):
         assert page.url == server.origin + '/' and stored(page) == server.token
         assert all(value not in url for url in history(context, page)), history(context, page)
         assert not server.launch_codes  # Redeemed, so it cannot be used again.
+        if name == 'launch':
+            used = value
+    # A used (or stale) link in this connected tab keeps the tab's session instead of logging it out.
+    with page.expect_event('load'):
+        page.goto(server.origin + '/#launch=' + used)
+    ready(page, expect, TOOLS)
+    assert page.url == server.origin + '/' and stored(page) == server.token
+    expect(page.locator('#gate')).to_be_hidden()
     page.evaluate('window.__sameDocument = true')
     page.goto(server.origin + '/#unrelated')  # Any other fragment is not a reason to reload.
     page.wait_for_timeout(300)

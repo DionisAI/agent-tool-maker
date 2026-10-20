@@ -180,7 +180,7 @@ class Console(ThreadingHTTPServer):
         if self.loopback6:
             self.loopback6.shutdown()
 
-    def launch_code(self):
+    def launch_code(self, seconds=LAUNCH_SECONDS):
         """One-time code that lets `atm ui` open this console without putting the bearer in a URL."""
         now = time.monotonic()
         code = secrets.token_urlsafe(32)
@@ -188,11 +188,11 @@ class Console(ThreadingHTTPServer):
             self.launch_codes = {c: t for c, t in self.launch_codes.items() if t > now}
             while len(self.launch_codes) >= 8:
                 self.launch_codes.pop(next(iter(self.launch_codes)))
-            self.launch_codes[code] = now + LAUNCH_SECONDS
+            self.launch_codes[code] = now + seconds
         return code
 
     def redeem(self, code):
-        """The bearer, once per launch code and only within its minute."""
+        """The bearer, once per launch code and only within its lifetime."""
         with self.lock:
             match = next((c for c in self.launch_codes if LAUNCH_CODE.fullmatch(code or "") and hmac.compare_digest(c, code)), None)
             expires = self.launch_codes.pop(match, 0)
