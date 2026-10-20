@@ -40,6 +40,7 @@ STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/assets/brand-data.js": ("brand-data.js", "text/javascript; charset=utf-8"),
           "/assets/brands.js": ("brands.js", "text/javascript; charset=utf-8"),
           "/assets/passkeys.js": ("passkeys.js", "text/javascript; charset=utf-8"),
+          "/assets/model.js": ("model.js", "text/javascript; charset=utf-8"),
           "/assets/app.css": ("app.css", "text/css; charset=utf-8")}
 TOKEN_FILE = re.compile(r"ui-session-([1-9][0-9]{3,4})\.token")
 TOKEN_VALUE = re.compile(r"[A-Za-z0-9_-]{32,128}")
