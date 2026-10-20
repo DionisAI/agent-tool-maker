@@ -28,10 +28,10 @@
 </aside>
 <div class="shell">
   <header><div><span class="dot"></span><strong>本地管理台</strong><span class="quiet" id="origin"></span></div><div class="header-actions"><button class="plain" id="lock">锁定界面</button><button class="secondary" id="refresh">刷新状态 ↻</button></div></header>
-  <main id="main" aria-live="polite"><section class="page-title"><p class="eyebrow">ONE TOOLBOX. EVERY SESSION.</p><h1>连接一次，持续使用。</h1><p>Claude Code 与 Codex，共用一套工具与本地配置。</p></section><div class="notice">正在连接本机 ATM。没有向供应商发起请求。</div></main>
+  <main id="main" aria-live="polite"><section class="page-title"><div><p class="eyebrow">ONE TOOLBOX. EVERY SESSION.</p><h1>连接一次，持续使用。</h1><p>Claude Code 与 Codex，共用一套工具与本地配置。</p></div></section><div class="notice">正在连接本机 ATM。没有向供应商发起请求。</div></main>
   <footer>ATM 本地管理 · CLI 与网页共用状态 · 不提供云端远程控制</footer>
 </div>
-<div class="gate" id="gate"><form id="session-form" class="gate-card"><span class="small-pill">PRIVATE SESSION</span><h1>连接本地工作台</h1><p>使用启动 <code>atm ui</code> 的终端自动打开本页，或粘贴终端所示私有 token 文件中的会话码。它不是供应商 API Key。</p><label>本次管理会话码<input id="session-token" type="password" autocomplete="off" required></label><button class="primary" type="submit">连接工作台 →</button><p class="quiet">会话码只保存在当前标签页，刷新后保留；新标签页、锁定界面或会话过期后需重新连接。</p></form></div>
+<div class="gate" id="gate" hidden><form id="session-form" class="gate-card"><span class="small-pill">PRIVATE SESSION</span><h1>连接本地工作台</h1><p class="notice" id="gate-reason" role="alert" hidden></p><p>使用启动 <code>atm ui</code> 的终端自动打开本页，或粘贴终端所示私有 token 文件中的会话码。它不是供应商 API Key。</p><label>本次管理会话码<input id="session-token" type="password" autocomplete="off" required></label><button class="primary" type="submit">连接工作台 →</button><p class="quiet">会话码只保存在当前标签页，刷新后保留；新标签页、锁定界面或会话过期后需重新连接。</p></form></div>
 <dialog id="modal"><div class="dialog-head"><h2 id="modal-title"></h2><button id="modal-close" class="plain" aria-label="关闭">✕</button></div><div id="modal-body"></div></dialog>
 <div id="toast" role="status" hidden></div>
 </body></html>

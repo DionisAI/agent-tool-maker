@@ -2,8 +2,8 @@
 
 Static assets are public shell only. Every data request requires a per-process
 bearer, exact Host, same-origin writes, bounded JSON, and a whitelisted endpoint.
-One bearer-less exception returns nothing else: the `atm ui` challenge, an HMAC
-proof of the token.
+Two bearer-less exceptions return nothing else: the `atm ui` challenge (an HMAC
+proof of the token) and the exact-Origin exchange of a one-time launch code.
 No arbitrary file read, shell, generation, deployment or job-refresh endpoint.
 """
 from __future__ import annotations
@@ -40,11 +40,13 @@ STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/assets/app.css": ("app.css", "text/css; charset=utf-8")}
 TOKEN_FILE = re.compile(r"ui-session-([1-9][0-9]{3,4})\.token")
 TOKEN_VALUE = re.compile(r"[A-Za-z0-9_-]{32,128}")
+LAUNCH_CODE = re.compile(r"[A-Za-z0-9_-]{43}")
 CHALLENGE = re.compile(r"[0-9a-f]{64}")
 SESSION_SECONDS = 8 * 3600
+LAUNCH_SECONDS = 60
 REUSE_MIN_SECONDS = 15 * 60
 PROBE_SECONDS = 2
-PROBE_LIMIT = 8192  # One identity or proof response, headers included.
+PROBE_LIMIT = 8192  # One identity, proof or launch-code response, headers included.
 BIND_ATTEMPTS = 16
 CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'"
 
@@ -109,6 +111,7 @@ class Console(ThreadingHTTPServer):
         self.secret_session_thread = None
         self.token = secrets.token_urlsafe(32)
         self.expires_at = time.monotonic() + SESSION_SECONDS
+        self.launch_codes = {}
         self.lock = threading.RLock()
         self.loopback6 = None
         super().__init__(("127.0.0.1", port), Handler, bind_and_activate=False)
@@ -174,6 +177,29 @@ class Console(ThreadingHTTPServer):
         if self.loopback6:
             self.loopback6.shutdown()
 
+    def launch_code(self):
+        """One-time code that lets `atm ui` open this console without putting the bearer in a URL."""
+        now = time.monotonic()
+        code = secrets.token_urlsafe(32)
+        with self.lock:
+            self.launch_codes = {c: t for c, t in self.launch_codes.items() if t > now}
+            while len(self.launch_codes) >= 8:
+                self.launch_codes.pop(next(iter(self.launch_codes)))
+            self.launch_codes[code] = now + LAUNCH_SECONDS
+        return code
+
+    def redeem(self, code):
+        """The bearer, once per launch code and only within its minute."""
+        with self.lock:
+            match = next((c for c in self.launch_codes if LAUNCH_CODE.fullmatch(code or "") and hmac.compare_digest(c, code)), None)
+            expires = self.launch_codes.pop(match, 0)
+        now = time.monotonic()
+        if now >= expires:
+            raise RouterError("launch_expired", "This launch link was already used or has expired. Run atm ui again in the terminal.")
+        if now >= self.expires_at:
+            raise RouterError("session_expired", "This console session expired. Run atm ui again in the terminal.")
+        return self.token
+
     def open_router(self, password=None):
         if self.router_factory:
             return self.router_factory(password)
@@ -191,6 +217,7 @@ class Console(ThreadingHTTPServer):
         super().server_close()
         if self.loopback6:
             self.loopback6.server_close()
+        self.launch_codes.clear()
         if hasattr(self, "token_path"):
             try:
                 if self.token_path.read_text() == self.token:
@@ -267,8 +294,11 @@ class Handler(BaseHTTPRequestHandler):
             raise RouterError("forbidden_request", "Query-string tokens and parameters are not accepted.")
         if authenticated:
             supplied = self.headers.get("Authorization", "")
-            if time.monotonic() >= self.server.expires_at or not hmac.compare_digest(supplied, "Bearer " + self.server.token):
+            if not hmac.compare_digest(supplied, "Bearer " + self.server.token):
                 raise RouterError("unauthorized", "Open this running console from its private terminal session.")
+            if time.monotonic() >= self.server.expires_at:
+                # Only a holder of this bearer learns that it expired.
+                raise RouterError("session_expired", "This console session expired. Run atm ui again in the terminal.")
 
     def do_GET(self):
         self.handle_request(False)
@@ -285,7 +315,8 @@ class Handler(BaseHTTPRequestHandler):
             static = self.path in STATIC and not write
             challenge = self.path == "/api/console" and not write and "Authorization" not in self.headers \
                 and "X-ATM-Challenge" in self.headers
-            self.check_request(authenticated=not (static or challenge))
+            redeem = self.path == "/api/console/redeem" and write
+            self.check_request(authenticated=not (static or challenge or redeem))
             if static:
                 name, mime = STATIC[self.path]
                 self.respond(200, files("agent_tool_maker.data").joinpath("web").joinpath(name).read_bytes(), mime=mime)
@@ -319,12 +350,17 @@ class Handler(BaseHTTPRequestHandler):
                 body = strict_json(raw, limit=limit)
                 if not isinstance(body, dict):
                     raise RouterError("invalid_request", "Expected a JSON object.")
+            if redeem:
+                # Exact Origin and Host, no bearer: the page trades the one-time launch fragment for the bearer.
+                fields(body, ("code",))
+                self.respond(200, {"token": self.server.redeem(text(body, "code", limit=64))})
+                return
             with self.server.lock:
                 router = self.server.open_router(text(body, "passphrase"))
                 result = self.mutate(router, body) if write else self.read(router)
             self.respond(200, result)
         except RouterError as error:
-            status = 401 if error.code == "unauthorized" else 403 if error.code == "forbidden_request" else 404 if error.code == "not_found" else 409 if error.code in {"setup_changed", "state_changed", "setup_conflict", "registration_changed"} else 400
+            status = 401 if error.code in {"unauthorized", "session_expired", "launch_expired"} else 403 if error.code == "forbidden_request" else 404 if error.code == "not_found" else 409 if error.code in {"setup_changed", "state_changed", "setup_conflict", "registration_changed"} else 400
             self.respond(status, {"error": error.as_dict()})
         except (ValueError, TypeError, KeyError, OSError, RecursionError):
             self.respond(400, {"error": {"code": "invalid_request", "message": "Invalid local input or state. No provider execution was requested."}})
@@ -362,6 +398,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def mutate(self, router, body):
         path = self.path
+        if path == "/api/console/launch-code":
+            fields(body)
+            return {"code": self.server.launch_code()}
         if path.startswith("/api/passkeys/"):
             passkeys = self.server.passkeys
             if path == "/api/passkeys/register/begin":
@@ -565,6 +604,17 @@ def probe(port, token, home):
         return None
 
 
+def request_launch_code(port, token):
+    """A fresh one-time launch code from the verified console on port, else None."""
+    try:
+        body = exchange(port, "POST", "/api/console/launch-code", {"Origin": f"http://localhost:{port}",
+                        "Authorization": "Bearer " + token}, time.monotonic() + PROBE_SECONDS, b"{}")
+    except (OSError, ValueError, RecursionError):
+        return None
+    code = body.get("code") if body else None
+    return code if isinstance(code, str) and LAUNCH_CODE.fullmatch(code) else None
+
+
 def running_console(home, port=0):
     """(port, token, token file, identity) of this home's live console; removes files nothing listens on."""
     home = Path(home).expanduser().absolute()
@@ -615,17 +665,19 @@ def serve(home, *, port=0, open_browser=True, executable=None):
         if identity["expires_in_seconds"] < REUSE_MIN_SECONDS:
             note = "The console already running for this ATM home expires within 15 minutes, so a new one was started. "
         else:
-            origin = f"http://localhost:{number}"
-            announce(origin, token_path, round(identity["expires_in_seconds"] / 3600, 2), reused=True)
-            if open_browser:
-                webbrowser.open(origin + "/#token=" + token)
-            return 0
+            code = request_launch_code(number, token) if open_browser else None
+            if code or not open_browser:
+                origin = f"http://localhost:{number}"
+                announce(origin, token_path, round(identity["expires_in_seconds"] / 3600, 2), reused=True)
+                if code:  # A one-time code, never the bearer, goes into the browser's URL and history.
+                    webbrowser.open(origin + "/#launch=" + code)
+                return 0
     from .onboarding import executable_path
     server = Console(home, port=port, executable=str(executable_path(executable)), localhost=True)
     try:
         announce(server.origin, server.token_path, SESSION_SECONDS // 3600, reused=False, note=note)
         if open_browser:
-            webbrowser.open(server.origin + "/#token=" + server.token)
+            webbrowser.open(server.origin + "/#launch=" + server.launch_code())
         server.serve_forever(poll_interval=0.2)
     except KeyboardInterrupt:
         pass

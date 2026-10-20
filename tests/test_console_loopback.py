@@ -80,6 +80,15 @@ def test_localhost_console_answers_on_both_loopbacks_with_one_token_and_stops_bo
             assert status == 200 and json.loads(raw)['service'] == 'atm-console'
             assert request(address, server, headers={'Authorization': 'Bearer wrong'})[0] == 401
             assert request(address, server, headers={**bearer, 'Host': f'127.0.0.1:{port}'})[0] == 403
+        # One state behind both sockets: a code minted over ::1 is redeemed once over 127.0.0.1.
+        write = {'Origin': server.origin, 'Content-Type': 'application/json'}
+        status, raw = request('::1', server, 'POST', '/api/console/launch-code', {**write, **bearer}, b'{}')
+        code = json.loads(raw)['code']
+        assert status == 200 and code in server.launch_codes
+        redeem = json.dumps({'code': code}).encode()
+        status, raw = request('127.0.0.1', server, 'POST', '/api/console/redeem', write, redeem)
+        assert status == 200 and json.loads(raw) == {'token': server.token}
+        assert request('::1', server, 'POST', '/api/console/redeem', write, redeem)[0] == 401
     finally:
         server.shutdown()
         # shutdown() returns only once the [::1] loop has stopped too (socketserver's own flag).

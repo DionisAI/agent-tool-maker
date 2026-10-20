@@ -32,7 +32,8 @@ def ui(tmp_path, monkeypatch, capsys):
     class Once(Console):
         # A fresh `atm ui` server binds, writes its file and announces; then Ctrl-C.
         def serve_forever(self, poll_interval=0.5):
-            started.append(SimpleNamespace(origin=self.origin, token=self.token, token_path=self.token_path, server_port=self.server_port))
+            started.append(SimpleNamespace(origin=self.origin, token=self.token, token_path=self.token_path,
+                                           server_port=self.server_port, codes=list(self.launch_codes)))
             raise KeyboardInterrupt
     monkeypatch.setattr(webapp, 'Console', Once)
 
@@ -42,6 +43,7 @@ def ui(tmp_path, monkeypatch, capsys):
         assert code == 0 and out.err == '', out
         result = json.loads(out.out)
         assert set(result) == KEYS and result['scope'] == 'loopback_only'
+        assert all(url.partition('#launch=')[2] not in out.out for url in opened)  # Codes are never printed.
         return result
     return SimpleNamespace(run=run, opened=opened, started=started, home=tmp_path/'state')
 
@@ -145,7 +147,9 @@ def free_port():
 def fresh(ui, result):
     assert len(ui.started) == 1 and result['reused'] is False
     new = ui.started[0]
-    assert result['url'] == new.origin and ui.opened == [new.origin + '/#token=' + new.token]
+    assert result['url'] == new.origin and len(new.codes) == 1
+    # The browser gets a one-time launch code, never the bearer.
+    assert ui.opened == [new.origin + '/#launch=' + new.codes[0]] and new.token not in ui.opened[0]
     assert not new.token_path.exists()  # Ctrl-C removed only its own file.
     return new
 
@@ -177,6 +181,11 @@ def test_console_challenge_answers_only_a_proof_of_the_token(ui):
         assert client.get('/api/console', headers=[('X-ATM-Challenge', challenge)] * 2).status_code == 403
 
 
+def redeem(server, code, **headers):
+    with httpx.Client(base_url=server.origin, trust_env=False) as client:
+        return client.post('/api/console/redeem', json={'code': code}, headers={'Origin': server.origin, **headers})
+
+
 @pytest.mark.parametrize('extra', [(), ('--no-browser',), ('--port', 'SAME')], ids=['browser', 'no-browser', 'same-port'])
 def test_running_console_of_this_home_is_reused(ui, extra):
     with running(ui.home) as server:
@@ -187,10 +196,54 @@ def test_running_console_of_this_home_is_reused(ui, extra):
         assert result['reused'] is True and result['url'] == server.origin
         assert result['session_token_file'] == str(server.token_path) and 7.9 < result['expires_after_hours'] <= 8
         assert server.token not in json.dumps(result)
-        assert ui.opened == ([] if '--no-browser' in extra else [server.origin + '/#token=' + server.token])
+        codes = list(server.launch_codes)
+        assert len(codes) == (0 if '--no-browser' in extra else 1)
+        assert ui.opened == [server.origin + '/#launch=' + code for code in codes]
+        assert all(server.token not in url for url in ui.opened)
         assert server.token_path.read_bytes() == before
+        for code in codes:  # The opened page trades the code for the bearer exactly once.
+            assert redeem(server, code).json() == {'token': server.token}
+            assert redeem(server, code).status_code == 401
         with httpx.Client(base_url=server.origin, trust_env=False) as client:
             assert client.get('/api/overview', headers={'Authorization': 'Bearer ' + server.token}).status_code == 200
+
+
+def test_launch_code_is_single_use_short_lived_and_exact_origin_only(ui):
+    with running(ui.home) as server, httpx.Client(base_url=server.origin, trust_env=False) as client:
+        bearer = {'Authorization': 'Bearer ' + server.token}
+
+        def mint():
+            response = client.post('/api/console/launch-code', json={}, headers={**bearer, 'Origin': server.origin})
+            assert response.status_code == 200 and set(response.json()) == {'code'}
+            return response.json()['code']
+        assert client.post('/api/console/launch-code', json={}, headers={'Origin': server.origin}).status_code == 401
+        assert client.post('/api/console/launch-code', json={}, headers=bearer).status_code == 403
+        code = mint()
+        assert re.fullmatch(r'[A-Za-z0-9_-]{43}', code) and code != server.token
+        # Exact Origin and Host, or nothing; a refused attempt does not use up the code.
+        assert client.post('/api/console/redeem', json={'code': code}).status_code == 403
+        assert redeem(server, code, Origin='http://localhost:1').status_code == 403
+        assert redeem(server, code, Origin='null').status_code == 403
+        assert redeem(server, code, Host=f'127.0.0.1:{server.server_port}').status_code == 403
+        response = redeem(server, code)
+        assert response.status_code == 200 and response.json() == {'token': server.token}
+        assert response.headers['cache-control'] == 'no-store'
+        again = redeem(server, code)
+        assert again.status_code == 401 and again.json()['error']['code'] == 'launch_expired' and server.token not in again.text
+        for unknown in [secrets.token_urlsafe(32), 'x', server.token, '']:
+            assert redeem(server, unknown).json()['error']['code'] == 'launch_expired'
+        assert client.post('/api/console/redeem', json={'code': mint(), 'extra': 1}, headers={'Origin': server.origin}).status_code == 400
+        late = mint()
+        assert 0 < server.launch_codes[late] - time.monotonic() <= 60
+        server.launch_codes[late] = time.monotonic() - 1
+        assert redeem(server, late).json()['error']['code'] == 'launch_expired'
+        for _ in range(12):
+            mint()
+        assert len(server.launch_codes) <= 8  # Outstanding codes stay bounded.
+        valid = mint()
+        server.expires_at = time.monotonic() - 1  # An expired session hands out no bearer.
+        response = redeem(server, valid)
+        assert response.status_code == 401 and response.json()['error']['code'] == 'session_expired' and server.token not in response.text
 
 
 def test_newest_live_console_is_reused_and_dead_files_are_removed(ui):
@@ -290,7 +343,7 @@ def test_console_claiming_more_than_its_lifetime_is_not_reused(ui, remaining):
     with running(ui.home) as server:
         server.expires_at = time.monotonic() + remaining
         fresh(ui, ui.run(ui.home))
-        assert server.token_path.exists()
+        assert server.token_path.exists() and not server.launch_codes
 
 
 @pytest.mark.parametrize('version,reused', [(__version__, True), (__version__ + '.other', False)], ids=['same', 'other'])
@@ -325,9 +378,10 @@ def test_console_is_reused_only_with_15_minutes_left(ui, left, reused):
         result = ui.run(ui.home)
         assert result['reused'] is reused and ('15 minutes' in result['note']) is not reused
         if reused:
-            assert ui.started == [] and result['url'] == server.origin
+            assert ui.started == [] and result['url'] == server.origin and len(server.launch_codes) == 1
         else:
             fresh(ui, result)
+            assert not server.launch_codes
         assert server.token_path.exists()
 
 
@@ -373,7 +427,7 @@ def test_home_writable_by_others_is_not_searched(ui, mode):
             fresh(ui, ui.run(ui.home))
         finally:
             ui.home.chmod(0o700)
-        assert server.token_path.exists()
+        assert server.token_path.exists() and not server.launch_codes
 
 
 def test_explicit_different_port_starts_a_new_console(ui):
@@ -390,10 +444,11 @@ def test_another_homes_console_is_not_reused(ui, tmp_path):
         result = ui.run(ui.home)
         fresh(ui, result)
         assert result['url'] != server.origin and copied.read_text() == server.token and server.token_path.exists()
+        assert not server.launch_codes
 
 
 def test_fresh_console_announces_reused_false_without_token(ui):
     result = ui.run(ui.home, '--no-browser')
     new = ui.started[0]
-    assert result['reused'] is False and result['expires_after_hours'] == 8 and ui.opened == []
+    assert result['reused'] is False and result['expires_after_hours'] == 8 and ui.opened == [] and new.codes == []
     assert result['session_token_file'] == str(new.token_path) and new.token not in json.dumps(result)
