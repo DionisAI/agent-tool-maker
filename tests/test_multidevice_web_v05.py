@@ -107,8 +107,9 @@ def test_access_lists_pending_window_requests_and_the_console_cannot_answer_them
     access=client.get('/api/access')
     assert access.status_code==200
     rows=access.json()['requests']
-    assert [row['id'] for row in rows]==[made['stale'][0],made['fresh'][0]]
-    assert [row['live'] for row in rows]==[False,True]
+    # The malformed records seeded alongside are skipped; /api/access still answers 200.
+    assert [row['id'] for row in rows]==[made['stale'][0],made['fresh'][0],made['odd-beat'][0]]
+    assert [row['live'] for row in rows]==[False,True,False]
     assert all(set(row)=={'id','workspace','credentials','status','created_at','expires_at','live'} for row in rows)
     for leak in ('FAKE-LAUNCH','FAKE-WINDOW-TOKEN','localhost:1','approval_sha256'):
         assert leak not in access.text

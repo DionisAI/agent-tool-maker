@@ -10,8 +10,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
+import re
 import secrets
 import subprocess
 import threading
@@ -147,15 +149,27 @@ def pending_requests(state) -> list[dict]:
         if not isinstance(identifier, str):
             continue
         record = state.setting('desktop-request:' + identifier)
-        if not record or record.get('status') not in PENDING_STATUSES:
+        # Each record is checked on its own: a malformed one is skipped, never listed, and never fails the page.
+        if not _pending_shape(record) or now - record['created_at'] >= PENDING_SECONDS:
             continue
-        if now - record['created_at'] >= PENDING_SECONDS:
-            continue
+        heartbeat = record.get('heartbeat', record['created_at'])
         rows.append({'id': record['id'], 'workspace': record['workspace'],
                      'credentials': list(record['credentials']), 'status': record['status'],
                      'created_at': record['created_at'], 'expires_at': record['created_at'] + PENDING_SECONDS,
-                     'live': now - record.get('heartbeat', record['created_at']) < 10})
+                     'live': _number(heartbeat) and now - heartbeat < 10})
     return sorted(rows, key=lambda row: row['created_at'], reverse=True)
+
+
+def _number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _pending_shape(record):
+    return (isinstance(record, dict) and record.get('status') in PENDING_STATUSES
+            and isinstance(record.get('id'), str) and re.fullmatch(r'[0-9a-f]{32}', record['id']) is not None
+            and isinstance(record.get('workspace'), str)
+            and isinstance(record.get('credentials'), list) and all(isinstance(name, str) for name in record['credentials'])
+            and _number(record.get('created_at')))
 
 
 def request_summary(record):
