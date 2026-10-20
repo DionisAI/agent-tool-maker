@@ -38,14 +38,23 @@ atm ui --port 8765        # 选择固定本机端口
 atm ui --no-browser      # 不自动打开；供人类在自己的终端手动连接
 ```
 
-只绑定 `127.0.0.1`，没有 `--host 0.0.0.0`。Ctrl-C 停止服务。前端随 wheel 打包，无
-Node 构建步骤、CDN、追踪脚本或云账号。CLI 不依赖网页服务，网页关闭后配置仍保留。
+只绑定 `127.0.0.1`，页面地址是 `http://localhost:port`，没有 `--host 0.0.0.0`。Ctrl-C 停止服务。
+前端随 wheel 打包，无 Node 构建步骤、CDN、追踪脚本或云账号。CLI 不依赖网页服务，网页关闭后配置仍保留。
 
-自动打开时，管理会话码通过 URL fragment 传给页面并立即从地址栏移除；不发到 HTTP
-URL、不存在 localStorage/sessionStorage。无浏览器模式输出私有 token 文件的路径：
-人类在自己的终端读取后，填入登录页。不要把该文件内容或带 fragment 的入口发到
-Agent 对话/issue/日志。页面刷新或“锁定界面”清除页面中的会话码，重新连接即可。
-服务重启后更换会话码；8 小时到期后重启。正常退出删除文件；强杀可能留下已失效文件。
+再次运行 `atm ui` 会先找同一 ATM home 里已运行的管理台：只认本用户、0600、非符号链接的
+`ui-session-<port>.token`，用其中的会话码认证请求 `/api/console`，核对服务身份、home 与有效期。
+核对通过就打开该管理台（`--no-browser` 时不打开），输出同样字段加 `"reused": true`，不含会话码，
+不启动第二个服务；新启动时为 `"reused": false`。端口无人监听时删除这个残留文件；其他程序应答、
+已过期（401）或属于另一个 home 时不复用也不删除，照常新建。`--port` 指定其他端口时照常新建。
+
+自动打开时，管理会话码通过 URL fragment 传给页面并立即从地址栏移除；不发到 HTTP URL。
+页面只把它存在当前标签页的 sessionStorage（`atm-console-token`，按精确 `localhost:port` 隔离），
+刷新后保持连接；不用 localStorage（超出标签页寿命）或 Cookie（各 localhost 端口共享）。
+同源脚本与浏览器扩展可读取它，CSP 只允许本服务脚本。新标签页、重开浏览器需重新连接或再运行
+`atm ui`。收到 401（过期、服务重启）或点“锁定界面”时清除；浏览器禁用存储时退回仅页面内存。
+无浏览器模式输出私有 token 文件的路径：人类在自己的终端读取后，填入登录页。不要把该文件内容或
+带 fragment 的入口发到 Agent 对话/issue/日志。服务重启后更换会话码；8 小时到期后重启。
+正常退出删除文件；强杀留下的失效文件在下次 `atm ui` 发现端口无人监听时删除。
 
 ## 已实现的管理界面
 
@@ -89,7 +98,7 @@ origin 与 MCP 白名单编辑、Maker 设计/安装、复杂任务执行仍使�
 
 ## HTTP 防护与接口约束
 
-每个 API 读写要求每进程随机 bearer；Host 必须与实际 `127.0.0.1:port` 完全一致。
+每个 API 读写要求每进程随机 bearer；Host 必须与实际 `localhost:port` 完全一致。
 出现 Origin 时必须同源，写请求必须提供精确 Origin；拒绝跨站 Fetch Metadata、重复
 安全头、查询字符串凭证、表单请求与超过 64 KiB 的 JSON。不启用 CORS。
 静态 shell 不包含本地路径、账号或 token；CSP 禁止外部脚本、inline script、frame。
