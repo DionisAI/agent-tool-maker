@@ -665,16 +665,21 @@ def serve(home, *, port=0, open_browser=True, executable=None):
     running, note = running_console(home, port), ""
     if running:
         number, token, token_path, identity = running
+        origin = f"http://localhost:{number}"
         if identity["expires_in_seconds"] < REUSE_MIN_SECONDS:
-            note = "The console already running for this ATM home expires within 15 minutes, so a new one was started. "
+            why = "expires within 15 minutes"
         else:
             code = request_launch_code(number, token) if open_browser else None
             if code or not open_browser:
-                origin = f"http://localhost:{number}"
                 announce(origin, token_path, round(identity["expires_in_seconds"] / 3600, 2), reused=True)
                 if code:  # A one-time code, never the bearer, goes into the browser's URL and history.
                     webbrowser.open(origin + "/#launch=" + code)
                 return 0
+            why = "did not issue a launch code"
+        if port:  # It holds the requested port, so a new console cannot bind there.
+            raise RouterError("port_in_use", f"{origin} is this ATM home's running console, which {why}. "
+                              "Stop it with Ctrl-C in its terminal, or choose another --port.")
+        note = f"The running console {why}, so a new one was started. "
     from .onboarding import executable_path
     server = Console(home, port=port, executable=str(executable_path(executable)), localhost=True)
     try:

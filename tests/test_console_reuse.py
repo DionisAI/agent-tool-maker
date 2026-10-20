@@ -45,7 +45,13 @@ def ui(tmp_path, monkeypatch, capsys):
         assert set(result) == KEYS and result['scope'] == 'loopback_only'
         assert all(url.partition('#launch=')[2] not in out.out for url in opened)  # Codes are never printed.
         return result
-    return SimpleNamespace(run=run, opened=opened, started=started, home=tmp_path/'state')
+
+    def fail(home, *extra):
+        code = main(['--home', str(home), 'ui', '--atm-executable', str(exe), *extra])
+        out = capsys.readouterr()
+        assert code == 2 and out.err == '', out
+        return json.loads(out.out)['error']
+    return SimpleNamespace(run=run, fail=fail, opened=opened, started=started, home=tmp_path/'state')
 
 
 @contextmanager
@@ -383,6 +389,31 @@ def test_console_is_reused_only_with_15_minutes_left(ui, left, reused):
             fresh(ui, result)
             assert not server.launch_codes
         assert server.token_path.exists()
+
+
+@pytest.mark.parametrize('extra', [(), ('--no-browser',)], ids=['browser', 'no-browser'])
+def test_explicit_port_of_this_homes_expiring_console_is_named(ui, extra):
+    with running(ui.home) as server:
+        server.expires_at = time.monotonic() + 15 * 60 - 5
+        error = ui.fail(ui.home, '--port', str(server.server_port), *extra)
+        assert error['code'] == 'port_in_use' and server.origin in error['message'] and '15 minutes' in error['message']
+        assert ui.started == [] and ui.opened == [] and not server.launch_codes and server.token_path.exists()
+
+
+def test_console_that_issues_no_launch_code_is_replaced_and_said_so(ui):
+    token = secrets.token_urlsafe(32)
+    identity = {'service': 'atm-console', 'version': __version__, 'home': str(ui.home), 'expires_in_seconds': 3600}
+    ui.home.mkdir(mode=0o700)
+    with impostor(token, identity) as other:  # Proves the token and its identity, but its launch-code answer has no code.
+        path = ui.home/f'ui-session-{other.port}.token'
+        atomic_write(path, token.encode())
+        result = ui.run(ui.home)
+        fresh(ui, result)
+        assert 'did not issue a launch code' in result['note'] and path.exists()
+        assert [h.get('Authorization') for h in other.seen][-1] == 'Bearer ' + token  # It was asked, after the proof.
+        error = ui.fail(ui.home, '--port', str(other.port))  # Its own port: named, not a generic port_in_use.
+        assert error['code'] == 'port_in_use' and f'http://localhost:{other.port}' in error['message']
+        assert 'launch code' in error['message'] and len(ui.started) == 1
 
 
 @pytest.mark.parametrize('unsafe', ['symlink', 'mode', 'oversized', 'empty', 'hardlink'])
