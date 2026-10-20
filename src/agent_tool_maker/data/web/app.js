@@ -306,24 +306,26 @@ function table(headers,rows) {
 }
 // Where each tool is set up: one line per /api/tools `setup` step. Actions reuse the 连接与凭证 dialogs.
 const setupBadge=(ok,yes,no)=>badge(ok?yes:no,ok?'good':'warn');
+const cliBind=s=>[el('code',{},'atm cli bind '+s.alias+' <path>'),setupBadge(s.ready,'已绑定','未绑定')];
 const setupLine={
-  credential:s=>[s.required?'API Key · '+s.credential:'可选 Key · '+s.credential+'（不填则沿用 CLI 自己的登录）',
+  api_key:s=>[s.required?'API Key · '+s.credential:'可选 Key · '+s.credential+'（不填则沿用 CLI 自己的登录）',
     s.expired?[badge('凭证已过期','bad'),btn('更新连接',()=>connectionDialog(s.credential))]
-    :s.configured?[badge('已连接','good'),btn('检查',()=>verifyDialog(s.credential),'plain')]:btn('去连接',()=>connectionDialog(s.credential))],
-  browser:s=>['登录在 Agent 自己的浏览器里，ATM 不保存也不验证',el('code',{},s.url)],
-  web_login:s=>['在私有终端运行',el('code',{},'atm web login '+s.tool),s.expired?badge('登录态已过期','bad'):setupBadge(s.saved,'登录态已保存 · 未验证','尚无登录态')],
-  cli:s=>[el('code',{},'atm cli bind '+s.alias+' <path>'),setupBadge(s.bound,'已绑定','未绑定'),
-    s.alias==='opencliapp'?el('span',{class:'setup-note'},'网站工具经 OpenCLIApp 使用本机已登录的 Chrome'):null],
-  mcp:s=>[el('code',{},'atm mcp bind '+s.server+' --config <file> --approve-config'),setupBadge(s.bound,'已绑定','未绑定')],
-  origin:s=>['服务地址',el('code',{},'atm origin set '+s.provider+' <url> --approve-origin'),setupBadge(s.set,'已设置','未设置')],
-  desktop:s=>['由宿主 Agent 在本机桌面程序中操作，ATM 不安装也不登录',el('code',{},s.url)],
-  human:s=>['需要你本人在网站上完成，ATM 只做交接',el('code',{},s.url)],
+    :s.ready?[badge('已连接','good'),btn('检查',()=>verifyDialog(s.credential),'plain')]:btn('去连接',()=>connectionDialog(s.credential))],
+  browser_handoff:s=>['登录在 Agent 自己的浏览器里，ATM 不保存也不验证',el('code',{},s.url)],
+  web_login:s=>['在私有终端运行',el('code',{},'atm web login '+s.tool),s.expired?badge('登录态已过期','bad'):setupBadge(s.ready,'登录态已保存 · 未验证','尚无登录态')],
+  cli_bind:cliBind,
+  opencli_chrome:s=>[...cliBind(s),el('span',{class:'setup-note'},'网站工具经 OpenCLIApp 使用本机已登录的 Chrome')],
+  mcp:s=>[el('code',{},'atm mcp bind '+s.server+' --config <file> --approve-config'),setupBadge(s.ready,'已绑定','未绑定')],
+  oauth:s=>['ATM OAuth 登录 · '+s.provider,setupBadge(s.ready,'已登录','在连接与凭证中登录')],
+  origin:s=>['服务地址',el('code',{},'atm origin set '+s.provider+' <url> --approve-origin'),setupBadge(s.ready,'已设置','未设置')],
+  desktop_handoff:s=>['由宿主 Agent 在本机桌面程序中操作，ATM 不安装也不登录',el('code',{},s.url)],
+  human_handoff:s=>['需要你本人在网站上完成，ATM 只做交接',el('code',{},s.url)],
   workflow:s=>['按其中每一步的工具分别设置：'+s.tools.join('、')],
   catalog_only:()=>['仅目录条目，ATM 不执行']
 };
 function setupHint(t) {
-  // Own keys only, so a kind such as "constructor" is not a prototype member.
-  const lines=t.setup.map(s=>el('div',{class:'setup-step','data-step':s.kind},...(Object.hasOwn(setupLine,s.kind)?setupLine[s.kind]({...s,tool:t.id}):[s.kind])));
+  // Own keys only, so a method such as "constructor" is not a prototype member.
+  const lines=t.setup.map(s=>el('div',{class:'setup-step','data-step':s.method},...(Object.hasOwn(setupLine,s.method)?setupLine[s.method]({...s,tool:t.id}):[s.method])));
   if(!lines.length)lines.push(el('div',{class:'setup-step'},'无需额外设置'));
   if(t.paid)lines.push(el('div',{class:'setup-step setup-paid','data-step':'paid'},'付费工具：每次运行仍需明确的付费批准'));
   return el('div',{class:'setup-hint'},...lines);

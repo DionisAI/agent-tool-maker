@@ -68,28 +68,28 @@ def test_tool_catalog_setup_hints_and_connect_action(tmp_path):
 
             # A vault Key that is not saved yet: 去连接, and paid runs still need approval.
             tts = row("elevenlabs.tts")
-            expect(tts.locator("[data-step=credential]")).to_contain_text("API Key · elevenlabs")
+            expect(tts.locator("[data-step=api_key]")).to_contain_text("API Key · elevenlabs")
             expect(tts.get_by_role("button", name="去连接", exact=True)).to_be_visible()
             expect(tts.locator("[data-step=paid]")).to_have_text(PAID)
             # Host-Agent browser handoff: the login is the Agent's, at the tool's url.
             web = row("elevenlabs.web")
-            expect(web.locator("[data-step=browser]")).to_contain_text("登录在 Agent 自己的浏览器里，ATM 不保存也不验证")
-            expect(web.locator("[data-step=browser] code")).to_have_text("https://elevenlabs.io/app/")
+            expect(web.locator("[data-step=browser_handoff]")).to_contain_text("登录在 Agent 自己的浏览器里，ATM 不保存也不验证")
+            expect(web.locator("[data-step=browser_handoff] code")).to_have_text("https://elevenlabs.io/app/")
             expect(web.locator("td").nth(2)).to_have_text("交给浏览器")
             expect(web.locator("[data-step=paid]")).to_have_text(PAID)
             assert web.get_by_role("button", name="去连接").count() == 0
             # OpenCLI website tool: the opencliapp alias, not bound yet, uses the logged-in Chrome.
-            studio = row("tripo.studio.quote").locator("[data-step=cli]")
+            studio = row("tripo.studio.quote").locator("[data-step=opencli_chrome]")
             expect(studio.locator("code")).to_have_text("atm cli bind opencliapp <path>")
             expect(studio.locator(".badge")).to_have_text("未绑定")
             expect(studio).to_contain_text("经 OpenCLIApp 使用本机已登录的 Chrome")
             assert row("tripo.studio.quote").locator("[data-step=paid]").count() == 0
             # Bound command tool; its optional Key overrides the CLI's own login.
             deploy = row("wrangler.deployments")
-            expect(deploy.locator("[data-step=cli] code")).to_have_text("atm cli bind wrangler <path>")
-            expect(deploy.locator("[data-step=cli] .badge")).to_have_text("已绑定")
-            expect(deploy.locator("[data-step=cli]")).not_to_contain_text("OpenCLIApp")
-            expect(deploy.locator("[data-step=credential]")).to_contain_text("可选 Key · cloudflare（不填则沿用 CLI 自己的登录）")
+            expect(deploy.locator("[data-step=cli_bind] code")).to_have_text("atm cli bind wrangler <path>")
+            expect(deploy.locator("[data-step=cli_bind] .badge")).to_have_text("已绑定")
+            expect(deploy.locator("[data-step=cli_bind]")).not_to_contain_text("OpenCLIApp")
+            expect(deploy.locator("[data-step=api_key]")).to_contain_text("可选 Key · cloudflare（不填则沿用 CLI 自己的登录）")
             # Web recipe: a private-terminal login, and whether a session is saved.
             login = row("fixture.export").locator("[data-step=web_login]")
             expect(login.locator("code")).to_have_text("atm web login fixture.export")
@@ -111,7 +111,7 @@ def test_tool_catalog_setup_hints_and_connect_action(tmp_path):
             page.locator("#modal").wait_for(state="hidden")
             expect(page.locator("#toast")).to_have_text("已加密保存")
             expect(page.get_by_role("heading", name="一个目录，两种 Agent。")).to_be_visible()
-            credential = row("elevenlabs.tts").locator("[data-step=credential]")
+            credential = row("elevenlabs.tts").locator("[data-step=api_key]")
             expect(credential.locator(".badge.good")).to_have_text("已连接")
             assert credential.get_by_role("button", name="去连接").count() == 0
             assert SECRET not in page.content()
@@ -138,7 +138,7 @@ def test_tool_catalog_setup_hints_and_connect_action(tmp_path):
                 assert fresh.readiness(fresh.catalog.get("elevenlabs.web")) == "disabled"
             finally:
                 fresh.close()
-            expect(row("elevenlabs.web").locator("[data-step=browser]")).to_be_visible()
+            expect(row("elevenlabs.web").locator("[data-step=browser_handoff]")).to_be_visible()
             assert not errors, errors
             assert not console_errors, console_errors
             browser.close()

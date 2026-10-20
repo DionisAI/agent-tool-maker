@@ -147,53 +147,64 @@ def unregister(router, name: str, *, apply=False, user_home=None) -> dict:
     return result
 
 
-def setup_steps(state, tool, *, stored, sessions) -> list[dict]:
+def setup_steps(state, tool, *, stored, sessions, oauth) -> list[dict]:
     """Where the owner sets this tool up: from its definition and local state only.
 
-    Names, URLs from the definition and booleans; no secret, path or network call.
+    Every step has `method` and `ready`: true/false from local state (set up here, not provider-verified),
+    or null where ATM checks nothing (handoffs, workflows). Names, definition URLs and booleans only;
+    no secret, path or network call. `oauth` is the local ATM OAuth status.
     """
     kind = tool["adapter"]
     if kind in {"browser", "desktop", "human"}:
-        # A handoff: the login lives with the host Agent's browser/desktop or a person, not in ATM.
-        return [{"kind": kind, "url": tool.get("url")}]
+        # The login lives with the host Agent's browser/desktop or a person; ATM stores and verifies none.
+        return [{"method": kind + "_handoff", "url": tool.get("url"), "ready": None}]
     if kind == "workflow":
-        return [{"kind": "workflow", "tools": [step["tool"] for step in tool.get("steps", [])]}]
+        return [{"method": "workflow", "tools": [step["tool"] for step in tool.get("steps", [])], "ready": None}]
     if kind == "catalog_only":
-        return [{"kind": "catalog_only"}]  # Listed, never run by ATM.
+        return [{"method": "catalog_only", "ready": None}]  # Listed, never run by ATM.
     # The same credentials as tool_health: an optional CLI credential overrides the CLI's own login.
     command = tool.get("command", {})
     env = list(command.get("credential_env", {}).values())
     required = ([tool["credential"]] if tool.get("credential") else []) + (env if command.get("credential_required") else [])
     steps = []
     if kind == "web_recipe" and tool["recipe"].get("session"):
-        record = sessions.get(tool["recipe"]["session"])
-        steps.append({"kind": "web_login", "session": tool["recipe"]["session"],
-                      "saved": record is not None, "expired": bool(record and record["expired"])})
+        name = tool["recipe"]["session"]
+        saved, expired = name in sessions, bool(sessions.get(name, {}).get("expired"))
+        steps.append({"method": "web_login", "session": name, "saved": saved, "expired": expired, "ready": saved and not expired})
     if kind == "mcp":
         config = state.setting("mcp:" + tool["server"]) or {}
-        steps.append({"kind": "mcp", "server": tool["server"], "bound": bool(config)})
+        steps.append({"method": "mcp", "server": tool["server"], "ready": bool(config)})
+        if config.get("oauth"):
+            steps.append({"method": "oauth", "provider": config["oauth"], "status": oauth, "ready": oauth == "ready"})
         required += ([config["credential"]] if config.get("credential") else []) + list(config.get("env_credentials", {}).values())
     if tool.get("executable"):
-        steps.append({"kind": "cli", "alias": tool["executable"], "bound": bool(state.setting("cli:" + tool["executable"]))})
+        alias = tool["executable"]
+        # opencliapp website tools drive the owner's logged-in Chrome through OpenCLIApp; ATM holds no site login.
+        steps.append({"method": "opencli_chrome" if alias == "opencliapp" else "cli_bind", "alias": alias,
+                      "ready": bool(state.setting("cli:" + alias))})
     for name in dict.fromkeys(required + env):
         expiry = state.setting("credential_meta:" + name, {}).get("expires_at")
-        steps.append({"kind": "credential", "credential": name, "required": name in required,
-                      "configured": name in stored, "expired": name in stored and expiry is not None and expiry <= time.time()})
+        configured = name in stored
+        expired = configured and expiry is not None and expiry <= time.time()
+        steps.append({"method": "api_key", "credential": name, "required": name in required,
+                      "configured": configured, "expired": expired, "ready": configured and not expired})
     if tool.get("request", {}).get("origin_setting"):
-        steps.append({"kind": "origin", "provider": tool["provider"], "set": bool(state.setting("origin:" + tool["provider"]))})
+        steps.append({"method": "origin", "provider": tool["provider"], "ready": bool(state.setting("origin:" + tool["provider"]))})
     return steps
 
 
 def tools(router, *, query="", capability=None) -> dict:
+    from .oauth import OAuth
     from .web_recipe import sessions
     selected = router.search(query, capability)
     report = doctor(router, tool_ids=[t["id"] for t in selected]) if selected else {"tools": []}
     health = {t["id"]: t for t in report["tools"]}
-    stored = set(router.state.secret_names())
-    saved = {s["name"]: s for s in sessions(router.state)["sessions"]}
+    context = {"stored": set(router.state.secret_names()),
+               "sessions": {s["name"]: s for s in sessions(router.state)["sessions"]},
+               "oauth": OAuth(router.state, router.vault, router.net).status()["status"]}
     fields = ("id", "title", "provider", "adapter", "capabilities", "implementation", "permissions", "paid")
     rows = [{**{key: t.get(key) for key in fields}, "enabled": enabled(router.state, t["id"]),
-             "health": health[t["id"]], "setup": setup_steps(router.state, t, stored=stored, sessions=saved)} for t in selected]
+             "health": health[t["id"]], "setup": setup_steps(router.state, t, **context)} for t in selected]
     return {"tools": rows, "count": len(rows), "scope": "shared_by_claude_and_codex", "network_calls": 0}
 
 
