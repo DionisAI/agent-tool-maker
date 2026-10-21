@@ -100,6 +100,27 @@ def test_missing_runtime_explicit_and_profile_symlink_rejected(tmp_path):
     assert unsafe.value.code == "unsafe_path"
 
 
+@pytest.mark.parametrize("hint,kept", [("fake_ip_tunnel", "fake_ip_tunnel"), ("other_hint", None)])
+def test_runtime_errors_keep_only_a_known_hint(tmp_path, hint, kept):
+    home = tmp_path / "h"
+    sock = runtime.studio_dir(home) / "s"
+    async def scenario():
+        async def answer(reader, writer):
+            await reader.readline()
+            writer.write(json.dumps({"error": {"code": "unsafe_download", "message": "fixture", "outcome_uncertain": False,
+                                               "hint": hint}}).encode() + b"\n")
+            await writer.drain()
+            writer.close()
+        server = await asyncio.start_unix_server(answer, path=str(sock))
+        sock.chmod(0o600)
+        (runtime.studio_dir(home) / "runtime.json").write_text(json.dumps({"status": "running", "socket": str(sock)}))
+        async with server:
+            return await runtime.request(home, {"method": "status"}, timeout=5)
+    with pytest.raises(RouterError) as error:
+        asyncio.run(scenario())
+    assert error.value.code == "unsafe_download" and error.value.hint == kept
+
+
 def test_file_upload_and_cdp_are_scoped(tmp_path):
     browser = runtime.BrowserRuntime(tmp_path, SimpleNamespace(pages=[SimpleNamespace(url=runtime.ORIGIN + "/assets")]), "node")
     browser.cdp = SimpleNamespace()

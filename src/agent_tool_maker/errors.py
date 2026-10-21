@@ -1,3 +1,7 @@
+# Machine-readable causes ATM defines. A hint relayed from another process is kept only if it is one of these.
+HINTS = frozenset({"fake_ip_tunnel"})
+
+
 class RouterError(Exception):
     """Safe-to-display error; never include upstream bodies or request headers.
 
@@ -13,3 +17,8 @@ class RouterError(Exception):
         if self.hint:
             result["hint"] = self.hint
         return result
+
+
+def relayed_hint(value):
+    """The hint of an error dict received over a local socket (broker, server runtime), or None."""
+    return value if isinstance(value, str) and value in HINTS else None
