@@ -26,7 +26,7 @@ from agent_tool_maker.engine import Router
 from agent_tool_maker.errors import RouterError
 from agent_tool_maker.health import doctor
 from agent_tool_maker.network import (FAKE_IP, Network, fake_ip_answer, fake_ip_tunnel, network_settings,
-                                      numeric_host, public_address, set_fake_ip_tunnel)
+                                      numeric_host, plain_global, public_address, set_fake_ip_tunnel)
 from agent_tool_maker.oauth import ENDPOINTS, ISSUER, OAuth, PROTECTED_METADATA, SERVER_METADATA
 from agent_tool_maker.oauth_cli import tick
 from agent_tool_maker.storage import State
@@ -60,8 +60,12 @@ FAKE = ['198.18.0.0', '198.18.0.1', '198.18.0.138', '198.18.0.139', '198.19.255.
 REFUSED = ['127.0.0.1', '10.0.0.1', '172.16.0.1', '192.168.1.1', '169.254.169.254', '100.64.0.1', '100.127.255.254',
            '0.0.0.0', '240.0.0.1', '255.255.255.255', '::1', '::', 'fd00::1', 'fc00::1', 'fe80::1',
            '::ffff:198.18.0.1', '::ffff:198.19.255.255', '::ffff:10.0.0.1', '2002:c612:1::1']
-# Outside 198.18.0.0/15: the setting never changes how the unchanged global check treats them.
-OUTSIDE = ['93.184.216.34', '198.17.255.255', '198.20.0.0', '198.20.0.1', '224.0.0.1', '::198.18.0.1', '64:ff9b::c612:1']
+# Outside 198.18.0.0/15 and plain global unicast: the setting never changes how they are treated.
+OUTSIDE = ['93.184.216.34', '198.17.255.255', '198.20.0.0', '198.20.0.1', '2606:4700::1', '64:ff9b::5db8:d822']
+# Python's is_global admits these, so the unchanged check with the setting off accepts them alone. With the setting
+# on, every answer beside a Fake-IP one must be plain global unicast: these refuse the set, and never get the hint.
+SPECIAL = ['224.0.0.1', 'ff02::1', '::198.18.0.1', '::127.0.0.1', '::10.0.0.1', '64:ff9b::c612:1', '64:ff9b::7f00:1',
+           '64:ff9b::a00:1', '64:ff9b::e000:1', '::ffff:0:a00:1', 'fec0::1', '::ffff:93.184.216.34']
 
 
 @pytest.mark.parametrize('ip', FAKE)
@@ -78,8 +82,16 @@ def test_private_local_and_special_answers_stay_refused_when_on(ip):
 
 @pytest.mark.parametrize('ip', OUTSIDE)
 def test_the_setting_never_changes_an_address_outside_the_range(ip):
-    assert outcome(URL, answers(ip), on=True) == outcome(URL, answers(ip), on=False)
-    assert outcome(URL, answers(ip), on=False)[1] is None
+    assert outcome(URL, answers(ip), on=True) == outcome(URL, answers(ip), on=False) == ('accepted', None)
+
+
+@pytest.mark.parametrize('ip', SPECIAL)
+def test_with_the_setting_on_only_plain_unicast_stands_beside_fake_ip(ip):
+    assert outcome(URL, answers(ip), on=False) == ('accepted', None)  # Unchanged with the setting off.
+    assert outcome(URL, answers(ip), on=True) == ('unsafe_download', None)
+    for ips in [('198.18.0.5', ip), (ip, '198.18.0.5')]:
+        assert outcome(URL, answers(*ips), on=False) == ('unsafe_download', None), ips  # No switch is offered.
+        assert outcome(URL, answers(*ips), on=True) == ('unsafe_download', None), ips
 
 
 def test_range_is_plain_ipv4_198_18_slash_15():
@@ -90,12 +102,32 @@ def test_range_is_plain_ipv4_198_18_slash_15():
         assert not fake_ip_answer(ipaddress.ip_address(ip)), ip
 
 
+def test_plain_global_is_stricter_than_is_global():
+    import ipaddress
+    for ip in OUTSIDE:
+        assert plain_global(ipaddress.ip_address(ip)), ip
+    for ip in SPECIAL + REFUSED + FAKE:
+        assert not plain_global(ipaddress.ip_address(ip)), ip
+
+
 @pytest.mark.parametrize('ips,off,on', [
     (('198.18.0.1', '10.0.0.1'), ('unsafe_download', None), ('unsafe_download', None)),
     (('198.18.0.1', '127.0.0.1'), ('unsafe_download', None), ('unsafe_download', None)),
     (('198.18.0.1', '::ffff:198.18.0.1'), ('unsafe_download', None), ('unsafe_download', None)),
     (('198.18.0.1', 'fe80::1'), ('unsafe_download', None), ('unsafe_download', None)),
+    (('198.18.0.5', '224.0.0.1'), ('unsafe_download', None), ('unsafe_download', None)),
+    (('198.18.0.5', 'ff02::1'), ('unsafe_download', None), ('unsafe_download', None)),
+    (('198.18.0.5', '::127.0.0.1'), ('unsafe_download', None), ('unsafe_download', None)),
+    (('198.18.0.5', '::10.0.0.1'), ('unsafe_download', None), ('unsafe_download', None)),
+    (('198.18.0.5', '::198.18.0.1'), ('unsafe_download', None), ('unsafe_download', None)),
+    (('198.18.0.5', '64:ff9b::7f00:1'), ('unsafe_download', None), ('unsafe_download', None)),
+    (('198.18.0.5', '64:ff9b::a00:1'), ('unsafe_download', None), ('unsafe_download', None)),
+    (('198.18.0.5', '::ffff:0:a00:1'), ('unsafe_download', None), ('unsafe_download', None)),
+    (('198.18.0.5', 'fec0::1'), ('unsafe_download', None), ('unsafe_download', None)),
+    (('198.18.0.5', '93.184.216.34', '224.0.0.1'), ('unsafe_download', None), ('unsafe_download', None)),
     (('198.18.0.1', '93.184.216.34'), ('unsafe_download', 'fake_ip_tunnel'), ('accepted', None)),
+    (('198.18.0.1', '2606:4700::1'), ('unsafe_download', 'fake_ip_tunnel'), ('accepted', None)),
+    (('198.18.0.1', '64:ff9b::5db8:d822'), ('unsafe_download', 'fake_ip_tunnel'), ('accepted', None)),
     (('198.18.0.1', '198.19.0.7'), ('unsafe_download', 'fake_ip_tunnel'), ('accepted', None)),
 ])
 def test_one_bad_answer_refuses_the_whole_set(ips, off, on):
@@ -148,6 +180,41 @@ def test_setting_is_off_by_default_and_only_exact_true_is_on(tmp_path):
         assert fake_ip_tunnel(state) is False, value
     state.set_setting('network', ['fake_ip_tunnel'])
     assert fake_ip_tunnel(state) is False
+
+
+def test_a_row_that_is_not_json_reads_as_off_and_the_owner_can_replace_it(router, workspace):
+    import sqlite3
+    with sqlite3.connect(router.state.path) as db:
+        db.execute("INSERT OR REPLACE INTO settings VALUES ('network', '{not json')")
+    assert network_settings(router.state) == {'fake_ip_tunnel': False, 'changed_at': None}
+    assert mg.overview(router)['network']['fake_ip_tunnel'] is False
+    assert doctor(router, tool_ids=['ffmpeg.probe'])['network']['fake_ip_tunnel'] is False
+    # Every call site still refuses with a RouterError (not a crash), with the hint, before sending anything.
+    with pytest.raises(RouterError) as caught:
+        public_address(URL, answers('198.18.0.3'), fake_ip=fake_ip_tunnel(router.state))
+    assert caught.value.hint == 'fake_ip_tunnel'
+    router.net = Network(httpx.MockTransport(FixtureProvider()), asset_resolver('198.18.0.20'))
+    job = router.run('fal.generate', {'endpoint': 'fal-ai/flux/schnell', 'arguments': {'prompt': 'x'}}, workspace, allow_paid=True)
+    assert router.refresh(job['id'])['data']['error']['hint'] == 'fake_ip_tunnel'
+    # The owner's switch overwrites the row.
+    assert set_fake_ip_tunnel(router.state, True, expected=False)['action'] == 'enable'
+    assert fake_ip_tunnel(router.state) is True
+
+
+def test_oauth_refresh_with_a_row_that_is_not_json_fails_cleanly(tunnel):
+    import sqlite3
+    manager, provider, now = tunnel
+    now[0], provider.expiry = time.time(), 60
+    keep_connected(manager)
+    with sqlite3.connect(manager.state.path) as db:
+        db.execute("INSERT OR REPLACE INTO settings VALUES ('network', 'not json')")
+    before = len(provider.requests)
+    worker = SimpleNamespace(state=State(manager.state.home), vault=manager.vault, net=manager.net)
+    result = tick(worker)
+    assert result['action'] == 'paused' and result['error']['code'] == 'oauth_dns_policy', result
+    assert len(provider.requests) == before
+    status = manager.status()  # Recorded as a failed refresh, not left 'refreshing' by a crash.
+    assert status['status'] == 'needs_login' and status['last_error'] == 'oauth_dns_policy'
 
 
 def test_set_compares_and_writes_once(tmp_path):
@@ -369,7 +436,7 @@ def test_every_redirect_hop_is_checked_even_when_on():
     n = Network(httpx.MockTransport(handler), resolver)
     try:
         with pytest.raises(RouterError) as caught:
-            n.download('https://public.test/file', fake_ip=True)
+            n.download('https://public.test/file', fake_ip=lambda: True)
         assert caught.value.code == 'unsafe_download' and caught.value.hint is None and hops == ['public.test']
         with pytest.raises(RouterError) as caught:
             n.download('https://public.test/file')
@@ -379,9 +446,33 @@ def test_every_redirect_hop_is_checked_even_when_on():
     n = Network(httpx.MockTransport(lambda r: httpx.Response(302, headers={'location': 'https://next.test/f'}) if r.url.host == 'public.test'
                                     else httpx.Response(200, content=b'ok', headers={'content-type': 'image/png'})), resolver)
     try:
-        assert n.download('https://public.test/file', fake_ip=True) == (b'ok', 'image/png')
+        assert n.download('https://public.test/file', fake_ip=lambda: True) == (b'ok', 'image/png')
     finally:
         n.close()
+
+
+def test_each_redirect_hop_reads_the_setting_again(router, workspace):
+    """Turned off between two hops: the next hop is checked with the setting off, so it is refused."""
+    fixture = FixtureProvider()
+    def resolver(host, port, *args, **kwargs):
+        return answers('198.18.0.21')(host, port) if host.endswith('example.test') else fixture_resolver()
+    hops = []
+    def handler(r):
+        if r.url.host == 'assets.example.test':
+            hops.append(r.url.host)
+            set_fake_ip_tunnel(State(router.state.home), False)  # The owner's console, meanwhile.
+            return httpx.Response(302, headers={'location': 'https://cdn.example.test/image.png'})
+        if r.url.host == 'cdn.example.test':
+            hops.append(r.url.host)
+            return httpx.Response(200, content=b'never', headers={'content-type': 'image/png'})
+        return fixture(r)
+    router.net = Network(httpx.MockTransport(handler), resolver)
+    set_fake_ip_tunnel(router.state, True)
+    job = router.run('fal.generate', {'endpoint': 'fal-ai/flux/schnell', 'arguments': {'prompt': 'x'}}, workspace, allow_paid=True)
+    failed = router.refresh(job['id'])
+    assert hops == ['assets.example.test'], hops
+    assert failed['status'] == 'download_failed' and failed['data']['error']['code'] == 'unsafe_download'
+    assert failed['data']['error']['hint'] == 'fake_ip_tunnel'
 
 
 def test_recipe_origins_honour_the_setting(router):

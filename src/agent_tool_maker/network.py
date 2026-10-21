@@ -11,13 +11,19 @@ from .storage import canonical
 MAX_RESPONSE = 128 * 1024 * 1024
 # RFC 2544 benchmarking range. Fake-IP proxy tunnels (Shadowrocket, Clash, Surge) answer every name from it.
 FAKE_IP = ipaddress.ip_network("198.18.0.0/15")
+# IPv6 forms that carry an IPv4 address (Python's is_global judges the IPv6 form, not the address inside).
+IPV4_TRANSLATED = ipaddress.ip_network("::ffff:0:0:0/96")
+NAT64 = ipaddress.ip_network("64:ff9b::/96")  # 64:ff9b:1::/48 (local-use NAT64) is already non-global.
 NETWORK_SETTING = "network"
 
 
 def network_settings(state) -> dict:
     """Owner network options. Read at every address check, so a change reaches the console, the CLI,
     the broker and the background OAuth worker without a restart. Anything but an exact true is off."""
-    value = state.setting(NETWORK_SETTING, {})
+    try:
+        value = state.setting(NETWORK_SETTING, {})
+    except ValueError:  # A row that is not JSON reads as off; the owner's next change overwrites it.
+        value = {}
     value = value if isinstance(value, dict) else {}
     changed = value.get("changed_at")
     return {"fake_ip_tunnel": value.get("fake_ip_tunnel") is True,
@@ -35,14 +41,18 @@ def set_fake_ip_tunnel(state, enabled, *, expected=None) -> dict:
     with state.db() as db:
         db.execute("BEGIN IMMEDIATE")
         row = db.execute("SELECT value FROM settings WHERE name=?", (NETWORK_SETTING,)).fetchone()
-        current = json.loads(row[0]) if row else {}
+        try:
+            current = json.loads(row[0]) if row else {}
+        except ValueError:
+            current = {}
         current = current if isinstance(current, dict) else {}
         previous = current.get("fake_ip_tunnel") is True
         if expected is not None and previous is not expected:
             raise RouterError("state_changed", "Network setting changed; refresh before applying.")
         if previous != enabled:
+            now = time.time()
             db.execute("INSERT OR REPLACE INTO settings VALUES (?,?)",
-                       (NETWORK_SETTING, canonical({**current, "fake_ip_tunnel": enabled, "changed_at": time.time()})))
+                       (NETWORK_SETTING, canonical({**current, "fake_ip_tunnel": enabled, "changed_at": now})))
     return {**network_settings(state), "previous": previous,
             "action": "unchanged" if previous == enabled else "enable" if enabled else "disable"}
 
@@ -69,6 +79,20 @@ def fake_ip_answer(address) -> bool:
     return address.version == 4 and address in FAKE_IP
 
 
+def plain_global(address) -> bool:
+    """Stricter than is_global, for the answers the owner's Fake-IP setting lets through beside 198.18.0.0/15:
+    unicast and not reserved, IPv6 site-local, or an IPv4-mapped, -compatible or -translated IPv6 form. A NAT64
+    address counts only when the IPv4 address inside it would. With the setting off, is_global is used unchanged."""
+    if not address.is_global or address.is_multicast:
+        return False
+    if address.version == 4:
+        return not address.is_reserved
+    if address in NAT64:
+        return plain_global(ipaddress.IPv4Address(int(address) & 0xFFFFFFFF))
+    return not (address.is_reserved or address.is_site_local or address.ipv4_mapped is not None
+                or int(address) >> 32 == 0 or address in IPV4_TRANSLATED)
+
+
 def checked_url(url: str, hosts: set[str] | None = None) -> str:
     try:
         p = urlsplit(url)
@@ -85,8 +109,9 @@ def checked_url(url: str, hosts: set[str] | None = None) -> str:
 def public_address(url, resolver=socket.getaddrinfo, *, fake_ip=False):
     """Every resolved address must be global. With the owner's Fake-IP setting (`fake_ip`), a DNS name may
     also resolve to plain IPv4 198.18.0.0/15: such an answer names no destination, so the local proxy, not
-    this check, decides where the connection goes. Address literals never use that exemption, and one
-    other non-global answer still refuses the whole set. HTTPS certificate checks are unchanged."""
+    this check, decides where the connection goes. Address literals never use that exemption, and every
+    other answer in the set must then be plain global unicast (`plain_global`), or the whole set is refused.
+    HTTPS certificate checks are unchanged."""
     host = urlsplit(checked_url(url)).hostname
     try:
         literal = ipaddress.ip_address(host)
@@ -98,12 +123,14 @@ def public_address(url, resolver=socket.getaddrinfo, *, fake_ip=False):
         addresses = resolver(host, 443, type=socket.SOCK_STREAM)
     except OSError:
         raise RouterError("dns_error", "Could not resolve artifact host.") from None
-    refused = [a for a in (ipaddress.ip_address(item[4][0]) for item in addresses) if not a.is_global]
-    # Only Fake-IP answers stand between this name and the request: the owner's setting would admit it.
-    tunnel = bool(refused) and all(fake_ip_answer(a) for a in refused) and not numeric_host(host)
-    if not addresses or refused and not (tunnel and fake_ip):
+    answers = [ipaddress.ip_address(item[4][0]) for item in addresses]
+    # What the owner's setting admits: a DNS name's plain Fake-IP answers, every other answer plain global unicast.
+    named = any(fake_ip_answer(a) for a in answers) and not numeric_host(host)
+    admitted = bool(answers) and all(named and fake_ip_answer(a) or plain_global(a) for a in answers)
+    if not (admitted if fake_ip else answers and all(a.is_global for a in answers)):
+        # The hint offers the setting only when turning it on would admit this exact set.
         raise RouterError("unsafe_download", "Artifact host resolves to a private, local or special-purpose address.",
-                          hint="fake_ip_tunnel" if tunnel else None)
+                          hint="fake_ip_tunnel" if admitted and not fake_ip else None)
 
 
 class Network:
@@ -154,11 +181,11 @@ class Network:
         except (ValueError, UnicodeDecodeError):
             raise RouterError("upstream_schema", "Provider did not return a JSON object.",uncertain=submission) from None
 
-    def download(self, url, max_bytes=MAX_RESPONSE, *, fake_ip=False):
+    def download(self, url, max_bytes=MAX_RESPONSE, *, fake_ip=lambda: False):
         """Public HTTPS only; no API headers/cookies. DNS check is defense-in-depth, not a sandbox.
-        Every redirect hop is checked again, with the same owner Fake-IP setting."""
+        Every redirect hop is checked again and reads the owner's Fake-IP setting again (`fake_ip()`)."""
         for _ in range(4):
-            public_address(url,self.resolver,fake_ip=fake_ip)
+            public_address(url,self.resolver,fake_ip=fake_ip())
             try:
                 # A separate client prevents provider Set-Cookie state reaching artifact hosts.
                 self.artifact_client.cookies.clear()

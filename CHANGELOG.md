@@ -3,9 +3,12 @@
 - Owner setting, off by default: with a Fake-IP proxy (Shadowrocket, Clash, Surge) every name resolves into
   198.18.0.0/15, which the resolved-address check refused before any request (OAuth login and refresh, MCP HTTP,
   downloads on every redirect hop, web-recipe and owner-configured REST origins). When on, a DNS name may also
-  resolve to plain IPv4 198.18.0.0/15; literals, mapped/compatible IPv6 forms, mixed answers and every other
-  non-global address stay refused, and TLS verification and pinned hosts are unchanged. Fake-IP answers carry no
-  destination, so on this machine the proxy, not ATM, vouches for it. Behaviour with the setting off is unchanged.
+  resolve to plain IPv4 198.18.0.0/15, and every other answer in the set must be plain global unicast: literals,
+  mapped/compatible/translated IPv6 forms, NAT64 forms of a non-global IPv4 address, multicast, reserved and every
+  non-global answer refuse the whole set. TLS verification and pinned hosts are unchanged. Each check reads the
+  setting, and each download redirect hop reads it again. A stored value that is not JSON reads as off. Fake-IP
+  answers carry no destination, so on this machine the proxy, not ATM, vouches for it. Behaviour with the setting
+  off is unchanged (Python's `is_global`, as before).
 - Error codes unchanged; an additive `hint: "fake_ip_tunnel"` when Fake-IP answers are the only cause
   (errors, OAuth `last_error_hint`, job errors, `/api/jobs` `error_hint`).
 - Console only: `POST /api/settings/network`, a confirm (C6) from the D11 login error and 设置 › 高级 › 网络; no

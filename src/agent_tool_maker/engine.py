@@ -292,7 +292,7 @@ class Router:
         artifacts=[]
         try:
             for url in urls:
-                data,mime=self.net.download(url,fake_ip=fake_ip_tunnel(self.state))
+                data,mime=self.net.download(url,fake_ip=lambda: fake_ip_tunnel(self.state))
                 artifact=save_artifact(job["workspace"],job["id"],data,mime=mime,hint=urlsplit(url).path,
                                        expected=[".glb"] if tool["adapter"]=="tripo" else None)
                 artifacts.append(artifact)
