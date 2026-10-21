@@ -23,8 +23,8 @@ from test_fake_ip_tunnel import higgsfield_fake_ip
 from test_oauth_refresh import Provider
 
 pytestmark = pytest.mark.browser
-LEAD = '你的网络代理（例如 Shadowrocket、Clash、Surge 的 Fake-IP 模式）把官方地址解析成了 198.18.x.x。ATM 默认不连接这类地址，所以没有发出任何请求。'
-ALLOWED = '已允许。再点一次“打开官方登录页面”。'
+LEAD = '官方地址被解析成了 198.18.x.x（通常是网络代理的 Fake-IP 模式，例如 Shadowrocket、Clash、Surge）。ATM 默认不连接这类地址，所以没有发出任何请求。'
+ALLOWED = '已允许。输入 ATM 主密码后，再点一次“打开官方登录页面”。'  # The fixture vault uses a passphrase.
 TITLE = '允许 ATM 连接本机代理给出的 198.18.x.x 地址？'
 LABEL = '通过本机代理的 Fake-IP 连接（198.18.0.0/15）'
 
@@ -90,13 +90,17 @@ def test_d11_offers_the_switch_and_never_retries_the_login(browser, tmp_path, mo
         body = page.locator('#modal-body')
         for term in ['会改变', '不变', '代价', '另一种做法']:
             expect(body.locator('dt', has_text=term)).to_have_count(1)
-        for text in ['198.18.0.0/15', 'HTTPS 证书', '本机、局域网和其他私有地址', '固定的官方地址', '不能再核对连接的真实目的地址',
-                     'fake-ip-filter', 'always-real-ip', '以你的用户身份运行的程序']:
+        for text in ['198.18.0.0/15', 'HTTPS 证书', '直接解析成本机、局域网或其他私有地址的应答', '固定的官方域名', '不能再核对连接的真实目的地址',
+                     '由代理决定', 'mcp.higgsfield.ai', 'fake-ip-filter', 'always-real-ip', '以你的用户身份运行的程序']:
             expect(body).to_contain_text(text)
+        # Names never break at a hyphen or dot.
+        expect(body.locator('code.nowrap')).to_have_text(['mcp.higgsfield.ai', 'clerk.higgsfield.ai', 'fake-ip-filter', 'always-real-ip', 'atm ui', 'SECURITY.md'])
+        assert body.locator('code.nowrap').first.evaluate('n => getComputedStyle(n).whiteSpace') == 'nowrap'
         actions = page.locator('#modal-actions button')
         expect(actions).to_have_text(['取消', '允许'])
         expect(page.locator('#modal-actions .primary')).to_have_text('允许')
-        expect(page.locator('#modal-actions .primary')).to_be_focused()
+        # It loosens a check: the focus starts on 取消, not on 允许.
+        expect(page.locator('#modal-actions').get_by_role('button', name='取消', exact=True)).to_be_focused()
         page.locator('#modal-actions').get_by_role('button', name='取消', exact=True).click()
         expect(page.locator('#modal-title')).to_have_text('登录 Higgsfield（ATM 登录）')
         expect(alert).to_contain_text(LEAD)
@@ -108,6 +112,11 @@ def test_d11_offers_the_switch_and_never_retries_the_login(browser, tmp_path, mo
         expect(alert).to_have_text(ALLOWED)
         expect(alert).to_have_attribute('role', 'status')
         expect(page.locator('#modal').get_by_role('button', name='允许通过本机代理连接…')).to_have_count(0)
+        # The failed attempt cleared the password: the field is focused, empty and in view.
+        password = page.locator('#modal').get_by_label('ATM 主密码', exact=True)
+        expect(password).to_be_focused()
+        expect(password).to_have_value('')
+        expect(password).to_be_in_viewport()
         assert bodies(log, '/api/settings/network') == [{'fake_ip_tunnel': True, 'expected': False}]
         assert fake_ip_tunnel(State(info['home'])) is True and page.evaluate('data.overview.network.fake_ip_tunnel') is True
         # No automatic retry of the login or any other network action.
@@ -198,7 +207,7 @@ def test_a_download_stopped_by_fake_ip_links_to_the_switch(browser, tmp_path, mo
             'code': 'unsafe_download', 'message': 'Artifact host resolves to a private, local or special-purpose address.',
             'outcome_uncertain': False, 'hint': 'fake_ip_tunnel'})
         ctx, page, log = open_page(browser, server, info)
-        cause = '把结果文件的地址解析成了 198.18.x.x'
+        cause = '结果文件的地址被解析成了 198.18.x.x'
         line = page.locator(f'#inbox [data-issue="job-needs:{job_id}"]')
         if not line.count():
             page.get_by_role('button', name='再显示').first.click()
@@ -216,3 +225,110 @@ def test_a_download_stopped_by_fake_ip_links_to_the_switch(browser, tmp_path, mo
         # Only the range is named; no resolved address reached the page.
         assert set(re.findall(r'198\.1[89]\.\d+\.\d+(?:/\d+)?', page.content())) <= {'198.18.0.0/15'}
         ctx.close()
+
+
+def fail_login_then_refresh(page, expect):
+    """The real login fails on the Fake-IP answers, the owner closes D11 and refreshes."""
+    open_login(page, expect)
+    expect(page.locator('#modal-alert')).to_contain_text(LEAD)
+    page.keyboard.press('Escape')
+    expect(page.locator('#modal')).to_be_hidden()
+    page.evaluate('refresh()')
+    expect(page.locator('li.route[data-kind=oauth]')).to_contain_text(LEAD)
+
+
+@pytest.mark.parametrize('width', [1440, 390])
+def test_route_and_inbox_allow_then_focus_the_login_again(browser, tmp_path, monkeypatch, provider, width):
+    from playwright.sync_api import expect
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        without_atm_login(info)
+        ctx, page, log = open_page(browser, server, info, width=width, height=900)
+        fail_login_then_refresh(page, expect)
+        route = page.locator('li.route[data-kind=oauth]')
+        # The code is under 技术信息; the raw "最近一次续期失败" fact is gone.
+        expect(route).not_to_contain_text('最近一次续期失败')
+        expect(route.locator('details summary', has_text='技术信息')).to_have_count(1)
+        # 首页: the line offers the switch, not a login that would fail again.
+        go(page, 'overview')
+        line = page.locator('#inbox [data-issue="oauth:needs_login"]')
+        expect(line).to_contain_text(LEAD)
+        expect(line.get_by_role('button', name='允许通过本机代理连接…')).to_be_visible()
+        go(page, 'services/higgsfield')
+        allow = route.get_by_role('button', name='允许通过本机代理连接…', exact=True)
+        # Keyboard: Enter opens C6 on 取消, a second Enter only closes it.
+        allow.focus()
+        page.keyboard.press('Enter')
+        expect(page.locator('#modal-title')).to_have_text(TITLE)
+        page.keyboard.press('Enter')
+        expect(page.locator('#modal')).to_be_hidden()
+        expect(allow).to_be_focused()
+        assert bodies(log, '/api/settings/network') == [] and fake_ip_tunnel(State(info['home'])) is False
+        allow.click()
+        page.locator('#modal-actions').get_by_role('button', name='允许', exact=True).click()
+        expect(page.locator('#modal')).to_be_hidden()
+        # The allow button is gone; the focus is on the login it unblocked, and the toast says to click it.
+        expect(route.get_by_role('button', name='允许通过本机代理连接…')).to_have_count(0)
+        expect(page.locator('#main [data-key="route:oauth:oauth:重新登录"]')).to_be_focused()
+        expect(page.locator('#toast')).to_have_text('已允许。再点“重新登录”。')
+        expect(route).not_to_contain_text(LEAD)
+        expect(route.locator('details summary', has_text='技术信息')).to_have_count(0)
+        go(page, 'overview')
+        expect(line.get_by_role('button', name='重新登录')).to_be_visible()
+        # Nothing was retried.
+        assert len(bodies(log, '/api/oauth/login')) == 1 and provider.requests == [] and provider.opened == []
+        assert bodies(log, '/api/settings/network') == [{'fake_ip_tunnel': True, 'expected': False}]
+        assert not log['errors'], log['errors']
+        ctx.close()
+        time.sleep(1.5)
+
+
+def test_inbox_allow_returns_focus_to_the_line(browser, tmp_path, monkeypatch, provider):
+    from playwright.sync_api import expect
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        without_atm_login(info)
+        ctx, page, log = open_page(browser, server, info)
+        fail_login_then_refresh(page, expect)
+        go(page, 'overview')
+        line = page.locator('#inbox [data-issue="oauth:needs_login"]')
+        line.get_by_role('button', name='允许通过本机代理连接…').click()
+        expect(page.locator('#modal-title')).to_have_text(TITLE)
+        page.locator('#modal-actions').get_by_role('button', name='允许', exact=True).click()
+        expect(page.locator('#modal')).to_be_hidden()
+        expect(page.locator('#main [data-key="inbox:oauth:needs_login"]')).to_be_focused()
+        expect(page.locator('#main [data-key="inbox:oauth:needs_login"]')).to_have_text(re.compile('^重新登录'))
+        expect(page.locator('#toast')).to_have_text('已允许。再点“重新登录”。')
+        assert len(bodies(log, '/api/oauth/login')) == 1 and provider.requests == []
+        ctx.close()
+        time.sleep(1.5)
+
+
+@pytest.mark.parametrize('opened_from', ['settings', 'd11'])
+def test_allow_when_another_tab_already_allowed(browser, tmp_path, monkeypatch, provider, opened_from):
+    """Two writes: the other tab turned it on while C6 was open. The 409 refreshes and counts as allowed."""
+    from playwright.sync_api import expect
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        without_atm_login(info)
+        ctx, page, log = open_page(browser, server, info)
+        if opened_from == 'settings':
+            go(page, 'settings/advanced')
+            page.locator('#main [data-key="network:fake-ip"]').click()
+        else:
+            open_login(page, expect)
+            page.locator('#modal').get_by_role('button', name='允许通过本机代理连接…', exact=True).click()
+        expect(page.locator('#modal-title')).to_have_text(TITLE)
+        set_fake_ip_tunnel(State(info['home']), True, expected=False)  # The other tab.
+        page.locator('#modal-actions').get_by_role('button', name='允许', exact=True).click()
+        if opened_from == 'settings':
+            expect(page.locator('#modal')).to_be_hidden()
+            switch = page.locator('#main [data-key="network:fake-ip"]')
+            expect(switch).to_have_attribute('aria-checked', 'true')
+            expect(switch).to_be_focused()
+            expect(page.locator('#toast')).to_have_text('已允许通过本机代理连接（198.18.0.0/15）。')
+        else:
+            expect(page.locator('#modal-title')).to_have_text('登录 Higgsfield（ATM 登录）')
+            expect(page.locator('#modal-alert')).to_have_text(ALLOWED)
+        assert bodies(log, '/api/settings/network') == [{'fake_ip_tunnel': True, 'expected': False}]
+        assert page.evaluate('data.overview.network.fake_ip_tunnel') is True
+        assert fake_ip_tunnel(State(info['home'])) is True and not log['errors'], log['errors']
+        ctx.close()
+        time.sleep(1.5)

@@ -429,7 +429,7 @@ function runAction(a, opener) {
     case 'vault': return vaultDialog();
     case 'tool': return toolDialog(t.id);
     case 'oauth': return oauthDialog({keep:Boolean(t.keep)});
-    case 'fake-ip': return fakeIpConfirm();
+    case 'fake-ip': return fakeIpConfirm({next:t.next||''});
     case 'stop-renew': return stopRenewConfirm();
     case 'unregister': return unregisterConfirm(t.agent, t.label);
   }
@@ -806,6 +806,7 @@ function routeRow(r, s) {
   for(const p of r.body)body.push(el('p',{},p));
   if(r.info)body.push(el('div',{class:'info'},...r.info.map(line=>el('p',{},line))));
   if(r.facts.length)body.push(facts(r.facts));
+  if(r.tech)body.push(details('tech:'+r.anchor,'技术信息',el('code',{},r.tech)));
   for(const c of r.commands)body.push(commandBox(c.text,c.label));
   if(r.commands.length)body.push(el('div',{},ranCommand()));
   if(r.check||r.open){
@@ -1418,7 +1419,7 @@ function disablePasskeyDialog(credential){
     },'primary danger')]});
 }
 // Higgsfield's ATM OAuth login (keeps the reviewed /api/oauth/login flow).
-function oauthDialog({keep=false, replace=false, notice='', error=null}={}) {
+function oauthDialog({keep=false, replace=false, allowed=false, error=null}={}) {
   const o=(data.connections?.oauth||[])[0]||{provider:'higgsfield',status:'missing'};
   const keyring=data.connections.vault.backend==='keyring';
   const keepBox=el('input',{type:'checkbox',checked:keep&&keyring,disabled:!keyring});
@@ -1437,21 +1438,41 @@ function oauthDialog({keep=false, replace=false, notice='', error=null}={}) {
         toast(r.browser_opened?'请在打开的官方页面完成登录和授权，然后点“刷新状态”。':'登录窗口没有打开，或者已有一个登录在进行。请查看 Higgsfield 的“ATM 登录”状态。');
       }finally{password=null;if(pass)pass.input.value='';}
     },'primary')],
+    // Back from C6 with the setting allowed: a passphrase was cleared by the failed attempt, so it is asked for again.
+    focus:allowed&&pass?pass.input:null,
     reopen:state=>oauthDialog({keep:keepBox.checked,replace:replaceBox.checked,...state})});
-  if(notice)showNotice(notice);
+  if(allowed){
+    const text=pass?T.network.allowedPassphrase:T.network.allowed;
+    showNotice(text);announce(text);pass?.input.scrollIntoView({block:'nearest'});
+  }
   else if(error)showAlert(errorText(error),{error});
 }
+// Copy text with ATM's literal names (hosts, proxy options) as unbreakable code.
+function withLiterals(text) {
+  const escaped=T.networkLiterals.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  return text.split(new RegExp('('+escaped.join('|')+')')).map((part,i)=>i%2?el('code',{class:'nowrap'},part):part).filter(Boolean);
+}
 // C6: the owner lets ATM connect to the local proxy's Fake-IP answers. Opened from a dialog's error, it returns there
-// (取消 with that error, 允许 with a notice); opened from settings or a route, it closes. It sends only the setting.
-function fakeIpConfirm({back=null, error=null}={}) {
+// (取消 with that error, 允许 with a notice); opened from settings, a route or the inbox, it closes, and `next` names
+// the login to click again. It sends only the setting and never retries anything. It loosens a check, so the focus
+// starts on 取消: two Enters never turn it on unread.
+function fakeIpConfirm({back=null, error=null, next=''}={}) {
   const N=T.network;
   const undo=el('button',{type:'button',class:'secondary',onclick:()=>back?back({error}):closeModal()},'取消');
-  openModal({title:N.title,body:[facts([['会改变',N.changes],['不变',N.stays],['代价',N.tradeoff],['另一种做法',N.alternative]]),el('p',{class:'quiet'},N.owner)],
+  openModal({title:N.title,body:[facts([['会改变',N.changes],['不变',N.stays],['代价',N.tradeoff],['另一种做法',withLiterals(N.alternative)]]),el('p',{class:'quiet'},withLiterals(N.owner))],
+    focus:undo,
     actions:[undo,btn(N.confirm,async()=>{
-      await api('/api/settings/network',{fake_ip_tunnel:true,expected:false});
+      let stale=null;
+      try{await api('/api/settings/network',{fake_ip_tunnel:true,expected:false});}
+      catch(e){if(e.code!=='state_changed')throw e;stale=e;}
       await refresh();
-      if(back){back({notice:N.allowed});announce(N.allowed);return;}
-      closeModal();toast(N.done);announce(N.done);
+      // 409: changed elsewhere meanwhile (another tab). Turned on there is the same result; anything else is reported.
+      if(stale&&!fakeIpOn())throw stale;
+      if(back){back({allowed:true});return;}
+      // The allow button is gone after the refresh: the focus moves to the login it unblocked.
+      if(next)ui.successor=['route:oauth:oauth:'+next];
+      closeModal();
+      const done=next?T.allowedNext(next):N.done;toast(done);announce(done);
     },'primary')]});
 }
 function confirmDialog({title, body, label, danger=true, run, detail=null}) {
