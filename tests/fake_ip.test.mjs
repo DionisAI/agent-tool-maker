@@ -60,7 +60,9 @@ test('the Fake-IP copy is complete, has no raw placeholder and keeps CJK-Latin s
   for (const word of ['HTTPS 证书', '本机、局域网和其他私有地址', '固定的官方地址']) assert.ok(N.stays.includes(word), word);
   assert.ok(N.tradeoff.includes('真实目的地址') && N.tradeoff.includes('代理负责'));
   for (const word of ['fake-ip-filter', 'always-real-ip', 'Clash', 'Surge', 'Shadowrocket']) assert.ok(N.alternative.includes(word), word);
-  assert.ok(N.owner.includes('Agent 和命令行都不能'));
+  // Honest about the boundary: no ATM command writes it, but a program running as the owner can (SECURITY.md).
+  for (const word of ['没有 ATM 命令', '以你的用户身份运行的程序', 'SECURITY.md']) assert.ok(N.owner.includes(word), word);
+  assert.ok(!N.owner.includes('都不能'));
   const texts = Object.entries(plain(N));
   assert.ok(texts.length >= 20);
   for (const [key, text] of texts) {

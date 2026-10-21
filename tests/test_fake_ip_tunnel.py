@@ -235,8 +235,21 @@ def test_set_compares_and_writes_once(tmp_path):
     assert set_fake_ip_tunnel(state, False)['action'] == 'disable' and fake_ip_tunnel(state) is False
 
 
+def test_each_change_is_an_event_without_identity(tmp_path):
+    state = State(tmp_path / 'state')
+    def events():
+        with state.db() as db:
+            return [tuple(row) for row in db.execute("SELECT job_id, kind FROM events WHERE kind LIKE 'network.%' ORDER BY seq")]
+    set_fake_ip_tunnel(state, True, expected=False)
+    set_fake_ip_tunnel(state, True)  # Unchanged: no event.
+    with pytest.raises(RouterError):
+        set_fake_ip_tunnel(state, False, expected=False)  # Refused: no event.
+    set_fake_ip_tunnel(state, False, expected=True)
+    assert events() == [(None, 'network.fake_ip_tunnel.enabled'), (None, 'network.fake_ip_tunnel.disabled')]
+
+
 def test_doctor_and_overview_show_it_read_only(router):
-    assert doctor(router, tool_ids=['ffmpeg.probe'])['network'] == {'fake_ip_tunnel': False, 'set_by': 'owner_console'}
+    assert doctor(router, tool_ids=['ffmpeg.probe'])['network'] == {'fake_ip_tunnel': False, 'write_path': 'console_only'}
     assert mg.overview(router)['network'] == {'fake_ip_tunnel': False, 'changed_at': None}
     set_fake_ip_tunnel(router.state, True)
     assert doctor(router, tool_ids=['ffmpeg.probe'])['network']['fake_ip_tunnel'] is True
@@ -271,7 +284,7 @@ def test_atm_doctor_prints_the_read_only_line(tmp_path):
     assert run('init').returncode == 0
     set_fake_ip_tunnel(State(home), True)
     result = run('doctor', '--tool', 'ffmpeg.probe')
-    assert json.loads(result.stdout)['network'] == {'fake_ip_tunnel': True, 'set_by': 'owner_console'}
+    assert json.loads(result.stdout)['network'] == {'fake_ip_tunnel': True, 'write_path': 'console_only'}
 
 
 # ------------------------------------------------------------------ OAuth: discovery, login and background refresh

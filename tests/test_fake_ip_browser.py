@@ -91,7 +91,7 @@ def test_d11_offers_the_switch_and_never_retries_the_login(browser, tmp_path, mo
         for term in ['会改变', '不变', '代价', '另一种做法']:
             expect(body.locator('dt', has_text=term)).to_have_count(1)
         for text in ['198.18.0.0/15', 'HTTPS 证书', '本机、局域网和其他私有地址', '固定的官方地址', '不能再核对连接的真实目的地址',
-                     'fake-ip-filter', 'always-real-ip', 'Agent 和命令行都不能']:
+                     'fake-ip-filter', 'always-real-ip', '以你的用户身份运行的程序']:
             expect(body).to_contain_text(text)
         actions = page.locator('#modal-actions button')
         expect(actions).to_have_text(['取消', '允许'])

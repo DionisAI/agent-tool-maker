@@ -58,7 +58,7 @@ CLI 不经过 shell，不接受任意额外参数字符串。绑定入口 SHA-25
 
 Pandoc Markdown 动作使用其 `--sandbox`。部分 Pandoc 发行版的 DOCX 默认数据在 sandbox 中不可读，因此 DOCX 动作**显式要求 execute_code，使用固定无过滤器命令而不宣称有 Pandoc sandbox**；仅对可信本地文档运行。它没有偷偷将受限制模式重试为不受限制模式，而是独立声明的动作策略。
 
-动态和用户自建 HTTPS origin 做公共地址检查，但尚未把 DNS 解析结果固定到 TLS socket，DNS rebinding 仍是边界。所有者在管理台打开 Fake-IP 选项后，域名解析到 `198.18.0.0/15` 也被接受：这类应答不含真实目的地址，检查交给本机代理负责（默认关闭，CLI 不能打开）。MCP HTTP 同样不声称彻底消除 rebinding。CLI 临时输出文件在程序退出前无磁盘配额，只有返回大小/任务超时限制。Windows 完整 ACL 和进程组行为未实测。
+动态和用户自建 HTTPS origin 做公共地址检查，但尚未把 DNS 解析结果固定到 TLS socket，DNS rebinding 仍是边界。所有者在管理台打开 Fake-IP 选项后，域名解析到 `198.18.0.0/15` 也被接受：这类应答不含真实目的地址，检查交给本机代理负责。它默认关闭，没有 CLI 命令或配置文件能打开它；但和管理台的其他写入一样，以同一用户身份运行的程序可以自己启动 `atm ui`、读取 0600 会话文件后调用接口，所以这不是同用户隔离。每次更改写入一条 `events`（`network.fake_ip_tunnel.enabled/disabled`）。MCP HTTP 同样不声称彻底消除 rebinding。CLI 临时输出文件在程序退出前无磁盘配额，只有返回大小/任务超时限制。Windows 完整 ACL 和进程组行为未实测。
 
 凭证表与独立 OAuth 连接表加密，job 参数、响应正文、网页来源链接和工作文件可能包含隐私。脱敏是尽力防意外回显，并不能识别服务端生成的所有敏感数据。尤其 OpenCLI 登录态、signed URL、客户和项目资料不应写到公开日志或共享仓库。
 

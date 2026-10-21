@@ -53,6 +53,9 @@ def set_fake_ip_tunnel(state, enabled, *, expected=None) -> dict:
             now = time.time()
             db.execute("INSERT OR REPLACE INTO settings VALUES (?,?)",
                        (NETWORK_SETTING, canonical({**current, "fake_ip_tunnel": enabled, "changed_at": now})))
+            # The owner can see when it changed (`events`); no identity, address or host is recorded.
+            db.execute("INSERT INTO events(job_id,kind,at) VALUES (NULL,?,?)",
+                       ("network.fake_ip_tunnel." + ("enabled" if enabled else "disabled"), now))
     return {**network_settings(state), "previous": previous,
             "action": "unchanged" if previous == enabled else "enable" if enabled else "disable"}
 

@@ -149,7 +149,7 @@
     stays: '仍然检查 HTTPS 证书；仍然拒绝本机、局域网和其他私有地址；ATM 固定的官方地址（例如 Higgsfield 登录地址）不变。',
     tradeoff: '在这台电脑上，ATM 不能再核对连接的真实目的地址，这件事交给你的代理负责。',
     alternative: '在代理里让这些域名返回真实 IP（Clash 用 fake-ip-filter；Surge、Shadowrocket 用 always-real-ip），就不需要打开这个选项。',
-    owner: '只有你能在管理台里更改，Agent 和命令行都不能；随时可以在“设置 › 高级”里关闭。',
+    owner: '没有 ATM 命令或配置文件能更改它；但以你的用户身份运行的程序（例如自己启动 atm ui 并读取会话文件的程序）可以，见 SECURITY.md。随时可以在“设置 › 高级”里关闭。',
     label: '通过本机代理的 Fake-IP 连接（198.18.0.0/15）',
     help: '代理的 Fake-IP 模式会把域名都解析成 198.18.x.x。打开后，ATM 连接这类地址，真实的目的地址由代理负责。',
     stateOff: '已关闭（默认）', offDetail: 'ATM 不连接 198.18.x.x 地址。',

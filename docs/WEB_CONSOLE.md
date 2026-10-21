@@ -13,8 +13,10 @@ Shadowrocket、Clash、Surge 的 Fake-IP 模式把每个域名都解析成 `198.
 - 唯一的写入接口：`POST /api/settings/network`，body `{"fake_ip_tunnel": bool, "expected"?: bool}`，
   使用管理台的 bearer 与精确 Origin/Host 检查，字段校验与其他写入相同，`expected` 不符时返回 409
   `state_changed`；返回新的状态。只读：`GET /api/overview` 的 `network`（`fake_ip_tunnel`、`changed_at`）、
-  `GET /api/jobs` 行上的 `error_hint`（只有提示，没有主机名或地址）和 `atm doctor` 的 `network`。
-  没有 CLI 写入命令（Agent 通过 CLI 工作，不能放宽这项检查）；本机授权窗口也没有这个接口。
+  `GET /api/jobs` 行上的 `error_hint`（只有提示，没有主机名或地址）和 `atm doctor` 的 `network`
+  （`"write_path": "console_only"`）。没有 CLI 写入命令或配置文件（Agent 通过 CLI 工作）；本机授权窗口也没有这个接口。
+  这不是同用户隔离：以你的用户身份运行的程序可以自己启动 `atm ui`、读取会话文件后调用这个接口，和管理台的其他写入
+  一样（见 SECURITY.md）。每次更改写入一条 `events`（`network.fake_ip_tunnel.enabled/disabled`）。
 - 打开后仍检查 HTTPS 证书，仍拒绝本机、局域网和其他私有地址、IP 字面量和混合应答，固定的官方地址不变。
   Fake-IP 应答不含真实目的地址，所以这一检查交给本机代理负责。详见 docs/OAUTH_REFRESH.md。
 

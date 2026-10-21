@@ -65,7 +65,7 @@ MCP HTTP 绑定可使用：
 的 Fake-IP 模式会把每个域名都解析到这里）时，错误另带 `"hint": "fake_ip_tunnel"`，
 连接状态保存 `last_error_hint`；管理台据此用中文说明原因，并提供“允许通过本机代理连接…”。
 
-**Fake-IP 选项（默认关闭，只能由所有者在管理台“设置 › 高级 › 网络”里打开）**：打开后，
+**Fake-IP 选项（默认关闭，只在管理台“设置 › 高级 › 网络”里打开）**：打开后，
 官方域名解析到普通 IPv4 `198.18.0.0/15` 也被接受。登录、后台续期、MCP 交换、网页配方和自建 API
 地址在每次检查时读取这个设置，下载在每一跳重定向时都重新读取，不需要重启；存储的值不是 JSON 时按关闭处理。
 其余规则不变：HTTPS 证书校验、固定的 issuer/resource/端点、`checked_url`，以及本机、局域网、链路本地、
@@ -75,8 +75,10 @@ IPv4 的 NAT64 地址（`64:ff9b::/96`），只要出现一个，整组应答就
 （Python `ipaddress` 的 `is_global`；它把单独出现的组播、IPv4 兼容和 NAT64 形式算作公网，这是原有行为）。
 
 如实说明代价：Fake-IP 应答不携带真实目的地址，ATM 在这台电脑上无法再核对连接
-的去向，这一检查交给本机代理负责。这是所有者明确选择的放宽，Agent 和 CLI 都不能
-打开它（没有对应命令）。不需要放宽的做法是在代理里让这些域名返回真实 IP（Clash
+的去向，这一检查交给本机代理负责。这是所有者明确选择的放宽：没有 CLI 命令或配置文件能打开它，
+`atm doctor` 显示 `"write_path": "console_only"`，每次更改记一条 `events`（`network.fake_ip_tunnel.enabled/disabled`）。
+这不是同用户隔离：以你的用户身份运行的程序（包括 Agent）可以自己启动 `atm ui`、读取会话文件后调用管理台接口，
+见 SECURITY.md。不需要放宽的做法是在代理里让这些域名返回真实 IP（Clash
 `fake-ip-filter`；Surge / Shadowrocket `always-real-ip`）。ATM 仍不自动修改代理、DNS
 或全局网络设置，也不读取系统代理（`trust_env=False`），打开后也不会自动重试登录。
 

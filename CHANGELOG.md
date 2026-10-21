@@ -12,7 +12,10 @@
 - Error codes unchanged; an additive `hint: "fake_ip_tunnel"` when Fake-IP answers are the only cause
   (errors, OAuth `last_error_hint`, job errors, `/api/jobs` `error_hint`).
 - Console only: `POST /api/settings/network`, a confirm (C6) from the D11 login error and 设置 › 高级 › 网络; no
-  CLI write path. Read-only in `GET /api/overview` and `atm doctor`. Nothing is retried automatically.
+  CLI write path or setting file. Like every console write, a program running as the same user can start `atm ui`
+  and use its token file, so this is not same-user isolation (SECURITY.md). Each change adds an `events` row
+  (`network.fake_ip_tunnel.enabled/disabled`). Read-only in `GET /api/overview` and `atm doctor`
+  (`"write_path": "console_only"`). Nothing is retried automatically.
 
 # Unreleased — console redesign
 
