@@ -75,8 +75,10 @@ const errorCode = e => e?.code || (/^([a-z][a-z0-9_]*):/.exec(String(e?.message 
 const errorText = e => {
   const code = errorCode(e);
   if (!code) return e?.message ? '操作没有完成：' + e.message : '操作没有完成。';
-  return T.errorText(code);
+  return T.errorText(code, e?.hint);
 };
+// The owner's Fake-IP option (GET /api/overview "network"); only POST /api/settings/network changes it.
+const fakeIpOn = () => T.fakeIpOn(data);
 function report(e) {
   if (e?.gated) return;
   if ($('#modal').open) showAlert(errorText(e), {error: e});
@@ -191,7 +193,7 @@ async function api(path, body) {
   try { r=await fetch(path,opts); } catch { throw Object.assign(new Error('network: 连接不到本机 ATM'),{code:'network'}); }
   const value=await r.json();
   if (!r.ok) {
-    const error=Object.assign(new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成')),{code:value.error?.code,status:r.status,detail:value.error?.message});
+    const error=Object.assign(new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成')),{code:value.error?.code,status:r.status,detail:value.error?.message,hint:value.error?.hint});
     // Only an answer for the current bearer ends the session; a late reply for an old one must not.
     // The gate then says why in Chinese, so callers do not repeat it in a toast.
     if(r.status===401&&sent===token) {forget(value.error?.code==='session_expired'?'session_expired':sent===typed?'rejected':'unauthorized');error.gated=true;}
@@ -220,12 +222,13 @@ async function refresh() {
   }
 }
 // The control that opened a dialog. action() disables (and so blurs) the clicked button, hence lastFocus.
-let modalReturn=null, modalReturnKey='', modalPending=false, lastFocus=null;
+let modalReturn=null, modalReturnKey='', modalPending=false, lastFocus=null, modalReopen=null;
 document.addEventListener('focusin',e=>{if(!$('#modal').contains(e.target))lastFocus=e.target;});
 
 // ---- Dialog kit ----
-function openModal({title, steps=null, body=[], actions=[], focus=null, wide:isWide=false}) {
+function openModal({title, steps=null, body=[], actions=[], focus=null, wide:isWide=false, reopen=null}) {
   const m=$('#modal');
+  modalReopen=reopen;
   $('#modal-title').textContent=title;
   renderSteps(steps);
   $('#modal-body').replaceChildren(...[body].flat(2).filter(c=>c!==null&&c!==undefined&&c!==false));
@@ -262,15 +265,23 @@ function restoreFocus() {
 function closeModal() {$('#modal').close();$('#modal-body').replaceChildren();$('#modal-actions').replaceChildren();clearAlert();restoreFocus();}
 function showAlert(message, {field=null, error=null}={}) {
   const n=$('#modal-alert');
+  n.classList.remove('ok');
   n.replaceChildren(message);
   const code=errorCode(error);
   if(code.startsWith('passkey_')) n.append(el('code',{},code));
-  else if(error&&code&&!T.knownError(code)&&error.detail) n.append(el('details',{},el('summary',{},'技术信息'),el('p',{},error.detail)));
+  else if(error&&code&&(!T.knownError(code)||T.keepsDetail(code))&&error.detail) n.append(el('details',{},el('summary',{},'技术信息'),el('p',{},error.detail)));
+  // Only a refusal caused by the proxy's Fake-IP answers offers the owner's switch; it never retries anything.
+  if(T.fakeIpHint(code,error?.hint)&&!fakeIpOn()){const back=modalReopen;
+    n.append(el('span',{class:'alert-actions'},el('button',{type:'button',class:'secondary','data-key':'fake-ip:allow',onclick:()=>fakeIpConfirm({back,error})},T.network.allow)));}
   n.setAttribute('role','alert'); n.hidden=false;
   if(field){field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby','modal-alert');field.focus();}
 }
+// A success line in the alert's place (it replaces an error there).
+function showNotice(message) {
+  const n=$('#modal-alert'); n.replaceChildren(message); n.classList.add('ok'); n.setAttribute('role','status'); n.hidden=false;
+}
 function clearAlert() {
-  const n=$('#modal-alert'); n.hidden=true; n.replaceChildren(); n.removeAttribute('role');
+  const n=$('#modal-alert'); n.hidden=true; n.replaceChildren(); n.removeAttribute('role'); n.classList.remove('ok');
   $('#modal-body')?.querySelectorAll('[aria-invalid=true]').forEach(f=>{f.removeAttribute('aria-invalid');if(f.getAttribute('aria-describedby')==='modal-alert')f.removeAttribute('aria-describedby');});
 }
 const status = text => { $('#modal-status').textContent=text; };
@@ -397,7 +408,12 @@ $('#session-action').addEventListener('click', action(async () => {
 // ---- Actions from the model ----
 function runAction(a, opener) {
   const t=a.target;
-  if (a.kind==='nav') { if (a.job) { ui.jobs.add(a.job); ui.focusJob=a.job; jobFilters.group='all'; } go(t); return; }
+  if (a.kind==='nav') {
+    if (a.job) { ui.jobs.add(a.job); ui.focusJob=a.job; jobFilters.group='all'; }
+    go(t, {focus:!a.focus});
+    if (a.focus) { const n=byKey(a.focus); n?.scrollIntoView({block:'center'}); n?.focus({preventScroll:true}); }
+    return;
+  }
   if (a.kind==='route') { openRoute(t); return; }
   if (a.kind==='refresh') return refresh().then(()=>announce('已刷新'));
   if (a.kind==='credits') return refreshCredits(t);
@@ -413,6 +429,7 @@ function runAction(a, opener) {
     case 'vault': return vaultDialog();
     case 'tool': return toolDialog(t.id);
     case 'oauth': return oauthDialog({keep:Boolean(t.keep)});
+    case 'fake-ip': return fakeIpConfirm();
     case 'stop-renew': return stopRenewConfirm();
     case 'unregister': return unregisterConfirm(t.agent, t.label);
   }
@@ -879,6 +896,7 @@ function jobItem(j) {
     stateWord(j.state,j.word),el('span',{class:'line'},zh`${j.verification} · ${j.files} 个文件 · ${j.cost}`,j.kind==='credits_refresh'?' · 读取额度':''));
   const copy=el('button',{type:'button',class:'plain'},'复制');copy.addEventListener('click',()=>copyText(j.id,copy,null));
   const panel=el('div',{class:'job-panel',id,hidden:!open},facts([['任务编号',el('span',{},el('code',{},j.id),' ',copy)],['创建',j.createdText],['更新',j.updatedText],['结果检查',j.verification],['费用',j.cost],...(j.sentence?[['状态说明',j.sentence]]:[])]),
+    j.network?el('div',{class:'actions'},actionButton(j.network,'secondary','job:'+j.id+':network')):null,
     commandBox(`atm jobs get ${j.id} --refresh`,'需要继续时，由 Agent 运行：'));
   return el('li',{},button,panel);
 }
@@ -1054,10 +1072,32 @@ function settingsPrograms() {
   if(st.filter==='all')out.push(el('section',{class:'group'},el('div',{class:'section-head'},el('div',{},el('h2',{},'Agent 程序'),el('small',{},'这里的绑定和是否已安装 ATM 无关；安装 ATM 请到“Agent 与权限”。'))),rows(...rowsOf(agents))));
   return out.filter(Boolean);
 }
+// The owner's Fake-IP switch. Turning it on asks first (C6); turning it off is immediate. Never retries anything.
+function fakeIpSwitch() {
+  const N=T.network, on=fakeIpOn();
+  const node=el('button',{type:'button',class:'switch',role:'switch','aria-checked':String(on),'data-key':'network:fake-ip','aria-describedby':'fake-ip-help fake-ip-state'},
+    el('span',{class:'track',ariaHidden:'true'}),el('span',{class:'switch-text'},N.label));
+  node.addEventListener('click',async()=>{
+    if(node.getAttribute('aria-busy')==='true')return;
+    if(!on){fakeIpConfirm();return;}
+    node.setAttribute('aria-busy','true');
+    try{await api('/api/settings/network',{fake_ip_tunnel:false,expected:true});await refresh();announce(N.off);toast(N.off);}
+    catch(e){if(e.code==='state_changed'){await refresh().catch(report);toast(T.error.state_changed);}else report(e);}
+    finally{if(node.isConnected)node.removeAttribute('aria-busy');}
+  });
+  return node;
+}
+function networkSection() {
+  const N=T.network, on=fakeIpOn(), changed=data.overview?.network?.changed_at;
+  return el('section',{id:'network'},el('div',{class:'section-head'},el('div',{},el('h2',{},'网络'))),el('div',{class:'panel'},
+    el('div',{},fakeIpSwitch()),el('p',{class:'quiet',id:'fake-ip-help'},N.help),
+    el('p',{id:'fake-ip-state'},stateWord(on?'attention':'ready',on?N.stateOn:N.stateOff),el('span',{},on?N.onDetail:N.offDetail),
+      on&&typeof changed==='number'?el('span',{class:'quiet'},zh`${T.datetime(changed)} 起`):null)));
+}
 function settingsAdvanced() {
   const broker=data.access?.broker, home=data.overview?.home||'';
   const copyHome=el('button',{type:'button',class:'plain'},'复制');copyHome.addEventListener('click',()=>copyText(home,copyHome,null));
-  return [
+  return [networkSection(),
     el('section',{id:'broker'},el('div',{class:'section-head'},el('div',{},el('h2',{},'会话 Broker'))),el('div',{class:'panel'},
       el('p',{},'给严格模式用的前台进程，和网页管理台互相独立。由你在私有终端里解锁一次；到期、停止或撤销后会直接拒绝，不会退回去直接读取保管库。'),
       facts([['状态',broker?String(broker.state||broker.status||'运行记录'):'未启动']]),raw('broker',broker||{state:'not_started'},'查看原始状态（JSON）'),
@@ -1378,11 +1418,11 @@ function disablePasskeyDialog(credential){
     },'primary danger')]});
 }
 // Higgsfield's ATM OAuth login (keeps the reviewed /api/oauth/login flow).
-function oauthDialog({keep=false}={}) {
+function oauthDialog({keep=false, replace=false, notice='', error=null}={}) {
   const o=(data.connections?.oauth||[])[0]||{provider:'higgsfield',status:'missing'};
   const keyring=data.connections.vault.backend==='keyring';
   const keepBox=el('input',{type:'checkbox',checked:keep&&keyring,disabled:!keyring});
-  const replaceBox=el('input',{type:'checkbox'});
+  const replaceBox=el('input',{type:'checkbox',checked:replace});
   const pass=data.connections.vault.backend==='passphrase'?masterPasswordField('只用于这一次请求，不写入文件。'):null;
   if(!keyring)keepBox.setAttribute('aria-describedby','keep-reason');
   openModal({title:'登录 Higgsfield（ATM 登录）',body:[el('p',{},'会在系统浏览器里打开 Higgsfield 官方页面。请在那里登录并授权，然后回到这里点“刷新状态”。不会生成内容，也不会消耗订阅额度。higgsfield 程序自己的登录不受影响。'),
@@ -1396,6 +1436,22 @@ function oauthDialog({keep=false}={}) {
         await refresh();closeModal();
         toast(r.browser_opened?'请在打开的官方页面完成登录和授权，然后点“刷新状态”。':'登录窗口没有打开，或者已有一个登录在进行。请查看 Higgsfield 的“ATM 登录”状态。');
       }finally{password=null;if(pass)pass.input.value='';}
+    },'primary')],
+    reopen:state=>oauthDialog({keep:keepBox.checked,replace:replaceBox.checked,...state})});
+  if(notice)showNotice(notice);
+  else if(error)showAlert(errorText(error),{error});
+}
+// C6: the owner lets ATM connect to the local proxy's Fake-IP answers. Opened from a dialog's error, it returns there
+// (取消 with that error, 允许 with a notice); opened from settings or a route, it closes. It sends only the setting.
+function fakeIpConfirm({back=null, error=null}={}) {
+  const N=T.network;
+  const undo=el('button',{type:'button',class:'secondary',onclick:()=>back?back({error}):closeModal()},'取消');
+  openModal({title:N.title,body:[facts([['会改变',N.changes],['不变',N.stays],['代价',N.tradeoff],['另一种做法',N.alternative]]),el('p',{class:'quiet'},N.owner)],
+    actions:[undo,btn(N.confirm,async()=>{
+      await api('/api/settings/network',{fake_ip_tunnel:true,expected:false});
+      await refresh();
+      if(back){back({notice:N.allowed});announce(N.allowed);return;}
+      closeModal();toast(N.done);announce(N.done);
     },'primary')]});
 }
 function confirmDialog({title, body, label, danger=true, run, detail=null}) {
