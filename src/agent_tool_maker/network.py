@@ -22,7 +22,7 @@ def network_settings(state) -> dict:
     the broker and the background OAuth worker without a restart. Anything but an exact true is off."""
     try:
         value = state.setting(NETWORK_SETTING, {})
-    except ValueError:  # A row that is not JSON reads as off; the owner's next change overwrites it.
+    except (ValueError, RecursionError):  # A row that is not JSON (or nests too deep) reads as off; the owner's next change overwrites it.
         value = {}
     value = value if isinstance(value, dict) else {}
     changed = value.get("changed_at")
@@ -43,7 +43,7 @@ def set_fake_ip_tunnel(state, enabled, *, expected=None) -> dict:
         row = db.execute("SELECT value FROM settings WHERE name=?", (NETWORK_SETTING,)).fetchone()
         try:
             current = json.loads(row[0]) if row else {}
-        except ValueError:
+        except (ValueError, RecursionError):
             current = {}
         current = current if isinstance(current, dict) else {}
         previous = current.get("fake_ip_tunnel") is True

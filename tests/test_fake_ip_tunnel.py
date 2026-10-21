@@ -182,6 +182,16 @@ def test_setting_is_off_by_default_and_only_exact_true_is_on(tmp_path):
     assert fake_ip_tunnel(state) is False
 
 
+def test_a_row_nested_too_deep_reads_as_off_and_the_owner_can_replace_it(router):
+    import sqlite3
+    with sqlite3.connect(router.state.path) as db:
+        db.execute("INSERT OR REPLACE INTO settings VALUES ('network', ?)", ('[' * 100000 + ']' * 100000,))
+    assert network_settings(router.state) == {'fake_ip_tunnel': False, 'changed_at': None}
+    assert mg.overview(router)['network']['fake_ip_tunnel'] is False
+    assert set_fake_ip_tunnel(router.state, True, expected=False)['action'] == 'enable'
+    assert fake_ip_tunnel(router.state) is True
+
+
 def test_a_row_that_is_not_json_reads_as_off_and_the_owner_can_replace_it(router, workspace):
     import sqlite3
     with sqlite3.connect(router.state.path) as db:
