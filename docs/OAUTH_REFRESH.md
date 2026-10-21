@@ -60,9 +60,23 @@ MCP HTTP 绑定可使用：
 回调日志、provider body/error_description、授权 URL、令牌均不显示给 Agent。
 事件仅记录 `oauth.connected/refreshed/needs_login/refresh_unknown`，不记录身份或秘密。
 服务 stdout 为限定状态，日志 0600；不存在供应商账单/生成心跳。
-`oauth_dns_policy` 表示本机将官方域名解析为 private/reserved 地址（例如代理 Fake-IP
-的 `198.18.*`）；请求在发出前停止。保持地址检查与 HTTPS 验证，不自动修改代理、DNS
-或全局网络设置；真实登录需先解决所用网络的解析路径。
+`oauth_dns_policy` 表示本机将官方域名解析为 private/reserved 地址；请求在发出前停止。
+错误码不变。原因只是代理 Fake-IP 应答（`198.18.0.0/15`，Shadowrocket、Clash、Surge
+的 Fake-IP 模式会把每个域名都解析到这里）时，错误另带 `"hint": "fake_ip_tunnel"`，
+连接状态保存 `last_error_hint`；管理台据此用中文说明原因，并提供“允许通过本机代理连接…”。
+
+**Fake-IP 选项（默认关闭，只能由所有者在管理台“设置 › 高级 › 网络”里打开）**：打开后，
+官方域名解析到普通 IPv4 `198.18.0.0/15` 也被接受，登录、后台续期、MCP 交换、下载等
+都在每次检查时读取这个设置，不需要重启。其余规则不变：HTTPS 证书校验、固定的
+issuer/resource/端点、`checked_url`，以及本机、局域网、链路本地、CGNAT、ULA、组播等
+非公网应答一律拒绝；IP 字面量（任何数字写法）、IPv4 映射/兼容的 IPv6 形式，以及
+混有任何其他非公网地址的应答也照样拒绝。
+
+如实说明代价：Fake-IP 应答不携带真实目的地址，ATM 在这台电脑上无法再核对连接
+的去向，这一检查交给本机代理负责。这是所有者明确选择的放宽，Agent 和 CLI 都不能
+打开它（没有对应命令）。不需要放宽的做法是在代理里让这些域名返回真实 IP（Clash
+`fake-ip-filter`；Surge / Shadowrocket `always-real-ip`）。ATM 仍不自动修改代理、DNS
+或全局网络设置，也不读取系统代理（`trust_env=False`），打开后也不会自动重试登录。
 
 ## 验收边界
 
@@ -92,5 +106,6 @@ MCP HTTP 绑定可使用：
   `198.18.0.144` / `198.18.0.138`。预检在发请求前停止，状态为 `needs_login`，
   尚未注册 OAuth 客户端、取得 access/refresh token 或安装真实后台服务。代理、DNS、
   HTTPS/地址检查保持原样；未生成内容、扣订阅额度或读取官方 CLI 凭证。
+  （2026-10-20 起可由所有者打开上文的 Fake-IP 选项；默认仍拒绝。）
 - 诊断/测试/安装备份收据：`/private/tmp/atm-oauth-refresh.0FxmUB/`；原生界面截图
   `oauth-console.png`。真实注册、授权、轮换及真实 launchd 运行需要网络路径解决后验证。

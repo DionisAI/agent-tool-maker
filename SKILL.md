@@ -469,7 +469,9 @@ Existing subscription CLI extensions still use the CLI login. Native-keyring
 keep-login installs an opt-in macOS user refresh worker; passphrase mode requires
 explicit local unlock. Neither extends the project's 30-minute Key lease.
 On `needs_login`/`refresh_unknown`, hand off an explicit replacement login; do not
-repeat token exchange or paid tool calls. Consult docs/OAUTH_REFRESH.md for MCP
+repeat token exchange or paid tool calls. An error with `"hint": "fake_ip_tunnel"`
+means the owner's proxy answers 198.18.x.x: tell the owner; only they can allow it in
+`atm ui` 设置 › 高级. Never change proxy, DNS or that setting yourself. Consult docs/OAUTH_REFRESH.md for MCP
 binding, exact tool approval and remaining real-provider acceptance.
 
 ### API credentials

@@ -1,3 +1,23 @@
+# 网络：Fake-IP 代理（设置 › 高级）
+
+Shadowrocket、Clash、Surge 的 Fake-IP 模式把每个域名都解析成 `198.18.0.0/15`。ATM 默认拒绝连接这类
+地址（官方登录、后台续期、MCP、下载、网页配方和自建 API 地址），所以没有发出任何请求。错误码不变
+（`oauth_dns_policy`、`unsafe_download`）；只因 Fake-IP 应答被拒绝时，错误另带 `"hint": "fake_ip_tunnel"`。
+
+- 登录对话框（D11）遇到带这个提示的错误时，用中文说明原因（技术信息仍可展开），并提供
+  “允许通过本机代理连接…”。它打开确认框（C6）：写明会改变什么、什么不变、代价和代理里的替代做法，
+  按钮为“取消 / 允许”。允许后刷新并回到 D11，显示“已允许。再点一次“打开官方登录页面”。”；
+  不会自动重试登录或其他联网操作。
+- **设置 › 高级 › 网络**有同一个开关“通过本机代理的 Fake-IP 连接（198.18.0.0/15）”：打开要经过 C6，
+  关闭立即生效。ATM 登录卡片、首页提示和“记录”里被这个原因挡住的任务都会说明原因，并链接到这个开关。
+- 唯一的写入接口：`POST /api/settings/network`，body `{"fake_ip_tunnel": bool, "expected"?: bool}`，
+  使用管理台的 bearer 与精确 Origin/Host 检查，字段校验与其他写入相同，`expected` 不符时返回 409
+  `state_changed`；返回新的状态。只读：`GET /api/overview` 的 `network`（`fake_ip_tunnel`、`changed_at`）、
+  `GET /api/jobs` 行上的 `error_hint`（只有提示，没有主机名或地址）和 `atm doctor` 的 `network`。
+  没有 CLI 写入命令（Agent 通过 CLI 工作，不能放宽这项检查）；本机授权窗口也没有这个接口。
+- 打开后仍检查 HTTPS 证书，仍拒绝本机、局域网和其他私有地址、IP 字面量和混合应答，固定的官方地址不变。
+  Fake-IP 应答不含真实目的地址，所以这一检查交给本机代理负责。详见 docs/OAUTH_REFRESH.md。
+
 # v0.8 管理台：五个页面
 
 导航只有五项：**首页**、**服务**、**Agent 与权限**、**记录**、**设置**（Key 保管 / 设备同步 / 添加工具 / 本机程序 / 高级）。

@@ -1,3 +1,16 @@
+# Unreleased — Fake-IP proxy tunnel (opt-in)
+
+- Owner setting, off by default: with a Fake-IP proxy (Shadowrocket, Clash, Surge) every name resolves into
+  198.18.0.0/15, which the resolved-address check refused before any request (OAuth login and refresh, MCP HTTP,
+  downloads on every redirect hop, web-recipe and owner-configured REST origins). When on, a DNS name may also
+  resolve to plain IPv4 198.18.0.0/15; literals, mapped/compatible IPv6 forms, mixed answers and every other
+  non-global address stay refused, and TLS verification and pinned hosts are unchanged. Fake-IP answers carry no
+  destination, so on this machine the proxy, not ATM, vouches for it. Behaviour with the setting off is unchanged.
+- Error codes unchanged; an additive `hint: "fake_ip_tunnel"` when Fake-IP answers are the only cause
+  (errors, OAuth `last_error_hint`, job errors, `/api/jobs` `error_hint`).
+- Console only: `POST /api/settings/network`, a confirm (C6) from the D11 login error and 设置 › 高级 › 网络; no
+  CLI write path. Read-only in `GET /api/overview` and `atm doctor`. Nothing is retried automatically.
+
 # Unreleased — console redesign
 
 - Five sections (首页, 服务, Agent 与权限, 记录, 设置) with a needs-you inbox, one page per service listing every connection route with exact copy and terminal commands, and the Key lock in one top-bar control on every page; 退出管理台 only ends the tab.
