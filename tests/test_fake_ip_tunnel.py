@@ -223,8 +223,9 @@ def test_oauth_refresh_with_a_row_that_is_not_json_fails_cleanly(tunnel):
     result = tick(worker)
     assert result['action'] == 'paused' and result['error']['code'] == 'oauth_dns_policy', result
     assert len(provider.requests) == before
-    status = manager.status()  # Recorded as a failed refresh, not left 'refreshing' by a crash.
-    assert status['status'] == 'needs_login' and status['last_error'] == 'oauth_dns_policy'
+    status = manager.status()  # Not left 'refreshing' by a crash. Nothing was sent, so the refresh token is unspent (#18).
+    assert status['status'] == 'ready' and status['last_error'] == 'oauth_dns_policy'
+    assert status['last_error_hint'] == 'fake_ip_tunnel'
 
 
 def test_set_compares_and_writes_once(tmp_path):
