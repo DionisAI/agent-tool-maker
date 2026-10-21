@@ -117,6 +117,23 @@ test('the ATM login route and inbox explain a Fake-IP refusal and offer the swit
   assert.equal(T.fakeIpOn(undefined), false);
 });
 
+test('a renewal stopped by a Fake-IP answer while the login still works is raised in the inbox with the switch', () => {
+  // Nothing was sent, so the login stays usable until it expires (pre-send failures keep the refresh token).
+  for (const status of ['ready', 'refreshing']) {
+    const model = M.derive(data({oauth: [refused({status, expires_at: NOW + 600})]}), NOW);
+    const line = model.inbox.find(i => i.id === 'oauth:renew_blocked');
+    assert.equal(line.sev, 'warn');
+    assert.equal(line.title, 'Higgsfield 的 ATM 登录没能续期');
+    assert.equal(line.detail, LEAD);
+    assert.deepEqual(plain(line.action), {label: N.allow, kind: 'dialog', target: {d: 'fake-ip', next: '重新登录'}});
+    const route = model.byKey.get('higgsfield').routes.find(r => r.kind === 'oauth');
+    assert.ok(route.body.includes(LEAD) && route.actions.some(a => a.label === N.allow));
+  }
+  for (const variant of [data({oauth: [refused({status: 'ready'})], network: {fake_ip_tunnel: true}}),
+    data({oauth: [refused({status: 'ready', last_error_hint: undefined})]}), data({oauth: [refused({status: 'needs_login'})]})])
+    assert.ok(!M.derive(variant, NOW).inbox.some(i => i.id === 'oauth:renew_blocked'));
+});
+
 test('a download stopped by a Fake-IP answer explains the cause in 记录 and the inbox, and links to the switch', () => {
   const failed = job('download_failed', {error_hint: 'fake_ip_tunnel'});
   let model = M.derive(data({tools: [fal], jobs: [failed]}), NOW);
