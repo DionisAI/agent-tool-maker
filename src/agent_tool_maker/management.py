@@ -196,11 +196,15 @@ def recent_jobs(router) -> dict:
                         # A credits refresh never exposes raw account output, even after a crash.
                         artifact_count=0 if refresh_job(job) else len(data.get("artifacts", [])))
         rows[-1]["kind"] = "credits_refresh" if refresh_job(job) else "tool"
+        hint = next((e.get("hint") for e in (data.get("error"), data.get("last_error")) if isinstance(e, dict) and e.get("hint")), None)
+        if hint == "fake_ip_tunnel" and job["status"] != "completed":
+            rows[-1]["error_hint"] = hint
     return {"jobs": rows, "limit": 50, "details_omitted": "Inputs, payloads, paths and signed URLs are available only through the existing local CLI, not this UI."}
 
 
 def overview(router, *, user_home=None) -> dict:
     from .credits import payload as credits_payload
+    from .network import network_settings
     rows = list(router.catalog.tools.values())
     return {"version": __version__, "home": str(router.state.home),
             "counts": {"tools": len(rows), "enabled": sum(enabled(router.state,t["id"]) for t in rows),
@@ -208,6 +212,7 @@ def overview(router, *, user_home=None) -> dict:
             "agents": agents(router, user_home=user_home)["agents"],
             "vault": vault_health(router.vault), "network_calls": 0,
             "credits": credits_payload(router),  # Cached only; avoids another bootstrap request.
+            "network": network_settings(router.state),  # Read-only here; only POST /api/settings/network changes it.
             "note": "Configured is not live-verified. No provider requests are made when viewing this console."}
 
 
