@@ -228,6 +228,29 @@ def test_oauth_refresh_with_a_row_that_is_not_json_fails_cleanly(tunnel):
     assert status['last_error_hint'] == 'fake_ip_tunnel'
 
 
+def test_a_refused_replacement_keeps_the_working_login_and_names_the_cause(tunnel):
+    # The owner's case: 替换已有的 ATM 登录 ticked, the setting off, every name answered from 198.18.0.0/15.
+    manager, provider, now = tunnel
+    now[0] = time.time()
+    keep_connected(manager)
+    set_fake_ip_tunnel(manager.state, False)
+    before = len(provider.requests)
+    with pytest.raises(RouterError) as caught:
+        begin(manager, replace=True)
+    assert caught.value.code == 'oauth_dns_policy' and caught.value.hint == 'fake_ip_tunnel'
+    assert len(provider.requests) == before  # Nothing reached the provider.
+    status = manager.status()  # The previous connection resumes (#18), with the cause for the console.
+    assert status['status'] == 'ready' and status['last_error'] == 'oauth_dns_policy'
+    assert status['last_error_hint'] == 'fake_ip_tunnel'
+    set_fake_ip_tunnel(manager.state, True)
+    server, result, query = begin(manager, replace=True)
+    try:
+        ready = manager.callback(server.claim, {'state': query['state'], 'code': 'FIXTURE_CODE', 'iss': ISSUER})
+    finally:
+        server.server_close()
+    assert ready['status'] == 'ready' and 'last_error_hint' not in manager.status()
+
+
 def test_set_compares_and_writes_once(tmp_path):
     state = State(tmp_path / 'state')
     first = set_fake_ip_tunnel(state, True, expected=False)
