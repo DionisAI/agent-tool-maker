@@ -15,7 +15,9 @@
   CLI write path or setting file. Like every console write, a program running as the same user can start `atm ui`
   and use its token file, so this is not same-user isolation (SECURITY.md). Each change adds an `events` row
   (`network.fake_ip_tunnel.enabled/disabled`). Read-only in `GET /api/overview` and `atm doctor`
-  (`"write_path": "console_only"`). Nothing is retried automatically.
+  (`"write_path": "console_only"`). Nothing is retried automatically. C6 opens on 取消; after 允许 the focus
+  goes back to the login (D11's cleared ATM 主密码 field, or 重新登录 on the card and the 首页 line, which
+  offer the switch while it is off); a 409 because another tab already allowed it counts as allowed.
 
 # Unreleased — console redesign
 
