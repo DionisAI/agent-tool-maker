@@ -1025,6 +1025,9 @@
         push('oauth', status, words[status][0], key, zh`Higgsfield 的 ATM 登录${words[status][1]}`, fakeIp ? NETWORK.oauth : 'Higgsfield MCP 工具暂时不能使用。',
           // While the setting is off, logging in again fails again: the line offers the switch (C6) first.
           fakeIp ? dialog(NETWORK.allow, {d: 'fake-ip', next: '重新登录'}) : dialog('重新登录', {d: 'oauth', keep: false}));
+      // A renewal stopped before sending (Fake-IP answer) leaves the login usable until it expires; say so now.
+      if (fakeIp && (status === 'ready' || status === 'refreshing'))
+        push('oauth', 'renew_blocked', 'warn', key, 'Higgsfield 的 ATM 登录没能续期', NETWORK.oauth, dialog(NETWORK.allow, {d: 'fake-ip', next: '重新登录'}));
       if (o.keep_login && svcRow.status !== 'loaded')
         push('renew', o.provider, 'warn', key, 'Higgsfield 自动续期没有运行', typeof o.expires_at === 'number' ? zh`ATM 登录将在 ${datetime(o.expires_at, now)} 到期，之后需要你重新登录。` : 'ATM 登录到期后需要你重新登录。', routeAction('查看', key, 'oauth', 'oauth'));
       if (status === 'pending')
