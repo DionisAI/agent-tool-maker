@@ -8,7 +8,7 @@ from .browser import handoff, check_receipt_source
 from .catalog import Catalog
 from .cli_adapter import execute_cli
 from .errors import RouterError
-from .network import Network, checked_url
+from .network import Network, checked_url, fake_ip_tunnel
 from .storage import State, canonical
 from .vault import Vault
 
@@ -292,7 +292,7 @@ class Router:
         artifacts=[]
         try:
             for url in urls:
-                data,mime=self.net.download(url)
+                data,mime=self.net.download(url,fake_ip=fake_ip_tunnel(self.state))
                 artifact=save_artifact(job["workspace"],job["id"],data,mime=mime,hint=urlsplit(url).path,
                                        expected=[".glb"] if tool["adapter"]=="tripo" else None)
                 artifacts.append(artifact)
