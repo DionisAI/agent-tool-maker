@@ -206,6 +206,7 @@ button[aria-busy=true]{cursor:progress}
 .issue h3 .provider-mark{flex:none}
 .issue p{color:var(--ink-2);font-size:14px;margin-top:2px;grid-column:2}
 .issue>.secondary{grid-column:3;grid-row:1 / span 2;align-self:center}
+.issue>.issue-more{grid-column:2;display:flex;flex-wrap:wrap;gap:8px}
 .requests{border-color:var(--info)}
 .request{display:grid;gap:6px}
 .request .path{color:var(--ink-2)}
