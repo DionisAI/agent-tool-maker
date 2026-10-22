@@ -223,6 +223,35 @@ class OAuth:
                 self._write(db, meta)
                 db.execute("INSERT INTO events(job_id,kind,at) VALUES (NULL,?,?)", ("oauth." + meta["status"], self.clock()))
 
+    def _owns(self, claim):
+        with self.state.db() as db:
+            _, meta = self._row(db)
+        return bool(meta) and meta.get("claim") == claim
+
+    def cancel_login(self, name=NAME):
+        """The owner ends a pending login now instead of waiting for its deadline; nothing is sent."""
+        provider(name)
+        with self.state.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            _, meta = self._row(db)
+            pending = bool(meta) and meta["status"] == "pending" and meta["login_deadline"] > self.clock()
+            if pending and meta.get("phase") == "exchanging":
+                # The callback's code is already at the token endpoint: that exchange records its own outcome.
+                raise RouterError("oauth_exchanging", "The login code is already being exchanged; wait for it to finish.")
+            if pending:
+                if "previous" in meta:
+                    # A replacement that kept the working tokens sealed (metadata-only `previous`): that connection resumes.
+                    meta = {**meta["previous"], "last_error": "oauth_cancelled"}
+                    meta.pop("last_error_hint", None)
+                else:
+                    for key in ("claim", "phase", "login_deadline", "last_error_hint"):
+                        meta.pop(key, None)
+                    meta.update(status="needs_login", last_error="oauth_cancelled")
+                self._write(db, meta)
+                db.execute("INSERT INTO events(job_id,kind,at) VALUES (NULL,?,?)", ("oauth.cancelled", self.clock()))
+        # The cancelled login no longer owns the row: its listener stops and its callback is refused.
+        return {**self.status(), "action": "cancelled" if pending else "not_pending"}
+
     def keep_login(self, name=NAME, *, enabled):
         provider(name)
         if enabled and self.state.setting("vault", {}).get("backend") != "keyring":
@@ -397,7 +426,8 @@ class LoginServer(HTTPServer):
 
     def run(self):
         try:
-            while not self.done.is_set() and time.monotonic() < self.deadline:
+            # Also stops once the row no longer names this login (the owner cancelled it): the key snapshot goes now.
+            while not self.done.is_set() and time.monotonic() < self.deadline and self.oauth._owns(self.claim):
                 self.handle_request()
             if not self.done.is_set():
                 self.oauth._failed(self.claim, RouterError("oauth_login_timeout", "Local OAuth login timed out."))
