@@ -417,6 +417,7 @@ function runAction(a, opener) {
   if (a.kind==='route') { openRoute(t); return; }
   if (a.kind==='refresh') return refresh().then(()=>announce('已刷新'));
   if (a.kind==='credits') return refreshCredits(t);
+  if (a.kind==='oauth-cancel') return cancelLogin(t);
   if (a.kind==='copy') return copyText(t, null, null).then(()=>toast('已复制命令：'+t));
   if (a.kind==='bulk') return bulkDialog(model.byKey.get(t.service).tools, t.enable, model.byKey.get(t.service).name + ' 的全部工具', model.byKey.get(t.service).name);
   if (a.kind!=='dialog') return;
@@ -493,9 +494,11 @@ function firstRunSection() {
 function issueRow(i) {
   const sev={bad:'严重：',warn:'注意：',info:'提示：'}[i.sev];
   const service=i.serviceKey?model.byKey.get(i.serviceKey):null;
+  const button=(a,cls,key)=>el('button',{type:'button',class:cls,'data-key':key,onclick:action(e=>runAction(a,e.currentTarget))},a.label,service?el('span',{class:'vh'},'（'+service.name+'）'):null);
   return el('li',{class:'issue','data-sev':i.sev,'data-issue':i.id},el('span',{class:'glyph',ariaHidden:'true'}),
     el('h3',{},el('span',{class:'vh'},sev),service?serviceMark(service,20):null,el('span',{},i.title)), el('p',{},i.detail),
-    el('button',{type:'button',class:'secondary','data-key':'inbox:'+i.id,onclick:action(e=>runAction(i.action,e.currentTarget))},i.action.label,service?el('span',{class:'vh'},'（'+service.name+'）'):null));
+    button(i.action,'secondary','inbox:'+i.id),
+    i.also?el('div',{class:'issue-more'},...i.also.map(a=>button(a,'plain','inbox:'+i.id+':'+a.label))):null);
 }
 function inboxSection() {
   const list=model.inbox, shown=ui.inboxOpen?list:list.slice(0,5), rest=list.length-5;
@@ -1434,7 +1437,9 @@ function oauthDialog({keep=false, replace=false, allowed=false, error=null}={}) 
       let password=pass?pass.input.value:'';
       try{
         const r=await api('/api/oauth/login',{provider:o.provider,keep_login:keepBox.checked,replace:replaceBox.checked,...(password?{passphrase:password}:{})});
-        await refresh();closeModal();
+        await refresh();
+        if(r.status==='pending'){oauthPending(o.provider,r.browser_opened===true);return;}
+        closeModal();
         toast(r.browser_opened?'请在打开的官方页面完成登录和授权，然后点“刷新状态”。':'登录窗口没有打开，或者已有一个登录在进行。请查看 Higgsfield 的“ATM 登录”状态。');
       }finally{password=null;if(pass)pass.input.value='';}
     },'primary')],
@@ -1446,6 +1451,24 @@ function oauthDialog({keep=false, replace=false, allowed=false, error=null}={}) 
     showNotice(text);announce(text);pass?.input.scrollIntoView({block:'nearest'});
   }
   else if(error)showAlert(errorText(error),{error});
+}
+// D11 after 打开官方登录页面: the login now waits in the browser, where Higgsfield may refuse ATM's client. The dialog
+// says how that looks and offers 取消登录, so a new login need not wait for the deadline.
+const OAUTH_FOCUS=provider=>['route:oauth:oauth:刷新状态','inbox:oauth-pending:'+provider,'inbox:oauth:needs_login'];
+function oauthPending(provider, opened) {
+  const O=T.oauth;
+  openModal({title:'登录 Higgsfield（ATM 登录）',body:[el('p',{},opened?O.opened:O.notOpened),el('p',{class:'quiet'},O.refused)],
+    actions:[btn(O.cancel,()=>cancelLogin(provider)),btn('刷新状态',async()=>{await refresh();ui.successor=OAUTH_FOCUS(provider);closeModal();announce('已刷新');},'primary')]});
+  ui.successor=OAUTH_FOCUS(provider);  // Escape: the login button that opened D11 is gone now.
+}
+// 取消登录 (D11, the ATM 登录 route, the 首页 line): ends the pending login at once; nothing is sent to Higgsfield.
+async function cancelLogin(provider) {
+  const r=await api('/api/oauth/cancel',{provider});
+  await refresh();
+  const next=['route:oauth:oauth:重新登录','inbox:oauth:needs_login',...OAUTH_FOCUS(provider)];
+  if($('#modal').open){ui.successor=next;closeModal();}
+  else if(!document.activeElement||document.activeElement===document.body)(next.map(byKey).find(Boolean)||$('#main .page-title h1'))?.focus({preventScroll:true});
+  toast(r.action!=='cancelled'?T.oauth.ended:r.status==='ready'?T.oauth.restored:T.oauth.cancelled);
 }
 // Copy text with ATM's literal names (hosts, proxy options) as unbreakable code.
 function withLiterals(text) {
