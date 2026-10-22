@@ -74,7 +74,10 @@ def numeric_host(host: str) -> bool:
             return True
         except (OSError, ValueError):
             pass
-    return False
+    # No DNS name ends in an all-numeric (or 0x) label, since no TLD is numeric. Platforms disagree on notations such as
+    # 198.018.0.1 (macOS reads it as an address, glibc does not), so every such host counts as an address literal.
+    last = host.rstrip(".").rsplit(".", 1)[-1].lower()
+    return last.isascii() and (last.isdigit() or last.startswith("0x") and all(c in "0123456789abcdef" for c in last[2:]))
 
 
 def fake_ip_answer(address) -> bool:
