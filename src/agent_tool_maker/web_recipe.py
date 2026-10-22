@@ -20,7 +20,7 @@ from urllib.parse import urlsplit
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from .errors import RouterError
-from .network import checked_url, public_address
+from .network import checked_url, fake_ip_tunnel, public_address
 from .storage import canonical, atomic_write
 from .artifacts import managed_dir
 
@@ -224,7 +224,7 @@ def restrict_context(context, router, recipe):
     allowed = set(recipe["allowed_origins"])
     # Fail early on configured private destinations; DNS pinning is not an OS egress sandbox.
     for origin in allowed:
-        public_address(origin, router.net.resolver)
+        public_address(origin, router.net.resolver, fake_ip=fake_ip_tunnel(router.state))
     blocked = []
     def guard(route):
         url = route.request.url

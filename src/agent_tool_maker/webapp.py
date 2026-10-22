@@ -454,6 +454,13 @@ class Handler(BaseHTTPRequestHandler):
                 from .oauth_service import install_service
                 result["service"] = install_service(router.state, executable=self.server.executable, apply=True)
             return result
+        if path == "/api/settings/network":
+            # Owner-only, like every console write (bearer, exact Origin and Host). No CLI command writes it:
+            # Agents drive the CLI and must not be able to widen the address check.
+            fields(body, ("fake_ip_tunnel",), ("expected",))
+            from .network import set_fake_ip_tunnel
+            return set_fake_ip_tunnel(router.state, flag(body, "fake_ip_tunnel"),
+                                      expected=flag(body, "expected") if "expected" in body else None)
         if path == "/api/session/unlock":
             fields(body, optional=("ttl", "passphrase", "passkey"))
             from .session import status, ttl_seconds, SecretSession, run_service

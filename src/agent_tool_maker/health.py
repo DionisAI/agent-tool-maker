@@ -176,7 +176,11 @@ def doctor(router, *, tool_ids=(), check_unlock=False) -> dict:
         exe = Path(config["executable"])
         agents.append({"agent": name, "state": "registered_not_host_verified" if matched and exe.is_file() and os.access(exe, os.X_OK) else "registration_changed",
                        "skill_path": str(path), "host_load_verified": False})
+    from .network import network_settings
     return {"home": str(router.state.home), "vault": access["backend"] or "not_initialized", "vault_health": access,
+            # Read-only. No CLI command writes it; only the console endpoint does, which any program running as
+            # this user can also reach (SECURITY.md). Each change is an `events` row, not an identity.
+            "network": {"fake_ip_tunnel": network_settings(router.state)["fake_ip_tunnel"], "write_path": "console_only"},
             "tools": items, "agents": agents, "verification_history": verification_history(router.state),
             "local_blockers": sum(t["state"] not in allowed for t in items), "network_calls": 0,
             "notes": ["No vendor authentication was performed. Cached probes are historical and never guarantee future calls.",

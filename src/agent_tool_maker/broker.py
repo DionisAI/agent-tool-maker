@@ -23,7 +23,7 @@ import time
 import uuid
 
 from .engine import Router
-from .errors import RouterError
+from .errors import RouterError, relayed_hint
 from .storage import State, atomic_write, canonical
 from .sync import strict_json
 from .vault import Vault
@@ -401,7 +401,8 @@ def call(profile: Path, operation: str, args: dict, *, timeout=300):
     value = strict_json(response, limit=MAX_MESSAGE)
     if "error" in value:
         error = value["error"]
-        raise RouterError(error["code"], error["message"], uncertain=error.get("outcome_uncertain", False))
+        raise RouterError(error["code"], error["message"], uncertain=error.get("outcome_uncertain", False),
+                          hint=relayed_hint(error.get("hint")))
     return value["result"]
 
 

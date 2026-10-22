@@ -12,7 +12,7 @@ from urllib.parse import quote, urlencode, urlsplit
 from .artifacts import confined_file, managed_dir, save_artifact
 from .cli_adapter import execute_cli
 from .errors import RouterError
-from .network import checked_url, public_address
+from .network import checked_url, fake_ip_tunnel, public_address
 from .storage import canonical, atomic_write
 
 PERMISSIONS = {"external_write", "production", "execute_code"}
@@ -196,7 +196,7 @@ def execute_rest(router, tool, job):
     url=req['url']
     # Dynamic remote origins are a human configuration boundary, not arbitrary agent URLs.
     if (tool['request'].get('origin_setting') or tool.get('user_defined')) and not req['local']:
-        public_address(url, router.net.resolver)
+        public_address(url, router.net.resolver, fake_ip=fake_ip_tunnel(router.state))
     headers,key=_headers(router,tool,req,job)
     if req['auth']=='telegram': url=url.replace('/bot__TOKEN__/','/bot'+quote(key,safe=':')+'/')
     if tool['request'].get('test_key_only') and not key.startswith(('sk_test_','rk_test_')):

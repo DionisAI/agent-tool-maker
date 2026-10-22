@@ -16,7 +16,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .errors import RouterError
+from .errors import RouterError, relayed_hint
 from .storage import atomic_write, canonical
 
 ORIGIN = "https://studio.tripo3d.ai"
@@ -149,7 +149,8 @@ async def request(home, packet, timeout=960):
         result = json.loads(line)
         if "error" in result:
             error = result["error"]
-            raise RouterError(error["code"], error["message"], uncertain=error.get("outcome_uncertain", False))
+            raise RouterError(error["code"], error["message"], uncertain=error.get("outcome_uncertain", False),
+                              hint=relayed_hint(error.get("hint")))
         return result["result"]
     except (OSError, ValueError, asyncio.TimeoutError):
         raise RouterError("runtime_transport", "Bridge response was interrupted; reconcile side effects before retry.", uncertain=packet.get("method") == "run") from None

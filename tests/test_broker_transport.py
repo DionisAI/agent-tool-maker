@@ -114,3 +114,18 @@ def test_valid_reply_still_returns_its_result(socket_reply):
     with socket_reply(b'{"result":{"status":"fixture-ready"}}\n') as (profile, received):
         assert call(profile, 'status', {}, timeout=3) == {'status': 'fixture-ready'}
         assert len(received) == 1
+
+
+@pytest.mark.parametrize('hint,kept', [('fake_ip_tunnel', 'fake_ip_tunnel'), ('other_hint', None), (['fake_ip_tunnel'], None), (None, None)])
+def test_a_remote_error_keeps_only_a_known_hint(socket_reply, hint, kept):
+    # The broker answers with RouterError.as_dict(); the client rebuilds the same error, hint included.
+    sent = RouterError('unsafe_download', 'fixture refused', hint=hint if isinstance(hint, str) else None).as_dict()
+    if hint is not None and not isinstance(hint, str):
+        sent['hint'] = hint
+    with socket_reply(json.dumps({'error': sent}).encode() + b'\n') as (profile, received):
+        with pytest.raises(RouterError) as error:
+            call(profile, 'run', {}, timeout=3)
+        assert error.value.code == 'unsafe_download' and error.value.hint == kept
+        assert error.value.as_dict() == {'code': 'unsafe_download', 'message': 'fixture refused', 'outcome_uncertain': False,
+                                         **({'hint': kept} if kept else {})}
+        assert len(received) == 1

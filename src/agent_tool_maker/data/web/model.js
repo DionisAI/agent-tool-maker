@@ -135,7 +135,41 @@
   const creditTitle = error => { const code = str(error?.code), message = str(error?.message);
     return own(CREDIT_REASONS, code) ? (message ? message + '（' + code + '）' : code) : message; };
   const OAUTH_SERVICE = {loaded: '运行中', load_failed: '启动失败', load_conflict: '和已有服务冲突', not_installed: '未安装', foreground_only: '只在前台运行'};
+  // The address check (network.py public_address) and the owner's Fake-IP option. Error codes are unchanged; a refusal
+  // whose only cause is a proxy's Fake-IP answer (198.18.0.0/15) carries hint "fake_ip_tunnel".
+  // A 198.18.x.x answer usually, not always, comes from a proxy's Fake-IP mode: the copy says so.
+  const FAKE_IP_CAUSE = '（通常是网络代理的 Fake-IP 模式，例如 Shadowrocket、Clash、Surge）';
+  const NETWORK = Object.freeze({
+    oauth: '官方地址被解析成了 198.18.x.x' + FAKE_IP_CAUSE + '。ATM 默认不连接这类地址，所以没有发出任何请求。',
+    request: '服务地址被解析成了 198.18.x.x' + FAKE_IP_CAUSE + '。ATM 默认不连接这类地址，所以没有发出这个请求。',
+    download: '结果文件的地址被解析成了 198.18.x.x' + FAKE_IP_CAUSE + '。ATM 默认不连接这类地址，所以没有下载。',
+    allow: '允许通过本机代理连接…', allowed: '已允许。再点一次“打开官方登录页面”。',
+    allowedPassphrase: '已允许。输入 ATM 主密码后，再点一次“打开官方登录页面”。', done: '已允许通过本机代理连接（198.18.0.0/15）。',
+    off: '已关闭。ATM 不再连接 198.18.x.x 地址。', open: '打开网络设置',
+    title: '允许 ATM 连接本机代理给出的 198.18.x.x 地址？', confirm: '允许',
+    changes: 'ATM 会连接本机代理给出的 198.18.0.0/15 地址（Fake-IP），由代理把连接转到真实的网站。',
+    stays: '仍然检查 HTTPS 证书；仍然拒绝直接解析成本机、局域网或其他私有地址的应答；各项功能连接的域名不变（例如 Higgsfield 登录仍然只连接固定的官方域名）。',
+    tradeoff: '在这台电脑上，ATM 不能再核对连接的真实目的地址，这件事交给你的代理负责：经代理转发后连到哪里（包括本机或局域网）由代理决定。',
+    alternative: '在代理里让 ATM 要连接的域名（例如 mcp.higgsfield.ai、clerk.higgsfield.ai）返回真实 IP（Clash 用 fake-ip-filter；Surge、Shadowrocket 用 always-real-ip），就不需要打开这个选项。',
+    owner: '没有 ATM 命令或配置文件能更改它；但以你的用户身份运行的程序（例如自己启动 atm ui 并读取会话文件的程序）可以，见 SECURITY.md。随时可以在“设置 › 高级”里关闭。',
+    label: '通过本机代理的 Fake-IP 连接（198.18.0.0/15）',
+    help: '代理的 Fake-IP 模式会把域名都解析成 198.18.x.x。打开后，ATM 连接这类地址，真实的目的地址由代理负责。',
+    stateOff: '已关闭（默认）', offDetail: 'ATM 不连接 198.18.x.x 地址。',
+    stateOn: '已开启', onDetail: 'ATM 会连接本机代理给出的 198.18.x.x 地址；直接解析成本机、局域网或其他私有地址的应答仍然拒绝，经代理转发后的真实去向由代理决定。',
+  });
+  const allowedNext = label => '已允许。再点“' + label + '”。';
+  // Names in the copy shown as code (never broken at a hyphen or dot).
+  const NETWORK_LITERALS = Object.freeze(['mcp.higgsfield.ai', 'clerk.higgsfield.ai', 'fake-ip-filter', 'always-real-ip', 'atm ui', 'SECURITY.md']);
+  const FAKE_IP_CODES = new Set(['oauth_dns_policy', 'unsafe_download']);
+  // These keep the technical message under 技术信息 next to their Chinese sentence.
+  const NETWORK_CODES = new Set(['oauth_dns_policy', 'unsafe_download', 'dns_error', 'oauth_network']);
+  const fakeIpHint = (code, hint) => hint === 'fake_ip_tunnel' && FAKE_IP_CODES.has(str(code));
+  const fakeIpOn = data => obj(obj(obj(data).overview).network).fake_ip_tunnel === true;
   const ERROR = {
+    oauth_dns_policy: 'Higgsfield 的官方登录地址被解析成了本机、局域网或其他保留地址。ATM 不连接这类地址，所以没有发出任何请求。',
+    oauth_refresh_token_missing: 'Higgsfield 没有给出续期凭证，ATM 登录到期后需要重新登录。',
+    unsafe_download: '服务地址被解析成了本机、局域网或其他保留地址。ATM 不连接这类地址，所以没有发出这个请求。',
+    dns_error: '找不到服务地址（域名解析失败）。请检查网络或代理后再试。', oauth_network: '连接 Higgsfield 时网络中断。ATM 不会自动重试。',
     vault_locked: 'ATM 主密码不正确（或保管库数据已损坏）。Key 仍是锁定的。',
     session_locked: 'Key 已锁定。请先点右上角的“解锁 30 分钟”。', broker_locked: 'Key 已锁定。请先点右上角的“解锁 30 分钟”。',
     needs_unlock: 'Key 已锁定。请先点右上角的“解锁 30 分钟”。',
@@ -176,14 +210,16 @@
     passkey_origin: '请从 atm ui 打开的 localhost 地址使用 Passkey。', passkey_limit: '已经绑定了允许的最多数量的 Passkey。',
     network: '连接不到本机 ATM。请确认 atm ui 还在运行。', unknown_tool: '有工具 ID 不在目录中，删掉后再检查。',
   };
-  function errorText(code) {
+  function errorText(code, hint = '') {
     code = str(code);
+    if (fakeIpHint(code, hint)) return code === 'oauth_dns_policy' ? NETWORK.oauth : NETWORK.request;
     if (own(ERROR, code)) return ERROR[code];
     if (code.startsWith('oauth_')) return zh`Higgsfield 登录没有完成（${code}）。`;
     if (code.startsWith('passkey_')) return zh`Passkey 验证没有完成（${code}）。`;
     return zh`操作没有完成（${code || 'unknown'}）。`;
   }
   const knownError = code => own(ERROR, code);
+  const keepsDetail = code => NETWORK_CODES.has(str(code));
 
   // ---- Joins ----
   function brandOf(provider, toolId = '') {
@@ -400,7 +436,7 @@
       }
       return keyIndex.get(name);
     };
-    const jobsAll = jobsIn.filter(j => str(j?.id)).map(j => jobView(j, toolViews, services, creditRows, now));
+    const jobsAll = jobsIn.filter(j => str(j?.id)).map(j => jobView(j, toolViews, services, creditRows, now, fakeIpOn(data)));
     const grants = grantViews(access, now);
     const requests = requestViews(access, connBy, services, now);
     // Routes per service.
@@ -558,7 +594,7 @@
     let state = tools.length && !enabled.length ? 'off' : enabled.length ? worst(enabled.map(v => v.state)) : 'setup';
     const ids = listTools(tools.map(v => v.id));
     const route = {kind, id, anchor: routeAnchor(kind, id), title: KIND_TITLES[kind], chip: KIND_CHIPS[kind], sub: '', state, word: '',
-      summary: '', facts: [], steps: null, body: [], info: null, commands: [], actions: [], tools, notes: []};
+      summary: '', facts: [], tech: '', steps: null, body: [], info: null, commands: [], actions: [], tools, notes: []};
     // A command shows in its own box with a 复制 button; the route adds no second copy button for it.
     const cmd = (text, label = '') => route.commands.push({text, label});
     if (kind === 'chrome') {
@@ -681,6 +717,8 @@
         denied: ['blocked', '登录没有获批', '重新登录', 'ATM 登录没有获批。']};
       const [oState, word, primary, summary] = own(table, status) ? table[status] : ['attention', '状态：' + status, '重新登录', 'Higgsfield 的 ATM 登录状态：' + status + '。'];
       state = oState; route.word = word; route.summary = summary;
+      const fakeIp = o.last_error === 'oauth_dns_policy' && fakeIpHint(o.last_error, o.last_error_hint) && !fakeIpOn(ctx.data);
+      if (fakeIp) route.body.push(NETWORK.oauth);
       if (state === 'ready' && o.keep_login && svc.status !== 'loaded') {
         state = 'attention'; route.word = '自动续期没有运行';
         route.summary = '自动续期没有运行，ATM 登录到期后需要重新登录。';
@@ -688,11 +726,17 @@
       route.state = state;
       if (primary === '刷新状态') route.actions.push({label: '刷新状态', kind: 'refresh', primary: true});
       else if (primary) route.actions.push(dialog(primary, {d: 'oauth', keep: false}, {primary: true}));
+      // C6, then focus and the toast point at this route's login again (`next`); nothing is retried.
+      if (fakeIp) route.actions.push(dialog(NETWORK.allow, {d: 'fake-ip', next: primary || '重新登录'}));
       route.facts.push(['有效至', typeof o.expires_at === 'number' ? datetime(o.expires_at, now) : '登录后显示']);
       if (status === 'pending' && typeof o.login_deadline === 'number') route.facts.push(['登录期限', datetime(o.login_deadline, now) + ' 前完成']);
       route.facts.push(['自动续期', o.keep_login ? '已开启' : '未开启']);
       route.facts.push(['后台续期服务', say(OAUTH_SERVICE, str(svc.status) || 'not_installed', '{code}'), !own(OAUTH_SERVICE, str(svc.status) || 'not_installed')]);
-      if (str(o.last_error)) route.facts.push(['最近一次续期失败', o.last_error, true]);
+      // The last failure (login or renewal) in Chinese, its code under 技术信息. A Fake-IP refusal is explained in the
+      // body while the setting is off, and resolved once it is on.
+      const failed = str(o.last_error), fakeIpFailed = fakeIpHint(failed, o.last_error_hint);
+      if (failed && !fakeIpFailed) route.facts.push(['最近一次失败', errorText(failed, o.last_error_hint)]);
+      if (failed && !(fakeIpFailed && fakeIpOn(ctx.data))) route.tech = failed;
       if (!o.keep_login && backend !== 'keyring') route.facts.push(['自动续期', '自动续期需要用系统钥匙串保管 Key；你现在用的是 ATM 主密码。']);
       if (primary !== '刷新状态') route.actions.push({label: '刷新状态', kind: 'refresh'});
       if (!primary) route.actions.push(dialog('重新登录', {d: 'oauth', keep: Boolean(o.keep_login)}));
@@ -837,7 +881,12 @@
     }
   }
 
-  function jobView(j, toolViews, services, creditRows, now) {
+  // A job stopped by the address check because of a Fake-IP answer: the cause, then what to do (nothing was retried).
+  function fakeIpSentence(code, allowed) {
+    const retry = code === 'download_failed' ? '让 Agent 刷新这个任务重试下载。' : '让 Agent 重新运行。';
+    return (code === 'download_failed' ? NETWORK.download : NETWORK.request) + (allowed ? '现在已允许通过本机代理连接：' : '在“设置 › 高级”里允许后，') + retry;
+  }
+  function jobView(j, toolViews, services, creditRows, now, allowed = false) {
     const tool = toolViews.get(j.tool), code = str(j.status);
     const [word, group, state] = own(job, code) ? job[code] : [zh`其他状态（${code}）`, 'running', 'attention'];
     const refreshSources = new Set(creditRows.flatMap(r => arr(r?.sources)));
@@ -845,11 +894,13 @@
     const serviceKey = tool ? tool.serviceKey : null;
     const serviceName = serviceKey ? services.get(serviceKey)?.name || serviceKey : '服务';
     const created = typeof j.created === 'number' ? j.created : 0, updated = typeof j.updated === 'number' ? j.updated : created;
+    const fakeIp = j.error_hint === 'fake_ip_tunnel' && code !== 'completed';
     return {id: j.id, tool: str(j.tool), title: tool ? tool.title : '', serviceKey, serviceName, brand: tool ? tool.tool.provider : str(j.tool).split('.')[0],
       status: code, word, group, state, needsYou: group === 'needsYou', kind, created, updated,
       day: day(created, now), time: time(created), full: fullDate(created), updatedText: datetime(updated, now), createdText: datetime(created, now),
       verification: verifyWord(j.verification), cost: cost(j.cost_usd, j.cost_status), files: Number(j.artifact_count) || 0,
-      sentence: own(JOB_SENTENCE, code) ? fillZh(JOB_SENTENCE[code], {'服务': serviceName}) : ''};
+      sentence: fakeIp ? fakeIpSentence(code, allowed) : own(JOB_SENTENCE, code) ? fillZh(JOB_SENTENCE[code], {'服务': serviceName}) : '',
+      fakeIp, network: fakeIp && !allowed ? nav(NETWORK.open, 'settings/advanced', {focus: 'network:fake-ip'}) : null};
   }
 
   function grantViews(access, now) {
@@ -969,8 +1020,14 @@
     for (const o of oauthRows) {
       const key = serviceKeyOf(o.provider), status = str(o.status), svcRow = obj(o.service);
       const words = {expired: ['bad', '已过期'], needs_login: ['bad', '需要重新登录'], denied: ['bad', '没有获批'], refresh_unknown: ['warn', '续期结果不确定']};
+      const fakeIp = o.last_error === 'oauth_dns_policy' && fakeIpHint(o.last_error, o.last_error_hint) && !fakeIpOn({overview});
       if (own(words, status))
-        push('oauth', status, words[status][0], key, zh`Higgsfield 的 ATM 登录${words[status][1]}`, 'Higgsfield MCP 工具暂时不能使用。', dialog('重新登录', {d: 'oauth', keep: false}));
+        push('oauth', status, words[status][0], key, zh`Higgsfield 的 ATM 登录${words[status][1]}`, fakeIp ? NETWORK.oauth : 'Higgsfield MCP 工具暂时不能使用。',
+          // While the setting is off, logging in again fails again: the line offers the switch (C6) first.
+          fakeIp ? dialog(NETWORK.allow, {d: 'fake-ip', next: '重新登录'}) : dialog('重新登录', {d: 'oauth', keep: false}));
+      // A renewal stopped before sending (Fake-IP answer) leaves the login usable until it expires; say so now.
+      if (fakeIp && (status === 'ready' || status === 'refreshing'))
+        push('oauth', 'renew_blocked', 'warn', key, 'Higgsfield 的 ATM 登录没能续期', NETWORK.oauth, dialog(NETWORK.allow, {d: 'fake-ip', next: '重新登录'}));
       if (o.keep_login && svcRow.status !== 'loaded')
         push('renew', o.provider, 'warn', key, 'Higgsfield 自动续期没有运行', typeof o.expires_at === 'number' ? zh`ATM 登录将在 ${datetime(o.expires_at, now)} 到期，之后需要你重新登录。` : 'ATM 登录到期后需要你重新登录。', routeAction('查看', key, 'oauth', 'oauth'));
       if (status === 'pending')
@@ -1011,7 +1068,7 @@
       if (j.status === 'submission_unknown')
         push('job-unknown', j.id, 'warn', j.serviceKey, zh`不确定 ${j.tool} 是否已提交`, zh`${j.time} · 为避免重复扣费，请先到 ${j.serviceName} 网站核对，不要让 Agent 重新提交。`, nav('查看记录', 'jobs', {job: j.id}), j.created);
       else if (['awaiting_confirmation', 'login_required', 'requires_human', 'blocked', 'download_failed', 'delivery_failed'].includes(j.status))
-        push('job-needs', j.id, 'info', j.serviceKey, `${j.tool}：${j.word}`, j.sentence, nav('查看记录', 'jobs', {job: j.id}), j.created);
+        push('job-needs', j.id, 'info', j.serviceKey, `${j.tool}：${j.word}`, j.sentence, j.network || nav('查看记录', 'jobs', {job: j.id}), j.created);
     }
     const agents = arr(overview.agents);
     for (const a of agents) if (a?.state === 'registration_changed')
@@ -1034,6 +1091,7 @@
   const T = Object.freeze({
     state: STATE_WORDS, job, jobSentence: JOB_SENTENCE, verify: VERIFY, verifyWord, cost, verifyResult: VERIFY_RESULT, verifyText: verifyResult,
     creditErrors: CREDIT_ERRORS, creditReasons: CREDIT_REASONS, creditLabel, creditTitle, vault: VAULT, backend: BACKEND, permission: PERMISSION, tag: TAG, oauthService: OAUTH_SERVICE, error: ERROR, errorText, knownError,
+    keepsDetail, network: NETWORK, allowedNext, networkLiterals: NETWORK_LITERALS, fakeIpHint, fakeIpOn,
     kinds: KIND_TITLES, chips: KIND_CHIPS, kindOrder: KIND_ORDER, sites: SITES, date, time, datetime, fullDate, day, relative, listTools, quote, fill, zh, brandOf, slug,
   });
   W.ATM_MODEL = Object.freeze({derive, T, say, routeKindOf, toolReadiness, serviceKeyOf});

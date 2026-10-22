@@ -23,7 +23,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from .errors import RouterError
-from .network import checked_url, public_address
+from .network import checked_url, fake_ip_tunnel, public_address
 from .storage import canonical
 
 NAME = "higgsfield"
@@ -114,6 +114,8 @@ class OAuth:
             status = "refresh_unknown"
         if status == "ready" and meta["expires_at"] <= self.clock():
             status = "expired"
+        if meta.get("last_error_hint"):
+            result["last_error_hint"] = meta["last_error_hint"]
         return {"provider": NAME, "status": status, "resource": RESOURCE, "issuer": ISSUER,
                 **result, "background_supported": self.state.setting("vault", {}).get("backend") == "keyring",
                 "secrets_returned": False}
@@ -123,10 +125,11 @@ class OAuth:
             raise RouterError("oauth_origin", "OAuth endpoint differs from the reviewed provider pin.")
         checked_url(url)
         try:
-            public_address(url, self.net.resolver)
+            public_address(url, self.net.resolver, fake_ip=fake_ip_tunnel(self.state))
         except RouterError as error:
             if error.code == "unsafe_download":
-                raise RouterError("oauth_dns_policy", "Official OAuth host resolves to a private or reserved address. No OAuth request was sent; review the local DNS/proxy route.") from None
+                raise RouterError("oauth_dns_policy", "Official OAuth host resolves to a private or reserved address. No OAuth request was sent; review the local DNS/proxy route.",
+                                  hint=error.hint) from None
             raise
         self.net.client.cookies.clear()
         kwargs = {} if body is None else ({"data": body} if form else {"json": body})
@@ -201,7 +204,7 @@ class OAuth:
                 raise RouterError("oauth_conflict", "Connection changed while OAuth was in flight; no automatic retry.", uncertain=True)
             meta.update(status="ready", expires_at=payload["expires_at"], refreshable=bool(payload.get("refresh_token")),
                         last_error=None if payload.get("refresh_token") else "oauth_refresh_token_missing")
-            for key in ("claim", "claim_deadline", "phase", "login_deadline"):
+            for key in ("claim", "claim_deadline", "phase", "login_deadline", "last_error_hint"):
                 meta.pop(key, None)
             if refresh:
                 meta["last_refresh_at"] = self.clock()
@@ -214,6 +217,9 @@ class OAuth:
             _, meta = self._row(db)
             if meta and meta.get("claim") == claim:
                 meta.update(status="refresh_unknown" if error.uncertain else "needs_login", last_error=error.code)
+                meta.pop("last_error_hint", None)
+                if error.hint:
+                    meta["last_error_hint"] = error.hint
                 self._write(db, meta)
                 db.execute("INSERT INTO events(job_id,kind,at) VALUES (NULL,?,?)", ("oauth." + meta["status"], self.clock()))
 
@@ -352,6 +358,7 @@ class OAuth:
                 raise RouterError("oauth_issuer", "OAuth callback issuer did not match.")
             if "error" in query:
                 meta.update(status="denied", last_error="oauth_access_denied")
+                meta.pop("last_error_hint", None)
                 self._write(db, meta)
                 return {**self.status(), "status": "denied", "last_error": "oauth_access_denied"}
             code = query.get("code", "")
