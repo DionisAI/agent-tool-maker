@@ -1,3 +1,19 @@
+# Unreleased — Higgsfield refuses ATM's OAuth login; cancel a pending login
+
+- First real-provider result (2026-10-21, docs/OAUTH_REFRESH.md): with the owner's Fake-IP opt-in on, discovery and
+  dynamic client registration on clerk.higgsfield.ai succeeded and the browser opened; Clerk's authorize step then showed
+  `authorization_invalid` ("Unauthorized request", a 403). A cookie-less probe with an unknown `client_id` gets
+  `invalid_client`, so ATM's client was accepted and the refusal is about authorizing this client or account. Two causes
+  are possible (Higgsfield allows only certain OAuth clients, or the plan does not include MCP); neither is confirmed.
+- Console: while the ATM login is pending, D11 (which now stays open after 打开官方登录页面), the ATM 登录 route and the
+  首页 line say what that JSON means, name both causes and point to the higgsfield 程序 route (`higgsfield auth login`).
+- 取消登录 on all three ends a pending login at once instead of blocking a new one until the five-minute deadline.
+  `OAuth.cancel_login()` clears the claim; a metadata-only replacement (`previous`) resumes the working connection,
+  otherwise `needs_login` with `last_error: "oauth_cancelled"` and an `oauth.cancelled` event. The callback listener
+  stops within a second and drops its key snapshot. A code already at the token endpoint refuses (`oauth_exchanging`).
+- Console only: `POST /api/oauth/cancel {provider}` behind the bearer and exact Origin/Host, metadata only (no password,
+  nothing sent). No CLI command and no approval-window endpoint.
+
 # Unreleased — Fake-IP proxy tunnel (opt-in)
 
 - Owner setting, off by default: with a Fake-IP proxy (Shadowrocket, Clash, Surge) every name resolves into

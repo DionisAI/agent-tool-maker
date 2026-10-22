@@ -34,6 +34,7 @@ Agent 打开本机管理页；在「服务 → Higgsfield → ATM 登录 · Higg
 `atm oauth status higgsfield` 仅返回状态、有效期、续期开关和后台服务的最近安装状态。
 `atm oauth login higgsfield --keep-login` 打开一轮官方 PKCE 登录，等待人类授权最多 5 分钟。
 重复请求复用 pending，既有连接默认保留；明确更新用 `--replace`。
+等待中的登录只能由所有者在管理台点「取消登录」立即结束（见下文 2026-10-21 记录）；没有 CLI 取消命令。
 `atm oauth refresh higgsfield` 在内部续期，不输出令牌。
 `atm oauth keep-login higgsfield --apply` / `--disable --apply` 管理后台续期开关。
 `atm oauth watch --once` 是服务的有限单次检查；`watch` 是前台监督进程。
@@ -58,7 +59,7 @@ MCP HTTP 绑定可使用：
 `refresh_unknown`（活动 claim 过期后也归此状态），不盲重试旧 refresh token。
 同一登录 authorization code 只换一次；state/issuer 不匹配、Host/path 不匹配、重复查询字段不换 token。
 回调日志、provider body/error_description、授权 URL、令牌均不显示给 Agent。
-事件仅记录 `oauth.connected/refreshed/needs_login/refresh_unknown`，不记录身份或秘密。
+事件仅记录 `oauth.connected/refreshed/needs_login/refresh_unknown/cancelled`，不记录身份或秘密。
 服务 stdout 为限定状态，日志 0600；不存在供应商账单/生成心跳。
 `oauth_dns_policy` 表示本机将官方域名解析为 private/reserved 地址；请求在发出前停止。
 错误码不变。原因只是代理 Fake-IP 应答（`198.18.0.0/15`，Shadowrocket、Clash、Surge
@@ -114,3 +115,30 @@ IPv4 的 NAT64 地址（`64:ff9b::/96`），只要出现一个，整组应答就
   （2026-10-20 起可由所有者打开上文的 Fake-IP 选项；默认仍拒绝。）
 - 诊断/测试/安装备份收据：`/private/tmp/atm-oauth-refresh.0FxmUB/`；原生界面截图
   `oauth-console.png`。真实注册、授权、轮换及真实 launchd 运行需要网络路径解决后验证。
+
+### 真实连接记录：2026-10-21（Higgsfield 拒绝了这次授权）
+
+- 所有者在管理台打开了 Fake-IP 选项（上文）后，官方登录走到了真实供应商：两份元数据发现
+  （protected-resource 与 authorization-server）和 `clerk.higgsfield.ai` 上的动态客户端注册都成功，
+  系统浏览器打开了授权页。
+- Clerk 的授权步骤随后在浏览器里只显示
+  `{"errors":[{"code":"authorization_invalid","message":"Unauthorized request"}]}`。Clerk 文档把这个错误列为
+  403：已认证，但不被允许。没有回调到本机，也就没有换 token、续期或安装后台服务；管理台一直显示“等你在浏览器里确认”，
+  直到 5 分钟的登录期限。
+- 只读探测：不带 Cookie、用一个不存在的 `client_id` 请求 `/oauth/authorize/continue`，返回 `invalid_client`（401）。
+  所以 ATM 注册的客户端是被接受的，拒绝发生在“这个客户端或这个账户能否获得授权”这一步。
+- Higgsfield 的 protected-resource 元数据里 `higgsfield_auth_hints.potential_clients` 只列出
+  anthropic、claude、claude-ai、claude-code、openclaw、hermes。higgsfield-ai/cli 的几个 issue 报告其他 OAuth /
+  动态注册客户端在 Higgsfield 的 Clerk 上失败，症状不同（redirect_uri 不匹配、issuer 不一致）：#59、#75、#90 仍未关闭，
+  #77 已关闭（2026-10-21 查看）；其中没有提到 `authorization_invalid`。
+- 结论只到这里：可能的原因有两种，没有确定是哪一种。一是 Higgsfield 只允许部分 OAuth 客户端；二是这个账户的套餐
+  不含 MCP。ATM 本机没有坏，也不会绕过这项拒绝。实际可用的做法是“higgsfield 程序”这条连接方式：官方 CLI
+  （`higgsfield auth login`），ATM 已经封装了它。
+- ATM 的处理：登录等待中，D11（点“打开官方登录页面”之后）、ATM 登录卡片和首页提示都说明这段 JSON 的含义、两种可能的
+  原因，并指向“higgsfield 程序”。所有者可以点 **取消登录** 立即结束这次等待，不必等 5 分钟的期限：
+  `POST /api/oauth/cancel {"provider":"higgsfield"}`，与管理台其他写入一样需要 bearer 和精确的 Origin/Host，
+  只改写连接元数据，不需要 ATM 主密码，也不向 Higgsfield 发送任何请求。它释放这次登录的占用。如果取消的是一次替换登录，
+  而原来的令牌仍然密封保存（只写元数据的替换，元数据里有 `previous`），原来的连接继续有效；否则状态为 `needs_login`。
+  两种情况都记 `last_error: "oauth_cancelled"` 和一条 `oauth.cancelled` 事件。被取消的那次登录的回调会被拒绝，本机回调监听在一秒内停止并丢弃它的密钥快照。
+  授权码已经在换 token 时（`phase: exchanging`）不能取消（`oauth_exchanging`），由那次交换记录自己的结果。
+  没有 CLI 取消命令：Agent 只读状态，把登录交给所有者。

@@ -471,8 +471,11 @@ explicit local unlock. Neither extends the project's 30-minute Key lease.
 On `needs_login`/`refresh_unknown`, hand off an explicit replacement login; do not
 repeat token exchange or paid tool calls. An error with `"hint": "fake_ip_tunnel"`
 means the name resolved to 198.18.x.x (usually a proxy's Fake-IP mode): tell the owner;
-they decide in `atm ui` 设置 › 高级. Never change proxy, DNS or that setting yourself. Consult docs/OAUTH_REFRESH.md for MCP
-binding, exact tool approval and remaining real-provider acceptance.
+they decide in `atm ui` 设置 › 高级. Never change proxy, DNS or that setting yourself. If the owner's browser shows
+Clerk JSON `authorization_invalid` ("Unauthorized request"), Higgsfield refused ATM's own OAuth client (it may allow
+only certain clients, or the plan may not include MCP): do not hand off the same login again; offer the official
+`higgsfield` CLI route (`higgsfield auth login`). Only the owner cancels a pending login (console 取消登录; no CLI).
+Consult docs/OAUTH_REFRESH.md for MCP binding, exact tool approval and remaining real-provider acceptance.
 
 ### API credentials
 
