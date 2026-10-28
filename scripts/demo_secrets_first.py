@@ -62,6 +62,12 @@ def start(atm, home, password, ttl='30m'):
         proc.terminate();proc.wait(timeout=5);os.close(master);raise
 
 
+def scratch():
+    """A temporary root with no symlink in its path: ATM refuses socket/profile paths through one,
+    and macOS's TMPDIR (/var/folders) is one."""
+    return tempfile.TemporaryDirectory(prefix='atm7-demo-',dir=Path(tempfile.gettempdir()).resolve())
+
+
 def refusal(data):
     """The error code of a refusal `atm unlock` printed (an indented JSON object), if any. Codes carry no secrets."""
     text=data.decode(errors='replace')
@@ -81,7 +87,7 @@ def demo():
     atm=shutil.which('atm');assert atm,'Install the reviewed source first.'
     receipt={'version':__version__,'real_model_calls':0,'real_vendor_calls':0,'fake_credentials':True,
              'two_stores_on_one_machine':True,'native_keyring_tested':False,'real_agent_hosts_tested':False}
-    with tempfile.TemporaryDirectory(prefix='atm7-demo-') as td:
+    with scratch() as td:
         root=Path(td);password='fake-password-for-this-test';key='fake-acceptance-'+os.urandom(16).hex()
         r=Router(root/'a');r.vault=Vault(r.state,password=password);r.vault.init('passphrase');r.vault.put('fal',key)
         # Actual local HTTP target that verifies the header, never logs it.
