@@ -66,7 +66,8 @@ provider_task_id=null，provider_generation_verified/task_association_verified=f
 
 ## 2026-10-08 验收
 
-最新两个编译包：`generated/xyq-web-download-stage-r3/`。
+最新两个编译包：`generated/xyq-web-download-stage-r3/`（本机构建输出，未提交到仓库；
+按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)在本机重新编译）。
 适配器 pin：`37db8c3f2221abcec61f59a9a48ea1f2c42b0716c6323414951f9a78b6c09164`。
 流水线 pin：`e7b7f94a624272a855202773b707edab4b1e4cceb580c92788d355b43d4a416e`。
 编译回执：`/private/tmp/atm-xyq-download-build-20261008-r3.json`。

@@ -125,6 +125,7 @@ task_count=null、all_records=false，任务行所属项目与格式仍待核对
 当前两页面显示6430积分；此前6396是上一阶段读数，不称本轮余额未变。
 本轮CLI零输入，CUA只关闭自己打开的历史层；没有上传、生成或读取全账户任务。
 新增1条history注册，保留原13条/17定义和生产ATM；18包见generated/xyq-web-history-stage/。
+本页 `generated/xyq-*` 阶段目录都是本机构建输出，未提交到仓库；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
 最终Node218/Python316全通过零跳过；实际任务ID/状态/结果及下载仍待验收，
 详见 XYQ_PROJECT_HISTORY_CONTRACT.md。
 
@@ -139,7 +140,7 @@ PNG/JPEG/WebP/PCM WAV/MP3/MP4的摘要、容器、完整解码和路径/字节�
 artifact_rejected/valid=false的completed检查job也不是有效文件，详见 XYQ_MEDIA_DELIVERY_CONTRACT.md。
 
 同一音频参考上传入口的源码现增加有界 MP3 intake，WAV校验/历史指纹/empty/append/
-一次输入与未知锁保持；独立18包位于generated/xyq-web-mp3-reference-stage/。
+一次输入与未知锁保持；独立18包位于generated/xyq-web-mp3-reference-stage/（本机构建输出，未提交）。
 最终248 Node/434 Python通过，含5份真实本地编码和原生隔离卡片/引用保留；
 已安装WAV闭包/生产ATM保持，网页实际MP3接收仍待新文件许可。
 格式声明、帧时长与完整解码区别、全部pin和回执见 XYQ_MP3_REFERENCE_CONTRACT.md。
@@ -147,5 +148,5 @@ artifact_rejected/valid=false的completed检查job也不是有效文件，详见
 后续现有显式上传注册已单独升级MP3（最终c70aa32 pin，旧版9文件完整备份），
 其它13条注册继续旧pin，生产ATM保持。生成CLI→隔离ATM→App的MP3旧摘要预检已通过，
 upload_rejected/draft_changed、零文件输入、同键同job，原音频及首页全稿保持。
-当前18源码包位于generated/xyq-web-mp3-cli-stage/；相关验收、失败根因及真实附件门槛仍以
+当前18源码包位于generated/xyq-web-mp3-cli-stage/（本机构建输出，未提交）；相关验收、失败根因及真实附件门槛仍以
 XYQ_MP3_REFERENCE_CONTRACT.md末节为准，不把预检completed解释为上传或生成完成。

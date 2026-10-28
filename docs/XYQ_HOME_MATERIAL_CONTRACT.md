@@ -16,7 +16,8 @@
 重复请求键复用原 job，返回的是历史快照，不是当前菜单或草稿重新核对。
 
 源码：`examples/opencli/xyq-web/material-home.mjs`、`material-home.js`。
-编译器：`scripts/build_xyq_material.py`；包：`generated/xyq-home-material-stage-r1/`。
+编译器：`scripts/build_xyq_material.py`；包：`generated/xyq-home-material-stage-r1/`
+（本机构建输出，未提交到仓库；按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建）。
 独立12文件闭包 pin：
 `7b14a687050cbff4716f9e5afb238608bdc0d299bfc104cd93cd8808ac8d01a5`。
 加载器：`~/.opencli/clis/xyq-home-material/material.js` 与 `reviewed/`；原生命名空间

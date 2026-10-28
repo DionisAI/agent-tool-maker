@@ -34,6 +34,7 @@ MP3 intake 只证明帧结构与摘要，`decoder_verified=false`；交付完整
 - 首次 MP3 源码快照 `generated/xyq-web-mp3-reference-stage/`，18个媒体包、工具ID/schema/权限保持；
   共享 audio intake 及其描述/上传注释共3个源码文件变化，依赖 pin 导致14个定义更新，
   4个基础定义保持。旧 history 快照90个文件与已安装78个源码文件逐字节保留。
+  本页 `generated/xyq-*` 阶段目录都是本机构建输出，未提交到仓库；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
 - 音频 source pin `d3d275345fd5c9579e3b9efbf0388f5a75260a7cb5b82be3795c6f9144caab10`；
   显式上传 pin `2821912c20e80916442b288000fac47d3a922f1dc38001b55d3a343c402fdf16`。
   全部传递 pin 见最终核对回执；先前合同中的 pin 是各自保留的历史快照。
@@ -67,7 +68,7 @@ Chrome后r2零跳过，未修改测试断言或浏览器策略。
 后续发现上传 loader 的说明仍写 WAV，已把 description/settings help 明确为 PCM WAV/MP3。
 只修改该 JS 的两段元数据；音频 intake pin仍d3d275，原WAV/MP3校验和上传逻辑保持。
 最终显式上传 pin `c70aa32bcf00f1f12e8e9d13aa73d70fd8b628e637d93ae18ebe3bea85623c13`。
-新18包 `generated/xyq-web-mp3-cli-stage/` 相比首次MP3阶段仅上传定义pin变化。
+新18包 `generated/xyq-web-mp3-cli-stage/`（本机构建输出，未提交）相比首次MP3阶段仅上传定义pin变化。
 
 `~/.opencli/clis/xyq-audio-upload-bound/` 已升级：先逐字节保留旧9个源码文件，
 再编辑4个reviewed模块和root loader，共5文件；其余69个已安装源码文件、13条注册保持。
@@ -132,7 +133,7 @@ intent后错误新增私有0600 `request-key.failure.json`：有界code/phase/�
 诊断写入冲突显式报告diagnostic_write_failed，保留原主错误。
 
 新source pin `f33eecb64e8a6cb2b744235ea38e70b5d81b6847f0050a94a67141290d097d27`，
-18包 `generated/xyq-web-audio-chooser-stage/`，相比c70快照仅上传定义变化。
+18包 `generated/xyq-web-audio-chooser-stage/`（本机构建输出，未提交），相比c70快照仅上传定义变化。
 单个已安装入口升级，先完整备份旧9源码文件，仅改2reviewed模块及root loader；
 其它69已安装源码、全部14注册元数据及App保持；未安装生产ATM或更新用户级Skill。
 新loader SHA `540975f51248db01df16f7174dfb68a9895359539dfd99dbefc3e2d20a3bd545`。

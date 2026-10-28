@@ -50,6 +50,7 @@
 
 新闭包10文件pin `4d14f22835161254af05445445c9f4ed0fd838c9d4ca27ba1868e6a0629832cc`。
 `generated/xyq-web-home-quote-stage/`默认17包，原16条定义SHA全部保持。
+该目录是本机构建输出，未提交到仓库；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
 新增`~/.opencli/clis/xyq-home-quote-bound/quote.js`单独加载，loader SHA
 `76015328996528e08101f15bfe3f41740812459320a800602b9d99d5e3be5689`；
 原12条注册/闭包、App、生产ATM/vault和用户级Skill保持。

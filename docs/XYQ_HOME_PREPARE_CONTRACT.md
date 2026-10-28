@@ -74,6 +74,7 @@ Control分支是macOS隔离Chrome中的平台元数据夹具，不当作Linux实
 - 新源码 pin `7d009002f133eac8addcd459b227d0b4cfee2709c972231bad20d33658bea09b`。
 - `generated/xyq-web-home-prepare-stage/`：16包、五个显式首页定义，其它11个定义与r3完全一致。
   所有旧目录和原回执保留。生产ATM保持；仅在新临时ATM安装form_state/form_prepare两定义验收。
+  这些阶段目录都是本机构建输出，未提交到仓库；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
 - 当前App加载相同新pin的五入口，home loader SHA
   `2828bfbcf253f95e83cd9dea6eaa777d7e3aa667e8321cc668b84538cfd0b68b`。
   只更新home-bound.mjs/home-bound.js和home loader，没有更新第三方App或两个原音频read loader。

@@ -6,7 +6,8 @@
 
 ## 执行与源码
 
-- 编译器：`scripts/build_xyq_runtime.py`，最新包：`generated/xyq-media-runtime-stage-r2/`。
+- 编译器：`scripts/build_xyq_runtime.py`，最新包：`generated/xyq-media-runtime-stage-r2/`
+  （本机构建输出，未提交到仓库；按[下文步骤](#从源码重建并安装27项)重建）。
 - 新原生命名空间：`xyq-media`；唯一用户安装命令仍为 `atm`。
 - 加载器：`~/.opencli/clis/xyq-media-runtime/media.js`；32份字节一致的审阅源码位于
   `reviewed/`。根加载器只转换两个相对导入路径；闭包含声明和分派代码。
@@ -42,7 +43,9 @@
 四个编译器的 ID 互不重叠：运行时20项、结果读取3项、下载2项、首页素材2项。
 `build_xyq_web.py` 默认及其它阶段输出与运行时有18项同 ID 不同定义，安装会报
 `duplicate_tool`，不要混装。`--results-only` 只产出3个结果包，与 `--include-results`
-中的对应包逐字节相同，且不能与其它阶段选项同用。
+中的对应包逐字节相同，且不能与其它阶段选项同用。各合同引用的 `generated/xyq-*` 阶段目录
+都是本机构建输出，未提交到仓库；历史阶段的目录与 pin 仅作当时证据。2026-10-17 用下列
+四条编译命令从源码重建，四组源码 pin 与各合同所记相同。
 
 ```sh
 OPENCLIAPP=/Applications/OpenCLIApp.app/Contents/MacOS/opencli-app  # 已审阅的 App 实际可执行文件
