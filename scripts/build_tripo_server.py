@@ -1,4 +1,5 @@
 """Deterministic package snapshot of the existing reviewed DOM adapters; no installation/login."""
+import argparse
 import importlib.util
 import json
 from pathlib import Path
@@ -22,6 +23,7 @@ def definitions():
 
 
 def main():
+    argparse.ArgumentParser(description="Regenerate src/agent_tool_maker/data/tripo_server/ in place from the reviewed adapters; no options, installation or login.").parse_args()
     destination = ROOT / "src/agent_tool_maker/data/tripo_server"
     destination.mkdir(parents=True, exist_ok=True)
     for source in sorted((ROOT / "examples/opencli/tripo-studio").iterdir()):

@@ -329,7 +329,7 @@ receipts and stable request keys. No public VNC/CDP/tool endpoint, no sandbox-po
 changes or auth-file reads. Linux/runtime/provider acceptance remains separate.
 
 For Tripo Studio subscription credits, discover `tripo.studio.*`, not the built-in
-`tripo.generate` developer API. `account` and `assets` are read-only, need
+`tripo.text_to_3d` developer API. `account` and `assets` are read-only, need
 `--allow-code`, and use Chrome-owned login through the reviewed OpenCLIApp bridge.
 No vault Key unlock or cookie/token export. Assets cover currently loaded model
 cards only; `preview_task_id` is not an asset ID or proof of task completion.

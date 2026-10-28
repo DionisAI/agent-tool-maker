@@ -7,7 +7,7 @@
 
 这是网页 DOM 适配器，不是开发者 API。Studio 与 API 的积分独立：
 [Tripo 官方说明](https://www.tripo3d.ai/help/api-plugins/tripo-studiotripo-api)。
-不修改现有 `tripo.generate`，也不导出 Cookie、Token、Chrome profile 或读取认证文件。
+不修改现有 `tripo.text_to_3d`，也不导出 Cookie、Token、Chrome profile 或读取认证文件。
 浏览器自己维护登录；失效后由人完成官方登录，不承诺通用自动续期。
 
 路线：主 Agent 观察真实 DOM → `examples/opencli/tripo-studio/` 专用适配器 →
@@ -72,11 +72,11 @@ partial 和 stop_reason，不用推测总量。该范围是模型卡片，不含
 生成包位于 `generated/tripo-studio/{account,assets,quote,generate}/`，每包含
 `tool.py`、manifest、输入示例、README 与 bundle-lock。只需要 Python 标准库和
 已安装 ATM；浏览器依赖不内嵌。唯一由本项目安装的命令仍是 `atm`。
-本次新增 11 包在 `generated/tripo-studio-extended/`。适配器摘要覆盖按固定顺序的
-8 个源码文件；更新用 CAS 校验旧定义、批准新摘要，并保留定义历史。原来的
-4 个包与摘要保持不变。
+本次新增 11 包现位于 `generated/tripo-studio-delivery-stage-r4/<op>/`（当前合并包，下同）。
+适配器摘要覆盖按固定顺序的 8 个源码文件；更新用 CAS 校验旧定义、批准新摘要，
+并保留定义历史。原来的 4 个包与摘要保持不变。
 
-工作区另有 3 包在 `generated/tripo-studio-workspace/`，正式注册总计 18 项。
+工作区另有 3 包在 `generated/tripo-studio-delivery-stage-r4/<op>/`，正式注册总计 18 项。
 工作区摘要覆盖旧 8 文件和 workspace.mjs/workspace.js，旧 15 包不随这次更新改写。
 侧栏实际折叠的子项先点已观察的可见父项再进入，不把零高度误判为资产禁用。
 workspace_inspect 对按钮无报价返回 quoted_credits=null；动画预置与主表单分开报告。
@@ -108,7 +108,7 @@ Generate Smart Mesh 仅列出，不提交。图片下载/编辑/转 3D 另验。
 工厂脚本固定加载本工程的 src；进程若已缓存其他 ATM 包则明确报错，避免误用
 已安装旧工厂的临时目录清理行为。构建失败保留现场，升级安装另属运行时维护。
 
-动画/导出选项独立 4 包在 `generated/tripo-studio-ui-options/`，正式总计 24 项。
+动画/导出选项独立 4 包在 `generated/tripo-studio-delivery-stage-r4/<op>/`，正式总计 24 项。
 动画准备仅支持 prompt、duration 1–10、expected_prompt_sha256；已有绑骨源的
 空草稿与未绑骨源分开报告（draft_empty / rig_prerequisite_missing），不以禁用
 Generate 推断所有模型都缺绑骨。报价随可见按钮读取，返回 ready 仍不是完成动画。
@@ -135,7 +135,7 @@ Generate 推断所有模型都缺绑骨。报价随可见按钮读取，返回 r
 
 ## 人的体验
 
-查看器/层级独立 5 包在 `generated/tripo-studio-viewer/`，正式总计 29 项。
+查看器/层级独立 5 包在 `generated/tripo-studio-delivery-stage-r4/<op>/`，正式总计 29 项。
 查看器摘要覆盖工作区 10 文件和 viewer.mjs/viewer.js；更新新 5 项时原 24 项
 定义及源摘要逐项保留。每个工具绑定准确的已完成源 UUID，现有弹层留给人。
 
@@ -165,7 +165,7 @@ zoom_in/out。对模型画布命中预检后发出固定有界原生输入，失
 画面效果另行验收，既不读取隐藏引擎状态，也不将原生输入回执当精确姿态证明。
 五工具都不提交生成、上传、导出、Share/Feature 或节点 Delete。
 
-图片生成表单独立 2 包在 `generated/tripo-studio-image-form/`，已注册总计 31 项。
+图片生成表单独立 2 包在 `generated/tripo-studio-delivery-stage-r4/<op>/`，已注册总计 31 项。
 该组覆盖工作区 10 文件和 image-form.mjs/js，原 29 定义与源摘要逐项不变。
 这不是 `image_quote` / `image_generate` 的图片转 3D。准备要求
 `expected_draft_sha256`，绑定源 UUID、完整设置、参考图片与实际 FileList 计数。
