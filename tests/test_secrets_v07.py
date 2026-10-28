@@ -480,5 +480,6 @@ def test_secrets_first_demo_receipt_reports_package_version(tmp_path):
     root=Path(__file__).resolve().parents[1];out=tmp_path/'receipt.json'
     # The demo runs `atm` from PATH; put this environment's atm first so the code under test is exercised.
     env={**os.environ,'PATH':str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH','')}
-    subprocess.run([sys.executable,str(root/'scripts/demo_secrets_first.py'),'--out',str(out)],check=True,capture_output=True,timeout=300,env=env)
+    result=subprocess.run([sys.executable,str(root/'scripts/demo_secrets_first.py'),'--out',str(out)],capture_output=True,text=True,timeout=300,env=env)
+    assert result.returncode==0, result.stderr[-4000:]  # The demo prints no secrets; its stderr names the failure.
     assert json.loads(out.read_text())['version']==__version__
