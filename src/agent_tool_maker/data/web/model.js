@@ -387,7 +387,7 @@
     // wrote the session there too, with mode secrets_session: that record is not a strict broker.
     const b = obj(data?.access?.broker), lease = b.lease_expires_at;
     const broker = b.state === 'running' && b.mode !== 'secrets_session' && typeof lease === 'number' && Number.isFinite(lease) && lease > now
-      ? zh`atm broker serve 记录为运行中（到 ${time(lease)}）：持有受限授权的 Agent 仍可使用授权里的 Key，这里的锁定不会停止它。` : '';
+      ? zh`atm broker serve 记录为运行中（到 ${datetime(lease, now)}）：持有受限授权的 Agent 仍可使用授权里的 Key，这里的锁定不会停止它。` : '';
     return Object.fromEntries(Object.entries(LOCKED[backend]).map(([key, text]) => [key, text + broker]));
   }
 

@@ -155,8 +155,13 @@ test('"Key 已锁定" says only what the lock enforces, for each vault backend',
   const broker = {pid: 4242, socket: '/fake/atm/broker.sock', started_at: NOW - 60, lease_expires_at: NOW + 3600, state: 'running'};
   const served = M.keyLock(data({vault: {backend: 'keyring', state: 'unlock_not_checked'}, session: locked,
     access: {grants: [], clock: NOW, broker, requests: []}}), NOW);
-  const note = 'atm broker serve 记录为运行中（到 ' + M.T.time(NOW + 3600) + '）：持有受限授权的 Agent 仍可使用授权里的 Key，这里的锁定不会停止它。';
+  const note = 'atm broker serve 记录为运行中（到 ' + M.T.datetime(NOW + 3600, NOW) + '）：持有受限授权的 Agent 仍可使用授权里的 Key，这里的锁定不会停止它。';
   for (const key of ['home', 'agents', 'toast']) assert.equal(served[key], keyring[key] + note, key);
+  // A strict lease can run for days (up to 720 hours): the note names the day as well as the time.
+  assert.match(note, /（到 \d{1,2} 月 \d{1,2} 日 \d\d:\d\d）/);
+  const later = M.keyLock(data({vault: {backend: 'keyring', state: 'unlock_not_checked'}, session: locked,
+    access: {grants: [], clock: NOW, broker: {...broker, lease_expires_at: NOW + 3 * 86400}, requests: []}}), NOW);
+  assert.ok(later.toast.includes('（到 ' + M.T.date(NOW + 3 * 86400, NOW) + ' ' + M.T.time(NOW + 3 * 86400) + '）'), later.toast);
   // The shared session's own record, a stopped broker, an ended lease or no record add nothing.
   for (const record of [{...broker, mode: 'secrets_session'}, {state: 'stopped', at: NOW, socket: '/fake/atm/broker.sock'},
     {...broker, lease_expires_at: NOW - 1}, {...broker, lease_expires_at: 'soon'}, null, undefined, 'running'])

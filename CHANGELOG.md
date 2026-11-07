@@ -5,8 +5,8 @@
   the 立即锁定 toast now come from one `keyLock()` in `model.js`, by vault backend: with the system keychain, Agents running
   ATM tools read Keys directly and locking ends only the shared unlock and project grants; with the ATM 主密码, handing a
   Key to a program opens the approval window, ATM tools need the password, and a process with `ATM_VAULT_PASSWORD` uses
-  Keys directly. A strict `atm broker serve` still within its recorded lease is named as unaffected. Tool and Key-route
-  sentences follow the backend too.
+  Keys directly. A strict `atm broker serve` still within its recorded lease is named as unaffected, with the day and time
+  its lease ends (a strict lease can run up to 720 hours). Tool and Key-route sentences follow the backend too.
 - Project approvals end with their unlock session in the record, as the toast says. 立即锁定 / `atm lock` (before it
   replies), the lease's auto-lock and a closing console mark every project approval bound to that unlock `revoked` with
   `revoked_reason: "session_ended"`, so `atm access list` and `GET /api/access` list it as ended and Agent 与权限 shows it
