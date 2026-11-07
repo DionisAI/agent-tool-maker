@@ -159,6 +159,45 @@ print(json.dumps([{'result':{'status':'download_target_exists','thread_id':s['th
     assert e.value.code=='download_target_exists' and not e.value.uncertain
     argv=json.loads(log.read_text());assert argv[:3]==['__opencli_shim','xyq-web','result-download-bound'] and argv[argv.index('--download-root')+1]==str(x['root'])
     assert sorted(p.name for p in (x['workspace']/'.atm/xyq-result-downloads').iterdir())==['finalize.lock'] and x['source'].read_bytes()==existing
+def installed_tools(router,tmp_path,bridge,root):
+    # Both reviewed definitions installed and the bound, hash-pinned source ATM child,
+    # exactly as generated tool.py -> Router -> cli_adapter -> `atm delivery` runs them.
+    from agent_tool_maker.catalog import Catalog
+    from agent_tool_maker.cli_adapter import bind_cli
+    from agent_tool_maker.extensions import pack
+    from agent_tool_maker.maker import install,digest
+    source=tmp_path/'source-atm';source.write_text(f'#!{sys.executable}\nimport sys\nsys.path.insert(0,{str(ROOT/"src")!r})\nfrom agent_tool_maker.cli import main\nraise SystemExit(main())\n');source.chmod(0o700)
+    bundles={}
+    for op in b.OPERATIONS:
+        t=b.manifest(op,str(bridge),str(root));bundles[op]=Path(pack(t,tmp_path/('bundle-'+op))['directory'])
+        install(router.state,router.catalog,bundles[op]/'manifest.json',digest(t))
+    router.catalog=Catalog(router.state);bind_cli(router.state,'atm',str(source))
+    def tool(op,job_key,inputs,workspace):
+        inp=tmp_path/(job_key+'.json');inp.write_text(json.dumps(inputs))
+        p=subprocess.run([sys.executable,str(bundles[op]/'tool.py'),'--atm',str(source),'--home',str(router.state.home),'--workspace',str(workspace),
+            '--input',str(inp),'--request-key',job_key,'--allow-code',*(['--allow-write'] if op=='result_download' else [])],cwd=ROOT,capture_output=True,text=True)
+        return p.returncode,json.loads(p.stdout)
+    return tool
+@pytest.mark.integration
+def test_installed_tool_name_refusal_is_a_definite_failed_job_with_no_lock_left(setup,router,tmp_path):
+    x=setup;existing=x['source'].read_bytes();calls=tmp_path/'bridge-calls'
+    x['bridge'].write_text('#!'+sys.executable+"""
+import json,sys
+a=sys.argv[1:];s=json.loads(a[a.index('--settings')+1])
+open(CALLS,'a').write('x')
+print(json.dumps([{'result':{'status':'download_target_exists','thread_id':s['thread_id'],'result_id':s['result_id'],'request_key':s['request_key'],'filename':'fixture.png','browser_input':False,'intent_recorded':False}}]))
+""".replace('CALLS',repr(str(calls))))
+    tool=installed_tools(router,tmp_path,x['bridge'],x['root'])
+    code,job=tool('result_download','job-one',{'settings':args()},x['workspace'])
+    assert code==2 and job['status']=='failed',job
+    assert job['data']['error']['code']=='download_target_exists' and job['data']['error']['outcome_uncertain'] is False
+    assert sorted(p.name for p in (x['workspace']/'.atm/xyq-result-downloads').iterdir())==['finalize.lock']
+    assert x['source'].read_bytes()==existing and sorted(p.name for p in x['root'].iterdir())==['fixture.png'] and calls.read_text()=='x'
+    code,status=tool('result_download_status','status-one',{'request_key':'one-download'},x['workspace'])
+    assert code==2 and status['status']=='failed' and status['data']['error']['code']=='request_missing' and status['data']['error']['outcome_uncertain'] is False
+    # The failed job is final for its job key; nothing is re-run.
+    code,again=tool('result_download','job-one',{'settings':args()},x['workspace'])
+    assert again['id']==job['id'] and again['status']=='failed' and calls.read_text()=='x'
 def test_partial_lock_finalization_resumes_only_local_validation_and_retained_lock_rename(setup,monkeypatch):
     x=setup;release=d._release;calls=[]
     def interrupted(fd,name,key,fp):
