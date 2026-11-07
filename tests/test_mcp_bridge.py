@@ -83,3 +83,80 @@ def test_streamable_http_json_sse_and_session_headers(router,workspace,sse):
 ])
 def test_invalid_mcp_binding_rejected(router,cfg):
     with pytest.raises(RouterError):bind_server(router.state,'figma',cfg)
+
+from agent_tool_maker.oauth import NAME,RESOURCE,Unsent
+
+PAID={'allow_paid':True,'grants':['external_write','execute_code']}
+BATCH={'calls':[{'name':'read','arguments':{}},{'name':'read','arguments':{}}]}
+OK={'content':[{'type':'text','text':'ok'}]}
+# What OAuth.access_token can raise while refreshing: certain refusals, #18's Unsent, and an unknown rotation.
+REFRESH_FAILURES=[
+    pytest.param(lambda:RouterError('oauth_refreshing','Connection needs human login or an in-flight refresh to finish; no retry was dispatched.'),id='refreshing'),
+    pytest.param(lambda:RouterError('oauth_needs_login','A current OAuth access token is required.'),id='needs_login'),
+    pytest.param(lambda:Unsent('oauth_network','OAuth connection could not be opened. No OAuth request was sent.'),id='unsent_connect'),
+    pytest.param(lambda:RouterError('oauth_network','OAuth transport interrupted; no automatic token-exchange retry.',uncertain=True),id='refresh_read_timeout'),
+]
+
+def oauth_server(router,monkeypatch,error,fail_when):
+    """Higgsfield OAuth MCP binding on a fake transport; the fake OAuth raises `error` once fail_when(sent) holds."""
+    sent=[]
+    class FakeOAuth:
+        def __init__(self,*args):pass
+        def access_token(self,name,resource):
+            assert (name,resource)==(NAME,RESOURCE)
+            if fail_when(sent):raise error
+            return 'FIXTURE_OAUTH_ACCESS'
+    monkeypatch.setattr('agent_tool_maker.oauth.OAuth',FakeOAuth)
+    bind_server(router.state,'figma',{'transport':'http','url':RESOURCE,'oauth':NAME,'allow_tools':['read']})
+    def handler(req):
+        if req.method=='DELETE':return httpx.Response(204)
+        assert req.headers['authorization']=='Bearer FIXTURE_OAUTH_ACCESS'
+        q=json.loads(req.content);sent.append(q['method'])
+        if q['method']=='notifications/initialized':return httpx.Response(202)
+        value={'initialize':INIT,'tools/list':{'tools':TOOLS}}.get(q['method'],OK)
+        return httpx.Response(200,json={'jsonrpc':'2.0','id':q['id'],'result':value})
+    router.net.client=httpx.Client(transport=httpx.MockTransport(handler),trust_env=False)
+    return sent
+
+@pytest.mark.parametrize('error',REFRESH_FAILURES)
+def test_oauth_failure_after_a_paid_call_is_partial_not_failed(router,workspace,monkeypatch,error):
+    # Call 1 ran and spent credits; the token step for call 2 fails. Never a plain "failed" an Agent would resubmit.
+    expected=error()
+    sent=oauth_server(router,monkeypatch,expected,lambda sent:sent.count('tools/call')==1)
+    j=router.run('figma.mcp_batch',BATCH,workspace,**PAID)
+    assert j['status']=='submission_unknown',j
+    assert j['data']['error']['code']==expected.code and j['data']['error']['outcome_uncertain'] is True
+    assert j['data']['mcp_completed']==[{'name':'read','result':OK}]
+    assert sent.count('tools/call')==1  # Call 2 was never sent and is not replayed.
+
+@pytest.mark.parametrize('error',REFRESH_FAILURES)
+@pytest.mark.parametrize('tool,inputs,options,fail_when',[
+    pytest.param('figma.mcp_tools',{},{},lambda sent:not sent,id='discovery_initialize'),
+    pytest.param('figma.mcp_batch',BATCH,PAID,lambda sent:not sent,id='batch_initialize'),
+    pytest.param('figma.mcp_batch',BATCH,PAID,lambda sent:'tools/list' in sent,id='batch_first_call'),
+])
+def test_oauth_failure_before_any_tool_call_is_certain_not_sent(router,workspace,monkeypatch,error,tool,inputs,options,fail_when):
+    # The token step precedes the message: whatever the refresh outcome, this MCP message was not sent.
+    expected=error()
+    sent=oauth_server(router,monkeypatch,expected,fail_when)
+    j=router.run(tool,inputs,workspace,**options)
+    assert j['status']=='failed',j
+    assert j['data']['error']['code']==expected.code and j['data']['error']['outcome_uncertain'] is False
+    assert 'tools/call' not in sent and not j['data'].get('mcp_completed')
+
+def test_certain_error_after_tool_call_dispatch_is_uncertain(router,workspace):
+    # The call reached the server; a later local refusal of its response cannot prove it did not run.
+    bind_server(router.state,'figma',{'transport':'http','url':'https://mcp.example.com/mcp','allow_tools':['read']})
+    sent=[]
+    def handler(req):
+        if req.method=='DELETE':return httpx.Response(204)
+        q=json.loads(req.content);sent.append(q['method'])
+        if q['method']=='notifications/initialized':return httpx.Response(202)
+        if q['method']=='tools/call':return httpx.Response(200,headers={'Content-Type':'text/plain'},content=b'ok')
+        value={'initialize':INIT,'tools/list':{'tools':TOOLS}}[q['method']]
+        return httpx.Response(200,json={'jsonrpc':'2.0','id':q['id'],'result':value})
+    router.net.client=httpx.Client(transport=httpx.MockTransport(handler),trust_env=False)
+    j=router.run('figma.mcp_batch',BATCH,workspace,**PAID)
+    assert j['status']=='submission_unknown',j
+    assert j['data']['error']['code']=='mcp_protocol' and j['data']['error']['outcome_uncertain'] is True
+    assert sent.count('tools/call')==1 and j['data']['mcp_started']=='read'

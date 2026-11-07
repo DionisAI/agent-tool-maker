@@ -142,7 +142,12 @@ class HTTP:
         if not self.cfg.get('allow_local'):public_address(url,self.net.resolver)
         headers=dict(self.headers)
         if self.oauth:
-            headers['Authorization'] = 'Bearer ' + self.oauth.access_token(self.cfg['oauth'], url)
+            from .oauth import Unsent
+            try:token=self.oauth.access_token(self.cfg['oauth'], url)
+            except RouterError as e:
+                # Whatever the refresh outcome (kept in OAuth status), THIS MCP message was never sent.
+                raise Unsent(e.code,str(e)+' This MCP message was not sent.') from None
+            headers['Authorization'] = 'Bearer ' + token
             self.headers['Authorization'] = headers['Authorization']  # Same pinned resource for session DELETE, without refresh/replay.
         if self.session:headers['Mcp-Session-Id']=self.session
         if self.version:headers['MCP-Protocol-Version']=self.version
@@ -189,7 +194,7 @@ def execute_mcp(router,tool,job):
     from .artifacts import save_artifact
     cfg=router.state.setting('mcp:'+tool['server'])
     if not cfg:raise RouterError('mcp_not_configured','Bind this MCP server in a human terminal first.')
-    conn=None;counter=0;partial=[]
+    conn=None;counter=0;partial=[];dispatched=False
     try:
         conn=Stdio(cfg,router.vault,job['workspace']) if cfg['transport']=='stdio' else HTTP(cfg,router.vault,router.net)
         def call(method,params):
@@ -225,6 +230,7 @@ def execute_mcp(router,tool,job):
             for item in calls:
                 # Record started status BEFORE transmission. Unknown calls are never replayed.
                 router.state.update_job(job['id'],'running',mcp_completed=partial,mcp_started=item['name'])
+                dispatched=True
                 result=call('tools/call',item)
                 if result.get('isError'):raise RouterError('mcp_tool_error','Server tool reported failure; previous results are retained.',uncertain=True)
                 partial.append({'name':item['name'],'result':router.vault.redact(result)})
@@ -232,5 +238,12 @@ def execute_mcp(router,tool,job):
         result=router.vault.redact(result)
         artifact=save_artifact(job['workspace'],job['id'],canonical(result).encode(),hint='mcp.json')
         return router.state.update_job(job['id'],'completed',result=result,artifacts=[artifact],verification='mcp_response_not_business_acceptance')
+    except RouterError as e:
+        # Once a tools/call may have run, no later failure is a plain "failed" an Agent could resubmit.
+        # Unsent proves only that the current call never left; earlier completed calls still ran.
+        from .oauth import Unsent
+        if dispatched and not e.uncertain and (partial or not isinstance(e,Unsent)):
+            raise RouterError(e.code,str(e)+' A tool call in this batch may have run; completed results are retained, do not resubmit blindly.',uncertain=True) from None
+        raise
     finally:
         if conn:conn.close()
