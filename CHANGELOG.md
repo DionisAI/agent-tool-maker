@@ -15,7 +15,11 @@
 - Broker status: `broker_status` is the strict broker's record alone. The shared unlock session writes its own
   `secrets_session_status`, and a broker marks the record `stopped` only while it still names that broker's socket and
   pid, so unlocking and 立即锁定 no longer hide a strict `atm broker serve` that keeps serving its grants (the toast, 首页
-  and Agent 与权限 name it). `atm broker status` and `GET /api/access` read the same record as before.
+  and Agent 与权限 name it). `atm broker status` (`last_report`) and `GET /api/access` (`access.broker`) read the same
+  setting as before, so they no longer show the shared unlock session: its record is now `secrets_session_status`
+  (`atm session` reports the session; `default_socket_exists` can still be true while it holds the default socket). The
+  record is one setting, so only the most recently started strict broker is reported: once that one stops it reads
+  `stopped`, even while an older broker on another socket still serves.
 - The ATM 主密码 home line names the commands that open the approval window (`atm start` / `atm use`) and says ATM tools
   run directly need the ATM 主密码. The credits card, the program route and the 首页 item no longer carry a CLI
   `login_required` branch: only a website source read through OpenCLIApp is ever recorded as signed out.
