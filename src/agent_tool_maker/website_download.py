@@ -169,14 +169,15 @@ def _run_bridge(path,expected,adapter_pin,args,workspace,download_root):
     # A no-input name refusal is returned only for independent local corroboration.
     return v[0]['result'] if v[0]['result']['status']=='download_target_exists' else None
 
-def _unsent(fd,key,args):
+def _unsent(fd,key,args,filename):
     # None: no native receipt. True: this exact request's receipt durably records
-    # that the bridge stopped before any observer or input. False: anything else.
+    # that the bridge stopped before any observer or input for this same save name.
+    # False: anything else.
     try:
         r=_read(fd,key+'.json')
         if r is None:return None
         return (_native(fd,key,args) is None and r['status']=='download_not_sent' and r.get('failure_code')=='download_target_exists' and
-            'download' not in r and 'native_input_acknowledged' not in r)
+            r.get('filename')==filename and 'download' not in r and 'native_input_acknowledged' not in r)
     except RouterError:return False
 
 def _withdraw(fd,key,claim,root,v):
@@ -188,7 +189,7 @@ def _withdraw(fd,key,claim,root,v):
     if (not isinstance(v,dict) or set(v)!={'status','thread_id','result_id','request_key','filename','browser_input','intent_recorded'} or
         any(v[k]!=args[k] for k in ('thread_id','result_id','request_key')) or v['browser_input'] is not False or type(v['intent_recorded']) is not bool or
         not isinstance(v['filename'],str) or not re.fullmatch(PNG_NAME,v['filename'])):fail('bridge_protocol','Download bridge name refusal has an unknown shape.')
-    unsent=_unsent(fd,key,args)
+    unsent=_unsent(fd,key,args,v['filename'])
     if unsent is False or (v['intent_recorded'] and unsent is None) or _read_exists(fd,'active.lock') or not _name_taken(root,v['filename']):
         fail('download_unknown','Bridge name refusal is not corroborated; keep the original intent and locks.')
     if _read(fd,'delivery-active.lock')!={'version':1,'request_key':args['request_key'],'fingerprint':claim['fingerprint']} or _read(fd,name)!=claim:

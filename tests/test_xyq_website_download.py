@@ -114,10 +114,10 @@ def test_wrong_native_resource_fingerprint_is_retained_not_trusted(setup,monkeyp
     ledger=x['workspace']/'.atm/xyq-result-downloads';assert not list(ledger.glob('*.png'));r=json.loads(next(ledger.glob('*.delivery.json')).read_bytes());assert r['failure_code']=='receipt_invalid'
 def refusal(settings,filename='fixture.png',intent_recorded=False):
     return {'status':'download_target_exists','thread_id':settings['thread_id'],'result_id':settings['result_id'],'request_key':settings['request_key'],'filename':filename,'browser_input':False,'intent_recorded':intent_recorded}
-def unsent_record(workspace,settings,status='download_not_sent'):
+def unsent_record(workspace,settings,status='download_not_sent',filename='fixture.png'):
     # The bridge's durable record of an attempt that stopped after intent and before any observer or input.
     ledger=workspace/'.atm/xyq-result-downloads';key=d._sha(settings['request_key'].encode());fp=d._sha(d._json(['xyq-existing-image-download-v1',settings]))
-    r={'version':1,'status':status,'request_key':settings['request_key'],'fingerprint':fp,'thread_id':settings['thread_id'],'result_id':settings['result_id'],'result_sha256':settings['expected_result_sha256'],'quote_sha256':settings['quote_sha256'],'filename':'fixture.png','width':81,'height':108,'failure_code':'download_target_exists'}
+    r={'version':1,'status':status,'request_key':settings['request_key'],'fingerprint':fp,'thread_id':settings['thread_id'],'result_id':settings['result_id'],'result_sha256':settings['expected_result_sha256'],'quote_sha256':settings['quote_sha256'],'filename':filename,'width':81,'height':108,'failure_code':'download_target_exists'}
     (ledger/(key+'.json')).write_bytes(d._json(r));return r
 def test_name_taken_after_native_intent_is_definite_once_the_bridge_recorded_no_input(setup,monkeypatch):
     x=setup;existing=x['source'].read_bytes();key=d._sha(b'one-download')
@@ -168,15 +168,17 @@ def test_name_check_sees_chrome_finishing_its_in_progress_download_between_the_t
     monkeypatch.setattr(os,'stat',racing)
     taken=d._name_taken(str(root),'fixture.png');monkeypatch.undo()
     assert taken and seen and (root/'fixture.png').read_bytes()==b'USER_OWNED_FILE' and not partial.exists()
-@pytest.mark.parametrize('case',['missing_name','native_lock','native_receipt','shape','other_result','intent_without_receipt','unknown_receipt','unsent_with_lock','unsent_acknowledged'])
+@pytest.mark.parametrize('case',['missing_name','native_lock','native_receipt','shape','other_result','intent_without_receipt','unknown_receipt','unsent_with_lock','unsent_acknowledged','unsent_other_name'])
 def test_uncorroborated_name_refusal_keeps_original_intent_and_locks(setup,monkeypatch,case):
     x=setup;ledger=x['workspace']/'.atm/xyq-result-downloads'
     def refused(path,pin,adapter,settings,work,root):
-        x['calls'].append(case);v=refusal(settings,'other.png' if case=='missing_name' else 'fixture.png',case in {'intent_without_receipt','unknown_receipt','unsent_with_lock','unsent_acknowledged'})
+        x['calls'].append(case);v=refusal(settings,'other.png' if case=='missing_name' else 'fixture.png',case in {'intent_without_receipt','unknown_receipt','unsent_with_lock','unsent_acknowledged','unsent_other_name'})
         if case in {'native_lock','unsent_with_lock'}:(ledger/'active.lock').write_bytes(b'{}')
         if case=='native_receipt':(ledger/(d._sha(settings['request_key'].encode())+'.json')).write_bytes(b'{}')
         if case=='unknown_receipt':unsent_record(ledger.parents[1],settings,'download_unknown')
         if case=='unsent_with_lock':unsent_record(ledger.parents[1],settings)
+        # The unsent record names another save name than the refused, present one.
+        if case=='unsent_other_name':unsent_record(ledger.parents[1],settings,filename='other.png')
         if case=='unsent_acknowledged':r=unsent_record(ledger.parents[1],settings);r['native_input_acknowledged']=False;(ledger/(d._sha(settings['request_key'].encode())+'.json')).write_bytes(d._json(r))
         if case=='shape':v['browser_input']=True
         if case=='other_result':v['result_id']='c'*32
