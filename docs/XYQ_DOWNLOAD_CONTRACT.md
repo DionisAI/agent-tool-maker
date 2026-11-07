@@ -29,7 +29,10 @@ Strategy: UI_SELECTOR + LOCAL；Contract: visible-ui / decoded-local-file。
 lstat 不跟随），或已有 `<名称>.crdownload`（Chrome 进行中的安全下载以此中间名保留目标名，
 新下载同样会被改名）时，在原生 intent/锁和点击前返回明确的 `download_target_exists`
 （intent_recorded=false），不读取、移动或覆盖这些项；否则 Chrome 会另存为“名称 (1).png”
-（与回执不符而成未知），或替换用户原文件。
+（与回执不符而成未知），或替换用户原文件。两处检查（桥接与外层）都先查 `<名称>.crdownload`
+再查 `<名称>`：Chrome 以原子 rename 把前者改为后者，按此顺序检查期间完成的下载也必被看到。
+该拒绝只由闭包自身的目录检查后返回，从不作为抛出或记录的失败码；控件读取若报告此类型，
+即为 bridge_protocol（intent 前零写入，intent 后原生记为 download_unknown 并保留锁）。
 发送前再次核对摘要、命中位置与同名项。intent 后、点击前才出现的同名项：该调用尚未启动
 下载观察或任何输入，先 fsync 把原生回执记为 `download_not_sent`（failure_code=
 download_target_exists），再只删除本调用刚创建且内容一致的 active.lock，返回
@@ -56,9 +59,10 @@ source_association_verified 不等于 freshness：download_freshness_verified �
 固定 argv 与环境白名单，不注入 Key；桥接限时且不回传原始 stderr。
 真正文件来源以持久原生回执为准，不把 stdout 的成功文字当作下载证明。
 桥接返回同名拒绝时须独立核对：该键无原生回执，或仅有本请求精确的 download_not_sent 回执
-（intent_recorded=true 时必须有）；无 active.lock；固定目录经 no-follow 确有该名或其
-`.crdownload`；外层锁/回执仍是本次原样。全部成立才撤回本次未发出的外层 intent 与锁，
-返回 outcome_uncertain=false 的 `download_target_exists`。任一不符仍为 delivery_unknown 并保留锁。
+（intent_recorded=true 时必须有），且其 filename 正是拒绝所报的名称；无 active.lock；
+固定目录经 no-follow 确有该名或其 `.crdownload`；外层锁/回执仍是本次原样。
+全部成立才撤回本次未发出的外层 intent 与锁，返回 outcome_uncertain=false 的
+`download_target_exists`。任一不符仍为 delivery_unknown 并保留锁。
 只读取固定下载目录内的一份精确文件；逐级 no-follow、普通单链接、64MiB 有界，
 复制前后核对身份/大小/SHA，再重开源路径检查；不枚举其它下载或改动源文件。
 独占创建项目 `.atm/xyq-result-downloads/<key-sha>.png`（0600），不覆盖已有或部分文件。
@@ -117,26 +121,55 @@ settings.request_key 可沿用。已失败的 job 键只返回原 failed job，�
 ## 升级：同名拒绝修正
 
 当前源码的 pin（取代下文2026-10-08已安装的旧 pin）：
-- 适配器闭包 pin（download.mjs/js 及结果读取闭包）：`720e91f7e023452f7ed7ceab517145e7a8c95624ab5f3c022eb8c04af13cd85e`
+- 适配器闭包 pin（download.mjs/js 及结果读取闭包）：`9e442f3ced8e674020543867259d8f16383f1c243383c86802c4d60f60eee0dc`
   （旧 `37db8c3f2221abcec61f59a9a48ea1f2c42b0716c6323414951f9a78b6c09164`）。
-- 流水线 source_digest：`e3dc68a73972adeaef098cfdbe13e4673c0f22d7fe9c29aa123ef7803492a55b`
+- 流水线 source_digest：`3c46e2ff89d76c0f8a9bec4cd8e7f62a5c239a3705c6f6dc07bd1c1d2c6d138e`
   （旧 `e7b7f94a624272a855202773b707edab4b1e4cceb580c92788d355b43d4a416e`）。
 - 三个结果读取工具的闭包 pin 不变（`99e0f848…`）。
 
-三者必须一起升级，不能只换其一：
-1. 安装包含新 `website_download.py` 的 ATM 运行时（含 #22 的 cli_adapter）。
-2. 用 `python scripts/build_xyq_download.py --out <新目录> --bridge <已审阅桥接> --download-root <已审阅下载目录>`
-   重新编译两个包；回执中的 adapter_sha256 / pipeline_sha256 必须等于上面的新 pin。
-3. 把新的下载闭包重装到 xyq-download-bound 加载器的 reviewed/，同时用
+新的 `xyq.web.result_download` 定义另含编译固定的 `--adapter-dir`：桥接加载器的 reviewed/ 闭包目录
+（如 `~/.opencli/clis/xyq-download-bound/reviewed`）。流水线在任何账本、认领或锁之前，逐级 no-follow
+只读该目录的10个闭包文件，按 download.mjs `downloadDigest()` 的同一顺序与格式计算摘要；缺失、链接、
+非普通文件或与 `--adapter-pin` 不符时返回明确的 `definition_changed`（outcome_uncertain=false），
+不建工作目录账本、不启动桥接、不执行闭包代码；同键本地收尾同样先过此检查，与桥接 SHA 检查一致。
+这只是提前拒绝，从不清除任何锁：桥接实际加载的仍是 OpenCLI 按注册找到的入口，其自身 pin 校验仍是
+最终依据；检查之后、桥接之前闭包若又被替换，结果仍是 delivery_unknown 并保留锁。
+
+三者必须一起升级，并按此顺序：
+1. 先安装包含新 `website_download.py` 的 ATM 运行时（含 #22 的 cli_adapter）。
+2. 用 `python scripts/build_xyq_download.py --out <新目录> --bridge <已审阅桥接> --download-root <已审阅下载目录> --adapter-dir <加载器>/reviewed`
+   重新编译两个包（`--adapter-dir` 须是已存在、无链接的规范绝对目录）；回执中的
+   adapter_sha256 / pipeline_sha256 必须等于上面的新 pin。
+3. 把新的下载闭包重装到该加载器的 reviewed/，同时用
    `atm make update <包>/manifest.json --approve <新定义SHA> --expected <已安装定义SHA>`
    更新两个定义（首次安装用 `atm make install`）。
-4. `atm describe xyq.web.result_download` 必须显示 `--pin e3dc68a7…` 与 `--adapter-pin 720e91f7…`，
-   `atm describe xyq.web.result_download_status` 必须显示 `--pin e3dc68a7…`；核对无误前不要下载。
+4. `atm describe xyq.web.result_download` 必须显示 `--pin 3c46e2ff…`、`--adapter-pin 9e442f3c…`
+   与第2步的 `--adapter-dir`；`atm describe xyq.web.result_download_status` 必须显示 `--pin 3c46e2ff…`。
+5. 第一次下载前运行只读的加载器摘要检查（默认加载器位置；其它位置换成同一 `--adapter-dir`）：
 
-只换运行时：旧定义的 `--pin` 与新源码不符，ATM 在任何认领前返回 definition_changed。
-只换定义而加载器闭包未换：旧加载器在读取网页前停止（pin 不符，旧入口也没有
-`--download-root`），但外层只看到桥接非零退出，会记为 delivery_unknown 并保留外层锁；
-所以先核对 pin 再进行第一次下载。
+   ```sh
+   node --input-type=module -e "import {downloadDigest} from '$HOME/.opencli/clis/xyq-download-bound/reviewed/download.mjs'; console.log(downloadDigest())"
+   ```
+
+   它只导入该闭包的 .mjs 模块（顶层仅有定义；不建 Page、不连浏览器、不写文件）并打印其
+   `downloadDigest()`，输出必须正是 `9e442f3ced8e674020543867259d8f16383f1c243383c86802c4d60f60eee0dc`。
+   不符就不要下载，先重装闭包再查；第4、5步核对无误前不要下载。
+
+部分升级时各状态的实际行为：
+- 只换运行时（旧定义）：旧定义的 `--pin` 与新源码不符，ATM 在任何认领前返回 definition_changed。
+  旧定义没有 `--adapter-dir`，参数解析仍会放行到这一 pin 检查。
+- 新运行时 + 新定义 + 旧闭包（加载器未换）：上述只读检查返回 definition_changed，工作目录没有
+  账本或锁，桥接零启动；重装闭包后以新的 job `--request-key` 重跑即可。没有此检查时，旧加载器会在
+  读取网页前停止（pin 不符，旧入口也没有 `--download-root`），外层却只见桥接非零退出，记为
+  delivery_unknown 并保留 delivery-active.lock，阻塞整个工作目录。
+- 先换加载器闭包（loader-first）：运行时已是新版时，旧定义仍在任何认领前返回 definition_changed。
+  若运行时还是旧版，旧流水线先写外层 dispatch_claimed 与 delivery-active.lock，再启动桥接；
+  新闭包因旧 `--adapter-pin`（旧运行时也不传 `--download-root`）在读网页、写原生回执或任何输入之前
+  停止，该键没有原生回执/锁、浏览器零点击；但旧流水线只见非零退出，记为 delivery_unknown 并保留
+  delivery-active.lock，此后该工作目录的任何新键都返回 workspace_busy（升级完成后同键另为
+  request_conflict），没有自动清除入口。所以闭包绝不能早于第1步安装。
+- 旧运行时 + 新定义：旧 `atm` 不认识 `--adapter-dir`，参数解析即退出，工作目录无任何写入；
+  旧 cli_adapter 把它显示为 cli_failed / submission_unknown。
 
 ## 2026-10-08 验收
 
