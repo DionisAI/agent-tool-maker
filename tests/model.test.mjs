@@ -449,6 +449,15 @@ test('grants, jobs, verification and cost words', () => {
   assert.deepEqual(plain(grants.ended.map(g => g.time)), ['已过期', '已撤销']);
   assert.equal(grants.ended[0].title, 'Codex · 受限授权');
   assert.ok(grants.ended[0].lines.includes('会在本机运行程序'));
+  // Right after 立即锁定, GET /api/access lists the project approval as ended with the unlock session (session.py records
+  // it; tests/test_quickstart_v08.py checks the record). It is not the owner's 撤销, and it is not live.
+  const project = access.grants[0];
+  const locked = {clock: NOW, requests: [], grants: [{...project, revoked: true, revoked_reason: 'session_ended'},
+    {...project, id: 'o'.repeat(32), revoked: true, revoked_reason: null}]};
+  const after = M.derive(data({access: locked}), NOW);
+  assert.deepEqual(plain(after.grants.active), []);
+  assert.deepEqual(plain(after.grants.ended.map(g => [g.id, g.time])), [[project.id, '已随锁定结束'], ['o'.repeat(32), '已撤销']]);
+  assert.equal(after.grants.ended[0].title, '项目 demo-video · 由授权窗口批准');
   for (const [code, word] of [['completed', '完成'], ['submission_unknown', '不确定是否已提交'], ['requires_browser', '等 Agent 的浏览器'], ['download_failed', '下载失败'], ['fixture_x', '其他状态（fixture_x）']]) {
     const job = M.derive(data({jobs: [{id: code, tool: 'x.y', status: code, created: NOW - 10, updated: NOW, verification: 'ffprobe', cost_usd: 0.004, cost_status: 'provider_estimate', artifact_count: 2}]}), NOW).jobs[0];
     assert.equal(job.word, word);

@@ -1269,3 +1269,56 @@ def test_lock_copy_says_what_each_vault_backend_enforces(browser, tmp_path, monk
         ctx.close()
     finally:
         server.shutdown(); server.server_close(); thread.join(5)
+
+
+def test_lock_ends_the_project_approval_it_says_it_ends(browser, tmp_path, monkeypatch):
+    # The toast says 共用解锁和项目授权已结束: right after 立即锁定 the project approval is listed as ended, not live.
+    from playwright.sync_api import expect
+    from agent_tool_maker import session
+    from agent_tool_maker.broker import list_grants
+    from agent_tool_maker.quickstart import scope_plan
+    from agent_tool_maker.secrets_provider import fingerprint
+    from agent_tool_maker.storage import State
+    monkeypatch.delenv('ATM_VAULT_PASSWORD', raising=False)
+    info = fx.clean(tmp_path / 'g', 'passphrase')
+    home, workspace = info['home'], tmp_path / 'demo-video'
+    workspace.mkdir()
+    monkeypatch.setenv('PATH', str(info['bin']) + ':/usr/bin:/bin')
+    server = Console(home, localhost=True, user_home=info['user'])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        ctx, page, log = open_page(browser, server)
+        page.get_by_role('button', name='解锁 30 分钟', exact=True).click()
+        page.get_by_label('ATM 主密码', exact=True).fill(fx.PASSWORD)
+        page.get_by_role('button', name='用主密码解锁', exact=True).click()
+        expect(page.locator('#credential-session')).to_contain_text('已解锁')
+        # The approval window's consent for this project, recorded for the unlock the console just started.
+        plan = scope_plan(State(home), workspace, ['fal'])
+        session.owner_call(home, 'session.project', {'workspace': plan['workspace'], 'credentials': plan['credentials'],
+                                                     'approved_sha256': fingerprint(plan)})
+        page.locator('#refresh').click()
+        go(page, 'agents')
+        grants = page.locator('#grants')
+        expect(grants.locator('h2')).to_have_text('正在生效的授权 · 1')
+        expect(grants.locator('li.grant')).to_contain_text('项目 demo-video · 由授权窗口批准')
+        expect(page.locator('#reach')).to_contain_text('1 个项目获准使用 Key：demo-video')
+        page.get_by_role('button', name='立即锁定', exact=True).click()
+        expect(page.locator('#credential-session')).to_contain_text('Key 已锁定')
+        expect(page.locator('#toast')).to_contain_text('共用解锁和项目授权已结束')
+        expect(grants.locator('h2')).to_have_text('正在生效的授权 · 0')
+        expect(page.locator('#reach')).to_contain_text('还没有获准的项目')
+        ended = grants.locator('[data-key="details:ended-grants"]')
+        expect(ended.locator('summary')).to_have_text('已结束的授权 · 1')
+        ended.locator('summary').click()
+        row = ended.locator('li.grant')
+        expect(row).to_contain_text('项目 demo-video · 由授权窗口批准')
+        expect(row.locator('.when')).to_have_text('已随锁定结束')
+        expect(row.get_by_role('button', name='撤销')).to_have_count(0)
+        # The record says the same as the page: `atm access list` reads it.
+        [project] = [g for g in list_grants(State(home))['grants'] if g['kind'] == 'project_session']
+        assert (project['revoked'], project['revoked_reason']) == (True, 'session_ended')
+        assert not log['errors'], log['errors']
+        ctx.close()
+    finally:
+        server.shutdown(); server.server_close(); thread.join(5)

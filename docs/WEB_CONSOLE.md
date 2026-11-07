@@ -69,12 +69,17 @@ Shadowrocket、Clash、Surge 的 Fake-IP 模式把每个域名都解析成 `198.
   不再说“锁定时 Agent 会打开授权窗口”。会话模式只影响 owner 增删 Key，所以不改变这些文字。
 - **Agent 与权限**列出 Agent 现在能用的 Key、获准的项目和工具数，以及可以撤销的授权；**记录**按天分组，展开后给出
   `atm jobs get <ID> --refresh`。额度读取默认隐藏，可勾选显示。
+- **锁定结束项目授权，记录也这样写**：“立即锁定”/`atm lock`（回复之前）、租期到时的自动锁定和关闭管理台，都把绑定这次
+  解锁的项目授权标为 `revoked`，`revoked_reason: "session_ended"`。`atm access list` 与 `GET /api/access` 把它列为已结束，
+  Agent 与权限把它放进“已结束的授权”，显示“已随锁定结束”；你自己撤销的授权没有这个原因，仍显示“已撤销”。共用会话
+  进程被强行结束时，下一次解锁才补记；在那之前它列到自己的租期结束，但没有会话会再接纳它。
 
 页面数据仍是同样 10 个只读 GET，查看、搜索、筛选和展开都不会发 POST；只有你点击带文字的按钮才会写入。
 新增的只读字段：`GET /api/tools` 与 `/api/tools/<id>` 写明每个工具读取的 Key 名称、程序名、MCP 服务、
 公开的交接网址和网页登录名（从不含值、命令参数、请求头或配方步骤）；`GET /api/jobs` 标出 `kind`
 （`tool` / `credits_refresh`）；`GET /api/access` 的 `requests` 列出仍在等你确认的授权窗口请求（不含窗口地址、
-启动码、会话码或批准哈希）。没有新的写入接口。
+启动码、会话码或批准哈希），`grants` 的 `revoked_reason` 标出随解锁会话结束的项目授权（`session_ended`，否则为
+`null`）。没有新的写入接口。
 
 # v0.7 补充：与 CLI 共用解锁
 

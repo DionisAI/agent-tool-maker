@@ -6,7 +6,12 @@
   ATM tools read Keys directly and locking ends only the shared unlock and project grants; with the ATM 主密码, handing a
   Key to a program opens the approval window, ATM tools need the password, and a process with `ATM_VAULT_PASSWORD` uses
   Keys directly. A strict `atm broker serve` still within its recorded lease is named as unaffected. Tool and Key-route
-  sentences follow the backend too. No new field or endpoint.
+  sentences follow the backend too.
+- Project approvals end with their unlock session in the record, as the toast says. 立即锁定 / `atm lock` (before it
+  replies), the lease's auto-lock and a closing console mark every project approval bound to that unlock `revoked` with
+  `revoked_reason: "session_ended"`, so `atm access list` and `GET /api/access` list it as ended and Agent 与权限 shows it
+  under 已结束的授权 as 已随锁定结束 (an owner's 撤销 keeps no reason and still reads 已撤销). If the session's process was
+  killed, the next unlock records it; until then the approval lists until its own lease end, though no session admits it.
 - Broker status: `broker_status` is the strict broker's record alone. The shared unlock session writes its own
   `secrets_session_status`, and a broker marks the record `stopped` only while it still names that broker's socket and
   pid, so unlocking and 立即锁定 no longer hide a strict `atm broker serve` that keeps serving its grants (the toast, 首页

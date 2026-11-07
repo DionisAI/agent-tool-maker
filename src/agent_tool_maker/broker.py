@@ -154,7 +154,8 @@ def list_grants(state: State) -> dict:
     with state.db() as db:
         values = [json.loads(r[0]) for r in db.execute("SELECT value FROM settings WHERE name LIKE 'access:%' ORDER BY name")]
     fields = ("id", "agent", "tools", "workspace", "permissions", "allow_paid", "created_at", "expires_at", "revoked", "client_uid")
-    return {"grants": [{**{k: v[k] for k in fields}, "kind": v.get("kind", "tools"),
+    # revoked_reason "session_ended": a project approval that ended with its unlock session (lock, expiry or close).
+    return {"grants": [{**{k: v[k] for k in fields}, "kind": v.get("kind", "tools"), "revoked_reason": v.get("revoked_reason"),
                        "credential_scope": sorted(set(v.get("credentials", [])) | {name for rule in v.get("exec_rules", []) for name in rule["environment"].values()}),
                        "exec_rules": v.get("exec_rules", [])} for v in values if v.get("kind") != "session_owner"],
             "secrets_returned": False, "clock": time.time()}

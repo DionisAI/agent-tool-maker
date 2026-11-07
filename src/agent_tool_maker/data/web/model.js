@@ -947,7 +947,8 @@
       const agentLabel = g.agent === 'claude' ? 'Claude Code' : g.agent === 'codex' ? 'Codex' : 'Claude Code / Codex';
       const view = {id: g.id, short: g.id.slice(0, 8), kind, active: live, keys, tools, workspace: str(g.workspace), agent: str(g.agent), agentLabel,
         revoked: Boolean(g.revoked), lines: [], time: ''};
-      const ended_ = g.revoked ? '已撤销' : '已过期';
+      // session_ended: a project approval ended with its unlock session (立即锁定, auto-lock or a closed console), as recorded.
+      const ended_ = !g.revoked ? '已过期' : g.revoked_reason === 'session_ended' ? '已随锁定结束' : '已撤销';
       if (kind === 'project_session') {
         view.title = zh`项目 ${basename(g.workspace)} · 由授权窗口批准`;
         view.lines = ['可用 Key：' + (keys.join('、') || '无'), '项目里运行的程序都能用这些 Key', '锁定 Key 后立即停止'];
