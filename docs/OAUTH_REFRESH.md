@@ -54,6 +54,11 @@ MCP HTTP 绑定可使用：
 先发现工具，再批准确切工具名和实际调用权限/费用。空 allowlist 不允许业务调用。
 令牌只在 HTTP 适配器内部作为 Bearer 发给确切资源；不导出给 CLI，不代替 API Key。
 每次请求前检查有效期，401 不重放 `tools/call`；付费或有副作用任务沿用原有不确定结果合同。
+取令牌/续期失败发生在该条 MCP 消息发出前：此消息本身未发送；首个 `tools/call` 之前，
+作业为 `failed`（`outcome_uncertain: false`），只读工具发现也一样，且不记录 `mcp_started`。
+续期本身的未知结果只记入 OAuth 状态（如 `refresh_unknown`），不代表 MCP 消息已发出。
+例外：批次中一旦有 `tools/call` 可能已发出，其后任何失败（包括下一条调用前的续期失败）都为
+`submission_unknown`（`outcome_uncertain: true`），保留 `mcp_completed`；先核对已完成调用，不要整批重提。
 严格 broker 的既有 MCP 限制不变；OAuth 管理不是项目 `atm use` 的新增权限。
 
 ## 故障与追溯
