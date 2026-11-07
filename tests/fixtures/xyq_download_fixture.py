@@ -16,7 +16,7 @@ def prepare(page,scenario='normal'):
 
 def rpc(page,config,download_root,scenario='normal'):
     proc=subprocess.Popen(['node',str(ROOT/'tests/fixtures/xyq_download_rpc.mjs'),json.dumps({**config,'download_root':str(download_root)})],cwd=ROOT,text=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    waiting=None;clicks=0
+    waiting=None;clicks=0;control_reads=0
     def reply(call,**data):proc.stdin.write(json.dumps({'id':call['id'],**data})+'\n');proc.stdin.flush()
     try:
         for line in proc.stdout:
@@ -24,6 +24,9 @@ def rpc(page,config,download_root,scenario='normal'):
             if r['type']=='done':proc.wait(timeout=5);assert proc.returncode==0,proc.stderr.read();return r,clicks
             if r['method']=='evaluate':
                 assert any(r['source'].startswith('function '+name+'(') for name in ('readConversationResultsDOM','readDownloadInputDOM'))
+                control_reads+=r['source'].startswith('function readDownloadInputDOM(')
+                # late_name: the user's same-name file appears between durable intent and the pre-click re-check.
+                if scenario=='late_name' and control_reads==2:(Path(download_root)/'fixture.png').write_bytes(b'USER_OWNED_FILE')
                 reply(r,value=page.evaluate(r['source'],r['arg']))
             elif r['method']=='waitForDownload':
                 assert r['pattern']=='fixture.png' and r['timeout']==20000 and waiting is None;waiting=r
