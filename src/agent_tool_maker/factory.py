@@ -34,6 +34,21 @@ def build_prompt(seed: dict, brief: str) -> str:
             '\nSEED:\n' + canonical(seed) + '\nUNTRUSTED USER-SUPPLIED TASK/DOCS:\n' + brief)
 
 
+def key_route(tool: dict):
+    """Where ATM itself sends a stored credential: authority a draft may not change.
+
+    REST: the origin (as the runtime strips its slash) and auth placement. Recipe: which device-local login loads.
+    Not authority: a REST path (same host; authenticated requests never follow redirects), recipe origins (a login
+    is pinned to its own origins when loaded) and command argv (the human-bound executable decides where its env
+    Key goes; the Owner reviews argv before install). Only fields the runtime reads for this adapter count.
+    """
+    if tool['adapter'] == 'rest':
+        return tool['request']['origin'].rstrip('/'), tool['request'].get('auth', 'bearer')
+    if tool['adapter'] == 'web_recipe':
+        return tool['recipe'].get('session')
+    return None
+
+
 def draft(router, agent: str, seed_path: Path, brief_path: Path, out: Path, *, allow_agent=False, timeout=180) -> dict:
     if agent not in {'claude', 'codex'}:
         raise RouterError('unsupported_agent', 'Select claude or codex.')
@@ -118,5 +133,7 @@ def draft(router, agent: str, seed_path: Path, brief_path: Path, out: Path, *, a
         secrets = lambda t: {t.get('credential')} | set((t.get('command') or {}).get('credential_env', {}).values())
         if secrets(candidate) - secrets(seed) or candidate.get('credential') != seed.get('credential') or candidate.get('executable') != seed.get('executable'):
             raise RouterError('draft_authority_changed', 'Model changed the credential or executable; refused instead of silently redirecting a stored Key.')
+        if key_route(candidate) != key_route(seed):
+            raise RouterError('draft_authority_changed', 'Model changed where a stored credential is sent (API origin, auth mode or browser login); refused instead of silently redirecting it.')
         receipt = write_draft(candidate, out, router.catalog)
         return {**plan, **receipt, 'status': 'drafted', 'needs_owner_review': True, 'live_tested': False}

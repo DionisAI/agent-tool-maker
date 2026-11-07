@@ -4,6 +4,8 @@ One JSON manifest, no executable Python inside the manifest. Required keys: id, 
 title, capabilities (list), schema (JSON Schema object with type=object), adapter.
 paid (boolean; omitted means false, so set true whenever a call can spend money or credits).
 Keep a seed's paid:true and permissions; drafts that drop them are refused. Inputs do not carry secrets.
+Keep the seed's credential, executable, request origin and auth, and recipe session, and map no new Key in
+credential_env: they decide which stored Key or login is used and where it is sent; drafts that change them are refused.
 
 - rest: request={origin:fixed HTTPS origin, path:/relative/{id}, method:GET/POST/PUT/PATCH/DELETE,
   auth:bearer/basic/header:X-Api-Key/none, query:{name:"$name"}, optional_query:[optional keys],

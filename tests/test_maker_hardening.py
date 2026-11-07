@@ -120,6 +120,57 @@ def test_draft_accepts_renamed_env_for_the_same_credential(router, tmp_path):
     assert result['status'] == 'drafted' and not result['installed']
 
 
+def fal_seed(**request):
+    return api_seed(credential='fal', request={'origin': 'https://api.fal.ai', 'path': '/v1/status',
+                                               'method': 'GET', 'auth': 'bearer', **request})
+
+
+def web_seed(**recipe):
+    tool = ex.new_template('acme.page', 'web', url='https://acme.example/app')
+    tool['recipe'].update(recipe)
+    return validate_manifest(tool)
+
+
+# Where ATM sends the stored Key, and which device-local login a recipe loads, is authority.
+@pytest.mark.parametrize('seed,mutate', [
+    (fal_seed(), "seed['request']['origin']='https://fal-mirror.example'"),
+    (fal_seed(), "seed['request']['origin']='https://api.fal.ai.fal-mirror.example'"),
+    (fal_seed(), "seed['request']['auth']='header:X-Debug-Key'"),
+    (fal_seed(), "seed['request']['auth']='basic'"),
+    (fal_seed(auth='none'), "seed['request']['auth']='bearer'"),
+    (fal_seed(auth='header:X-Api-Key'), "seed['request'].pop('auth')"),  # omitted auth means bearer
+    (web_seed(session='acme-login'), "seed['recipe']['session']='other-login'"),
+    (web_seed(), "seed['recipe']['session']='acme-login'"),
+])
+def test_draft_refuses_changing_where_a_stored_credential_goes(router, tmp_path, seed, mutate):
+    s, b = seed_files(tmp_path, seed)
+    fake_claude(router, tmp_path, mutate)
+    out = tmp_path / 'candidate.json'
+    with pytest.raises(RouterError) as e:
+        draft(router, 'claude', s, b, out, allow_agent=True)
+    assert e.value.code == 'draft_authority_changed'
+    assert not out.exists() and seed['id'] not in router.catalog.tools
+
+
+@pytest.mark.parametrize('seed,mutate', [
+    (fal_seed(), "seed['notes']='Observed status endpoint; not live verified.'"),
+    (fal_seed(), "seed['title']='Fal status'"),
+    # Same origin: authenticated requests never follow redirects, so a path cannot move the Key off-host.
+    (fal_seed(), "seed['request']['path']='/v2/status'"),
+    (fal_seed(), "seed['request']['origin']='https://api.fal.ai/'"),  # runtime strips the slash: same host
+    (fal_seed(), "seed['request'].pop('auth')"),  # omitted auth means bearer, as in the seed
+    # No stored login: the recipe carries no credential. With one, the login's own origins are pinned at run time.
+    (web_seed(), "seed['recipe']['allowed_origins'].append('https://cdn.acme.example')"),
+])
+def test_draft_accepts_edits_that_do_not_route_a_credential(router, tmp_path, seed, mutate):
+    s, b = seed_files(tmp_path, seed)
+    fake_claude(router, tmp_path, mutate)
+    out = tmp_path / 'candidate.json'
+    result = draft(router, 'claude', s, b, out, allow_agent=True)
+    assert result['status'] == 'drafted' and not result['installed']
+    assert read_manifest(out).get('credential') == seed.get('credential')
+
+
 def test_authoring_contract_states_actual_paid_default():
     from importlib.resources import files
     guide = files('agent_tool_maker.data').joinpath('EXTENSION_AUTHORING.md').read_text()

@@ -165,6 +165,8 @@ atm make draft --agent claude --seed studio.json --brief observed-page.txt --out
 
 本版没有内置“访问任意网站、探索全部功能、自动找到选择器”的Agent循环。已有主Agent可以用它拥有的浏览器收集观察结果，再交给factory；已有API文档、CLI --help的非秘密输出也可作为brief。代码厂是可执行子步骤，不是另一个无边界自主Agent。
 
+模型草稿不能削弱或转移seed的权限：去掉paid或permissions、更换credential或executable、在credential_env里新增或更换Key、修改API的origin或auth方式、更换recipe的设备本地登录session，都返回`draft_authority_changed`，不写出草稿。因此Key发往的真实API origin要先在seed里定好（`atm make new ID --kind api --url https://… --out seed.json`）。同一origin下改path仍允许：带鉴权的请求不跟随重定向。没有登录的recipe可以补充必要的origin；有登录时，登录只在它保存时的origin上加载。command的argv不在比较范围：Key交给人工绑定的可执行文件后发往哪里由该程序决定，argv须由Owner在安装前审阅。
+
 结果只是草稿：不自动安装、不授予权限、不立即访问目标站点。`make validate`与`check-bundle`只是结构与一致性验证，真实行为需独立验收。本轮模型调用只做了CLI协议替身测试，未连接真实Claude/Codex账号。
 
 ## 6. 更新、修复与分发
