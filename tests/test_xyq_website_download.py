@@ -157,6 +157,17 @@ def test_in_progress_crdownload_reservation_corroborates_a_definite_name_refusal
     assert e.value.code=='download_target_exists' and not e.value.uncertain and '.crdownload' in str(e.value)
     assert sorted(p.name for p in (x['workspace']/'.atm/xyq-result-downloads').iterdir())==['finalize.lock']
     assert partial.read_bytes()==existing and sorted(p.name for p in x['root'].iterdir())==['fixture.png.crdownload']
+def test_name_check_sees_chrome_finishing_its_in_progress_download_between_the_two_checks(tmp_path,monkeypatch):
+    # Chrome atomically renames "<name>.crdownload" to "<name>"; checking the reservation
+    # first means a rename right after the first check still leaves one name visible.
+    root=tmp_path/'downloads';root.mkdir();partial=root/'fixture.png.crdownload';partial.write_bytes(b'USER_OWNED_FILE');stat=os.stat;seen=[]
+    def racing(entry,*a,**k):
+        try:return stat(entry,*a,**k)
+        finally:
+            if not seen and 'dir_fd' in k and entry in {'fixture.png','fixture.png.crdownload'}:seen.append(entry);partial.rename(root/'fixture.png')
+    monkeypatch.setattr(os,'stat',racing)
+    taken=d._name_taken(str(root),'fixture.png');monkeypatch.undo()
+    assert taken and seen and (root/'fixture.png').read_bytes()==b'USER_OWNED_FILE' and not partial.exists()
 @pytest.mark.parametrize('case',['missing_name','native_lock','native_receipt','shape','other_result','intent_without_receipt','unknown_receipt','unsent_with_lock','unsent_acknowledged'])
 def test_uncorroborated_name_refusal_keeps_original_intent_and_locks(setup,monkeypatch,case):
     x=setup;ledger=x['workspace']/'.atm/xyq-result-downloads'

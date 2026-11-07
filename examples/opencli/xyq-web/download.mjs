@@ -35,8 +35,9 @@ function reviewedRoot(root){
 // Chrome saves over a taken name as "name (1).png", which never matches this
 // receipt, or may replace the user's file. It also uniquifies against another
 // in-progress download reserving the name, seen on disk as "<name>.crdownload".
-// Any entry, even a link, is never followed.
-const nameTaken=(root,name)=>[name,name+'.crdownload'].some(n=>{try{return lstatSync(join(root,n),{throwIfNoEntry:false})!==undefined;}catch{return true;}});
+// That reservation is checked first: Chrome renames it atomically to "<name>", so
+// one of the two is always seen. Any entry, even a link, is never followed.
+const nameTaken=(root,name)=>[name+'.crdownload',name].some(n=>{try{return lstatSync(join(root,n),{throwIfNoEntry:false})!==undefined;}catch{return true;}});
 function readReceipt(path){
   if(!existsSync(path))return null;let fd,r;
   try{fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);const s=fstatSync(fd);if(!s.isFile()||s.nlink!==1||s.size<2||s.size>32000)fail('receipt_invalid','Expected one bounded regular download receipt.');r=JSON.parse(readFileSync(fd,'utf8'));}

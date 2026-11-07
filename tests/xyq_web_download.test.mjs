@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,readdirSync,statSync,existsSync,writeFileSync,linkSync,realpathSync,renameSync,symlinkSync,mkdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
+import fs from 'node:fs';
+import {syncBuiltinESMExports} from 'node:module';
 import {inspectConversationResults,RESULT_FILES} from '../examples/opencli/xyq-web/results.mjs';
 import {DOWNLOAD_FILES,downloadDigest,checkDownloadPin,downloadSettings,verifiedDownloadEvent,downloadExistingResult,downloadBoundResult} from '../examples/opencli/xyq-web/download.mjs';
 // Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
@@ -107,6 +109,19 @@ test('a same-name entry in the reviewed download directory is a definite refusal
     const ok=(await downloadExistingResult(x.page,x.settings,x.workspace,x.root))[0].result;
     assert.equal(ok.status,'download_observed');assert.equal(ok.reused,false);assert.equal(x.calls.filter(v=>v==='nativeClick').length,1);
   }
+});
+test('Chrome finishing its in-progress download between the two name checks is still seen as taken',async()=>{
+  // Chrome atomically renames "<name>.crdownload" to "<name>": checking the reservation first
+  // means a rename right after any first check still leaves one of the two names visible.
+  const x=await fixture(),partial=join(x.root,'fixture.png.crdownload'),final=join(x.root,'fixture.png'),lstat=fs.lstatSync;let renamed=false;
+  writeFileSync(partial,'USER_OWNED_FILE');
+  fs.lstatSync=(p,...rest)=>{const r=lstat(p,...rest);if(!renamed&&(p===partial||p===final)){renamed=true;renameSync(partial,final);}return r;};syncBuiltinESMExports();
+  try{
+    const r=(await downloadExistingResult(x.page,x.settings,x.workspace,x.root))[0].result;
+    assert(renamed);assert.equal(r.status,'download_target_exists');assert.equal(r.intent_recorded,false);
+    assert(!x.calls.includes('nativeClick')&&!x.calls.includes('waitForDownload'));assert(!existsSync(join(x.workspace,'.atm')));
+    assert.equal(readFileSync(final,'utf8'),'USER_OWNED_FILE');assert(!existsSync(partial));
+  }finally{fs.lstatSync=lstat;syncBuiltinESMExports();}
 });
 test('a same-name entry appearing after durable intent is recorded as definitely not sent, then the same key can retry',async()=>{
   for(const name of ['fixture.png','fixture.png.crdownload']){

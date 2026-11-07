@@ -64,15 +64,16 @@ def _check_directory(path):
         except OSError:fail('unsafe_path','Reviewed download directory must exist with no linked ancestors.')
 
 def _name_taken(root,name):
-    # No-follow check of the save name, or Chrome's in-progress "<name>.crdownload"
-    # reservation, in the reviewed directory; neither entry is ever opened.
+    # No-follow check of Chrome's in-progress "<name>.crdownload" reservation, then the
+    # save name, in the reviewed directory: Chrome renames the first atomically to the
+    # second, so in this order one of them is always seen. Neither entry is ever opened.
     with ExitStack() as stack:
         try:
             fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW);stack.callback(os.close,fd)
             for part in Path(root).parts[1:]:
                 fd=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd);stack.callback(os.close,fd)
         except OSError:return False
-        for entry in (name,name+'.crdownload'):
+        for entry in (name+'.crdownload',name):
             try:os.stat(entry,dir_fd=fd,follow_symlinks=False);return True
             except OSError:pass
         return False
