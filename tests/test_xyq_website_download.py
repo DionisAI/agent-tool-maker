@@ -129,6 +129,14 @@ def test_same_name_download_target_is_definite_and_leaves_no_claim_or_lock(setup
     assert e.value.code=='request_missing'
     monkeypatch.setattr(d,'_run_bridge',x['run']);r=invoke(x)
     assert r['status']=='delivered' and not r['reused'] and r['locks_finalized'] and len(x['calls'])==1 and x['source'].read_bytes()==existing
+def test_in_progress_crdownload_reservation_corroborates_a_definite_name_refusal(setup,monkeypatch):
+    # Chrome uniquifies against an in-progress download whose intermediate is "<name>.crdownload".
+    x=setup;partial=x['root']/'fixture.png.crdownload';x['source'].rename(partial);existing=partial.read_bytes()
+    monkeypatch.setattr(d,'_run_bridge',lambda path,pin,adapter,settings,work,root:refusal(settings))
+    with pytest.raises(RouterError) as e:invoke(x)
+    assert e.value.code=='download_target_exists' and not e.value.uncertain and '.crdownload' in str(e.value)
+    assert sorted(p.name for p in (x['workspace']/'.atm/xyq-result-downloads').iterdir())==['finalize.lock']
+    assert partial.read_bytes()==existing and sorted(p.name for p in x['root'].iterdir())==['fixture.png.crdownload']
 @pytest.mark.parametrize('case',['missing_name','native_lock','native_receipt','shape','other_result'])
 def test_uncorroborated_name_refusal_keeps_original_intent_and_locks(setup,monkeypatch,case):
     x=setup;ledger=x['workspace']/'.atm/xyq-result-downloads'

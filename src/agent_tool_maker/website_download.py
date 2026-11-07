@@ -64,14 +64,18 @@ def _check_directory(path):
         except OSError:fail('unsafe_path','Reviewed download directory must exist with no linked ancestors.')
 
 def _name_taken(root,name):
-    # No-follow check of one name in the reviewed directory; the entry is never opened.
+    # No-follow check of the save name, or Chrome's in-progress "<name>.crdownload"
+    # reservation, in the reviewed directory; neither entry is ever opened.
     with ExitStack() as stack:
         try:
             fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW);stack.callback(os.close,fd)
             for part in Path(root).parts[1:]:
                 fd=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd);stack.callback(os.close,fd)
-            os.stat(name,dir_fd=fd,follow_symlinks=False);return True
         except OSError:return False
+        for entry in (name,name+'.crdownload'):
+            try:os.stat(entry,dir_fd=fd,follow_symlinks=False);return True
+            except OSError:pass
+        return False
 
 @contextmanager
 def _ledger(workspace,create=True):
@@ -177,7 +181,7 @@ def _withdraw(fd,key,claim,root,v):
     if _read(fd,'delivery-active.lock')!={'version':1,'request_key':args['request_key'],'fingerprint':claim['fingerprint']} or _read(fd,name)!=claim:
         fail('receipt_invalid','Original unsent claim changed; it is preserved.')
     os.unlink('delivery-active.lock',dir_fd=fd);os.unlink(name,dir_fd=fd);os.fsync(fd)
-    raise ClaimWithdrawn('download_target_exists','A same-name file already exists in the reviewed download directory and is preserved. No click was sent and nothing stays locked; move or rename that file, then retry this request.')
+    raise ClaimWithdrawn('download_target_exists',"A same-name file (or Chrome's in-progress .crdownload for it) is in the reviewed download directory and is preserved. No click was sent and nothing stays locked; move or rename it, then run the download as a new job (the same settings request_key may be reused).")
 
 def _native(fd,key,args):
     r=_read(fd,key+'.json')

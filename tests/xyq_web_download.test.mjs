@@ -95,13 +95,14 @@ test('changed key inputs and malformed/linked receipts never pass silently',asyn
 });
 test('a same-name entry in the reviewed download directory is a definite refusal before intent or input',async()=>{
   // Chrome would save "fixture (1).png" (never this receipt's name) or replace the user's file.
-  for(const kind of ['file','directory','dangling_link']){
-    const x=await fixture(),existing=join(x.root,'fixture.png');
-    if(kind==='file')writeFileSync(existing,'USER_OWNED_FILE');if(kind==='directory')mkdirSync(existing);if(kind==='dangling_link')symlinkSync(join(x.root,'missing.png'),existing);
+  // Chrome's in-progress download reserving the name shows on disk as "<name>.crdownload".
+  for(const kind of ['file','directory','dangling_link','crdownload']){
+    const x=await fixture(),existing=join(x.root,kind==='crdownload'?'fixture.png.crdownload':'fixture.png');
+    if(kind==='file'||kind==='crdownload')writeFileSync(existing,'USER_OWNED_FILE');if(kind==='directory')mkdirSync(existing);if(kind==='dangling_link')symlinkSync(join(x.root,'missing.png'),existing);
     const r=(await downloadExistingResult(x.page,x.settings,x.workspace,x.root))[0].result;
     assert.deepEqual(r,{status:'download_target_exists',thread_id:scope.thread_id,result_id:scope.result_id,request_key:'one-download',filename:'fixture.png',browser_input:false,intent_recorded:false});
     assert(!x.calls.includes('nativeClick')&&!x.calls.includes('waitForDownload'));assert(!existsSync(join(x.workspace,'.atm')));
-    if(kind==='file')assert.equal(readFileSync(existing,'utf8'),'USER_OWNED_FILE');
+    if(kind==='file'||kind==='crdownload')assert.equal(readFileSync(existing,'utf8'),'USER_OWNED_FILE');
     renameSync(existing,join(x.root,'moved-by-user'));
     const ok=(await downloadExistingResult(x.page,x.settings,x.workspace,x.root))[0].result;
     assert.equal(ok.status,'download_observed');assert.equal(ok.reused,false);assert.equal(x.calls.filter(v=>v==='nativeClick').length,1);
