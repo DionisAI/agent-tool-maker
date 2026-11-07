@@ -123,6 +123,17 @@ test('Chrome finishing its in-progress download between the two name checks is s
     assert.equal(readFileSync(final,'utf8'),'USER_OWNED_FILE');assert(!existsSync(partial));
   }finally{fs.lstatSync=lstat;syncBuiltinESMExports();}
 });
+test('a control read claiming the name refusal is a protocol error, never a returned or recorded refusal',async()=>{
+  // The refusal is only ever returned by this closure after its own directory check.
+  for(const read of [1,2]){
+    const x=await fixture(),old=x.page.evaluate;let n=0;x.page.evaluate=(fn,arg)=>fn.name==='readDownloadInputDOM'&&++n===read?{kind:'download_target_exists'}:old(fn,arg);
+    await assert.rejects(downloadExistingResult(x.page,x.settings,x.workspace,x.root),e=>e.code===(read===1?'bridge_protocol':'download_unknown'));
+    assert(!x.calls.includes('nativeClick')&&!x.calls.includes('waitForDownload'));
+    if(read===1){assert(!existsSync(join(x.workspace,'.atm')));continue;}
+    const dir=join(x.workspace,'.atm','xyq-result-downloads'),v=JSON.parse(readFileSync(join(dir,readdirSync(dir).find(n=>n.endsWith('.json')))));
+    assert.equal(v.status,'download_unknown');assert.equal(v.failure_code,'bridge_protocol');assert(existsSync(join(dir,'active.lock')));
+  }
+});
 test('a same-name entry appearing after durable intent is recorded as definitely not sent, then the same key can retry',async()=>{
   for(const name of ['fixture.png','fixture.png.crdownload']){
     const x=await fixture(),old=x.page.evaluate,existing=join(x.root,name);let n=0;

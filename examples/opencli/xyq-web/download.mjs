@@ -62,7 +62,7 @@ function releaseUnsent(path,record){
   if(!same)fail('receipt_invalid','Original download lock changed; it is preserved.');
   unlinkSync(path);const parent=openSync(dirname(path),constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW);try{fsyncSync(parent);}finally{closeSync(parent);}
 }
-const boundedCodes=new Set(['result_changed','results_changed','result_missing','preview_required','result_not_ready','download_unavailable','control_obscured','thread_changed','origin_mismatch','unsupported_surface','dialog_open','control_changed','bridge_protocol','download_source_unverified','download_unknown','download_target_exists']);
+const boundedCodes=new Set(['result_changed','results_changed','result_missing','preview_required','result_not_ready','download_unavailable','control_obscured','thread_changed','origin_mismatch','unsupported_surface','dialog_open','control_changed','bridge_protocol','download_source_unverified','download_unknown']);
 export function verifiedDownloadEvent(raw,result_id,filename){
   const v=unwrap(raw);
   if(!v||typeof v!=='object'||Array.isArray(v)||v.downloaded!==true||v.state!=='complete'||
