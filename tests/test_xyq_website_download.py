@@ -10,6 +10,7 @@ from PIL import Image,PngImagePlugin
 import pytest
 from agent_tool_maker import website_download as d
 from agent_tool_maker.errors import RouterError
+run_bridge=d._run_bridge
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('xyq_download_builder',ROOT/'scripts/build_xyq_download.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -24,8 +25,8 @@ def native_record(workspace,download_root,settings):
 def setup(tmp_path,workspace,monkeypatch):
     root=tmp_path/'downloads';root.mkdir();source=root/'fixture.png';info=PngImagePlugin.PngInfo();info.add_text('comment','FAKE_PRIVATE_TAG');Image.new('RGB',(81,108),'blue').save(source,pnginfo=info)
     bridge=tmp_path/'fixture-bridge';bridge.write_text('#!/bin/sh\nexit 0\n');bridge.chmod(0o700);calls=[]
-    def run(path,pin,adapter,settings,work):
-        calls.append(settings.copy());p=Path(work);r=json.loads((p/'.atm/xyq-result-downloads'/(d._sha(settings['request_key'].encode())+'.delivery.json')).read_bytes())
+    def run(path,pin,adapter,settings,work,download_root):
+        assert download_root==str(root);calls.append(settings.copy());p=Path(work);r=json.loads((p/'.atm/xyq-result-downloads'/(d._sha(settings['request_key'].encode())+'.delivery.json')).read_bytes())
         assert r['status']=='dispatch_claimed' and (p/'.atm/xyq-result-downloads/delivery-active.lock').is_file();native_record(p,root,settings)
     monkeypatch.setattr(d,'_run_bridge',run)
     return {'root':root,'source':source,'bridge':bridge,'calls':calls,'run':run,'workspace':workspace}
@@ -111,6 +112,53 @@ def test_wrong_native_resource_fingerprint_is_retained_not_trusted(setup,monkeyp
     monkeypatch.setattr(d,'_run_bridge',wrong)
     with pytest.raises(RouterError):invoke(x)
     ledger=x['workspace']/'.atm/xyq-result-downloads';assert not list(ledger.glob('*.png'));r=json.loads(next(ledger.glob('*.delivery.json')).read_bytes());assert r['failure_code']=='receipt_invalid'
+def refusal(settings,filename='fixture.png'):
+    return {'status':'download_target_exists','thread_id':settings['thread_id'],'result_id':settings['result_id'],'request_key':settings['request_key'],'filename':filename,'browser_input':False,'intent_recorded':False}
+def test_same_name_download_target_is_definite_and_leaves_no_claim_or_lock(setup,monkeypatch):
+    # The browser would save "fixture (1).png" or replace the user's file; nothing may stay locked.
+    x=setup;existing=x['source'].read_bytes();seen=[]
+    def refused(path,pin,adapter,settings,work,root):
+        ledger=Path(work)/'.atm/xyq-result-downloads';seen.append(root)
+        assert (ledger/'delivery-active.lock').is_file() and not (ledger/'active.lock').exists();return refusal(settings)
+    monkeypatch.setattr(d,'_run_bridge',refused)
+    with pytest.raises(RouterError) as e:invoke(x)
+    assert e.value.code=='download_target_exists' and not e.value.uncertain and seen==[str(x['root'])]
+    ledger=x['workspace']/'.atm/xyq-result-downloads';assert sorted(p.name for p in ledger.iterdir())==['finalize.lock']
+    assert x['source'].read_bytes()==existing and sorted(p.name for p in x['root'].iterdir())==['fixture.png']
+    with pytest.raises(RouterError) as e:d.status(str(x['workspace']),'one-download')
+    assert e.value.code=='request_missing'
+    monkeypatch.setattr(d,'_run_bridge',x['run']);r=invoke(x)
+    assert r['status']=='delivered' and not r['reused'] and r['locks_finalized'] and len(x['calls'])==1 and x['source'].read_bytes()==existing
+@pytest.mark.parametrize('case',['missing_name','native_lock','native_receipt','shape','other_result'])
+def test_uncorroborated_name_refusal_keeps_original_intent_and_locks(setup,monkeypatch,case):
+    x=setup;ledger=x['workspace']/'.atm/xyq-result-downloads'
+    def refused(path,pin,adapter,settings,work,root):
+        x['calls'].append(case);v=refusal(settings,'other.png' if case=='missing_name' else 'fixture.png')
+        if case=='native_lock':(ledger/'active.lock').write_bytes(b'{}')
+        if case=='native_receipt':(ledger/(d._sha(settings['request_key'].encode())+'.json')).write_bytes(b'{}')
+        if case=='shape':v['browser_input']=True
+        if case=='other_result':v['result_id']='c'*32
+        return v
+    monkeypatch.setattr(d,'_run_bridge',refused)
+    with pytest.raises(RouterError) as e:invoke(x)
+    assert e.value.code=='delivery_unknown' and e.value.uncertain and (ledger/'delivery-active.lock').is_file() and x['source'].is_file()
+    r=json.loads(next(ledger.glob('*.delivery.json')).read_bytes());assert r['status']=='delivery_unknown' and r['failure_phase']=='bridge_dispatch'
+    assert r['failure_code']==('bridge_protocol' if case in {'shape','other_result'} else 'download_unknown')
+    with pytest.raises(RouterError) as e:invoke(x,args('new-key'))
+    assert e.value.code=='workspace_busy' and len(x['calls'])==1
+@pytest.mark.integration
+def test_real_bridge_subprocess_gets_download_root_and_name_refusal_withdraws_unsent_claim(setup,monkeypatch,tmp_path):
+    x=setup;log=tmp_path/'bridge-argv.json';existing=x['source'].read_bytes();monkeypatch.setattr(d,'_run_bridge',run_bridge)
+    x['bridge'].write_text('#!'+sys.executable+"""
+import json,sys
+a=sys.argv[1:];s=json.loads(a[a.index('--settings')+1])
+open(LOG,'w').write(json.dumps(a))
+print(json.dumps([{'result':{'status':'download_target_exists','thread_id':s['thread_id'],'result_id':s['result_id'],'request_key':s['request_key'],'filename':'fixture.png','browser_input':False,'intent_recorded':False}}]))
+""".replace('LOG',repr(str(log))))
+    with pytest.raises(RouterError) as e:invoke(x)
+    assert e.value.code=='download_target_exists' and not e.value.uncertain
+    argv=json.loads(log.read_text());assert argv[:3]==['__opencli_shim','xyq-web','result-download-bound'] and argv[argv.index('--download-root')+1]==str(x['root'])
+    assert sorted(p.name for p in (x['workspace']/'.atm/xyq-result-downloads').iterdir())==['finalize.lock'] and x['source'].read_bytes()==existing
 def test_partial_lock_finalization_resumes_only_local_validation_and_retained_lock_rename(setup,monkeypatch):
     x=setup;release=d._release;calls=[]
     def interrupted(fd,name,key,fp):

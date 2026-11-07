@@ -24,7 +24,12 @@ Strategy: UI_SELECTOR + LOCAL；Contract: visible-ui / decoded-local-file。
 `download.mjs` / `download.js` 使用固定 site:xyq-home/browser 的公开 Page API，
 保留 contextId/preferredContextId；只有 evaluate、nativeClick、waitForDownload。
 先验证完整结果/控件摘要、唯一启用且未被覆盖的下载按钮，再保存 fsync 的原请求和锁。
-发送前再次核对摘要与命中位置；开始原始下载观察后，仅发送一次点击。
+桥接另收编译固定的下载目录（`--download-root`）。该目录已有同名项（文件、目录或链接，
+lstat 不跟随）时，在原生 intent/锁和点击前返回明确的 `download_target_exists`，
+不读取、移动或覆盖该文件；否则 Chrome 会另存为“名称 (1).png”（与回执不符而成未知），
+或替换用户原文件。用户移走或改名该文件后，可用同一 request_key 重试。
+发送前再次核对摘要、命中位置与同名项；intent 后才出现的同名文件不点击，原锁保留为未知。
+开始原始下载观察后，仅发送一次点击。
 稳定 request_key 与规范字段顺序避免同一请求对象排序引起假冲突。
 原生确认丢失仍等待原观察器；不因超时、同键或新键而再点一次。
 
@@ -43,6 +48,9 @@ source_association_verified 不等于 freshness：download_freshness_verified �
 `website_download.py` 在启动桥接前写外层 intent / delivery-active.lock，并检查固定二进制 SHA。
 固定 argv 与环境白名单，不注入 Key；桥接限时且不回传原始 stderr。
 真正文件来源以持久原生回执为准，不把 stdout 的成功文字当作下载证明。
+桥接返回同名拒绝时须独立核对：该键无原生回执、无 active.lock、固定目录经 no-follow
+确有该名，且外层锁/回执仍是本次原样；全部成立才撤回本次未发出的外层 intent 与锁，
+返回 outcome_uncertain=false 的 `download_target_exists`。任一不符仍为 delivery_unknown 并保留锁。
 只读取固定下载目录内的一份精确文件；逐级 no-follow、普通单链接、64MiB 有界，
 复制前后核对身份/大小/SHA，再重开源路径检查；不枚举其它下载或改动源文件。
 独占创建项目 `.atm/xyq-result-downloads/<key-sha>.png`（0600），不覆盖已有或部分文件。
@@ -52,7 +60,8 @@ source_association_verified 不等于 freshness：download_freshness_verified �
 状态：dispatch_claimed → delivery_unknown / file_verified → delivered。
 只有已关联原生事件 + 稳定完整解码文件才返回顶层 download_verified=true。
 内嵌 artifact 是独立本地校验结果，其自身 download_verified=false；两层证据分别表达。
-两个原锁完成后以 rename 留作 `.completed`，没有永久删除或未知锁清除。
+两个原锁完成后以 rename 留作 `.completed`，没有永久删除或未知锁清除；
+唯一撤回是上述已核实、未发出点击的同名拒绝，且只删除本次刚写的外层 intent/锁。
 外层确认丢失但原生回执已证实下载时，同键仅完成本地复制/解码，不再启动桥接。
 部分锁收尾丢失时仅恢复本地校验及剩余 rename；明确保留 previous_failure 历史，
 最终成功不再携带当前 failure_code/phase。未知原生事件、已有未验证文件均保持原状。

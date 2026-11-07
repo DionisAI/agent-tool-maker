@@ -80,3 +80,33 @@ raise SystemExit(main())
         'artifact':r['artifact'],'source_association_verified':r['source_association_verified'],'provider_generation_verified':False,
         'paid_granted':False,'production_atm_changed':False},indent=2));receipt.chmod(0o600)
     record_testsuite_property('xyq_download_fixture_verification',str(receipt))
+
+@pytest.mark.browser
+def test_native_same_name_download_target_is_refused_before_intent_or_input(native_page,tmp_path,workspace):
+    root=tmp_path/'downloads';root.mkdir();prepare(native_page);q=quote(native_page,root)
+    existing=root/'fixture.png';existing.write_bytes(b'USER_OWNED_FILE')
+    out,count=rpc(native_page,{'operation':'download','settings':settings(q,'name-clash'),'workspace':str(workspace)},root)
+    r=out['result'][0]['result'];assert r['status']=='download_target_exists' and r['filename']=='fixture.png' and r['browser_input'] is False and r['intent_recorded'] is False
+    assert count==0 and native_page.evaluate('window.inputs')==0 and existing.read_bytes()==b'USER_OWNED_FILE' and not (workspace/'.atm').exists()
+    moved=tmp_path/'moved-by-user.png';existing.rename(moved)
+    out,count=rpc(native_page,{'operation':'download','settings':settings(q,'name-clash'),'workspace':str(workspace)},root)
+    assert out['result'][0]['result']['status']=='download_observed' and count==1 and native_page.evaluate('window.inputs')==1 and moved.read_bytes()==b'USER_OWNED_FILE'
+
+@pytest.mark.browser
+def test_pipeline_same_name_target_is_definite_zero_click_and_leaves_no_lock(native_page,tmp_path,workspace):
+    root=tmp_path/'downloads';root.mkdir();prepare(native_page);q=quote(native_page,root)
+    existing=root/'fixture.png';existing.write_bytes(b'USER_OWNED_FILE')
+    bridge=tmp_path/'fixture-bridge';bridge.write_text(f'''#!{sys.executable}
+import sys
+sys.path.insert(0,{str(ROOT/'tests/fixtures')!r})
+from xyq_download_fixture import bridge_main
+raise SystemExit(bridge_main({str(root)!r},{os.environ['ATM_CHROMIUM']!r}))
+''');bridge.chmod(0o700)
+    call=lambda:d.download(str(workspace),settings(q,'pipeline-name-clash'),str(bridge),hashlib.sha256(bridge.read_bytes()).hexdigest(),b.bundle_digest(b.DOWNLOAD_FILES),str(root))
+    with pytest.raises(RouterError) as e:call()
+    assert e.value.code=='download_target_exists' and not e.value.uncertain
+    ledger=workspace/'.atm/xyq-result-downloads';assert sorted(p.name for p in ledger.iterdir())==['finalize.lock']
+    assert (workspace/'fixture-native-click-count').read_text()=='0' and existing.read_bytes()==b'USER_OWNED_FILE' and sorted(p.name for p in root.iterdir())==['fixture.png']
+    moved=tmp_path/'moved-by-user.png';existing.rename(moved);r=call()
+    assert r['status']=='delivered' and r['locks_finalized'] and r['complete_decode_verified'] and (workspace/'fixture-native-click-count').read_text()=='1'
+    assert moved.read_bytes()==b'USER_OWNED_FILE' and not (ledger/'active.lock').exists() and not (ledger/'delivery-active.lock').exists()

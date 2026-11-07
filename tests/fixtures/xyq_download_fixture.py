@@ -15,7 +15,7 @@ def prepare(page,scenario='normal'):
     if scenario=='disabled':page.locator('#download').evaluate('e=>e.disabled=true')
 
 def rpc(page,config,download_root,scenario='normal'):
-    proc=subprocess.Popen(['node',str(ROOT/'tests/fixtures/xyq_download_rpc.mjs'),json.dumps(config)],cwd=ROOT,text=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    proc=subprocess.Popen(['node',str(ROOT/'tests/fixtures/xyq_download_rpc.mjs'),json.dumps({**config,'download_root':str(download_root)})],cwd=ROOT,text=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     waiting=None;clicks=0
     def reply(call,**data):proc.stdin.write(json.dumps({'id':call['id'],**data})+'\n');proc.stdin.flush()
     try:
@@ -43,7 +43,7 @@ def rpc(page,config,download_root,scenario='normal'):
 def bridge_main(download_root,chromium,scenario='normal'):
     from playwright.sync_api import sync_playwright
     argv=sys.argv[1:];assert argv[:3]==['__opencli_shim','xyq-web','result-download-bound'];settings=json.loads(argv[argv.index('--settings')+1]);workspace=argv[argv.index('--workspace')+1]
-    assert settings['thread_id']==THREAD and settings['result_id']==RESOURCE
+    assert settings['thread_id']==THREAD and settings['result_id']==RESOURCE and argv[argv.index('--download-root')+1]==str(download_root)
     with sync_playwright() as pw:
         browser=pw.chromium.launch(executable_path=chromium,headless=True)
         try:

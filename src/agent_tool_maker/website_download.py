@@ -24,9 +24,12 @@ SETTINGS=('thread_id','result_id','expected_result_sha256','quote_sha256','reque
 UUID=r'[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
 KEY=r'[A-Za-z0-9][A-Za-z0-9._-]{0,79}'
 SHA=r'[a-f0-9]{64}'
+PNG_NAME=r'[A-Za-z0-9][A-Za-z0-9_. -]{0,159}\.png'
 SAFE_ENV={'PATH','HOME','USER','LOGNAME','LANG','LC_ALL','LC_CTYPE','TMPDIR','TEMP','TMP','DISPLAY','XDG_RUNTIME_DIR'}
 
 def fail(code,message):raise RouterError(code,message,uncertain=code in {'delivery_unknown','download_unknown','receipt_write_failed'})
+class ClaimWithdrawn(RouterError):
+    """Definite pre-dispatch refusal after this call's unsent local claim was withdrawn."""
 def _sha(value):return hashlib.sha256(value).hexdigest()
 def _json(value):return json.dumps(value,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode()
 def source_digest():
@@ -59,6 +62,16 @@ def _check_directory(path):
             for part in Path(path).parts[1:]:
                 fd=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd);stack.callback(os.close,fd)
         except OSError:fail('unsafe_path','Reviewed download directory must exist with no linked ancestors.')
+
+def _name_taken(root,name):
+    # No-follow check of one name in the reviewed directory; the entry is never opened.
+    with ExitStack() as stack:
+        try:
+            fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW);stack.callback(os.close,fd)
+            for part in Path(root).parts[1:]:
+                fd=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd);stack.callback(os.close,fd)
+            os.stat(name,dir_fd=fd,follow_symlinks=False);return True
+        except OSError:return False
 
 @contextmanager
 def _ledger(workspace,create=True):
@@ -128,9 +141,9 @@ def _bridge(path,expected):
         if _sha(p.read_bytes())!=expected:fail('executable_changed','Review the changed bridge before any download.')
     except OSError:fail('bridge_missing','The reviewed bridge executable is inaccessible.')
 
-def _run_bridge(path,expected,adapter_pin,args,workspace):
+def _run_bridge(path,expected,adapter_pin,args,workspace,download_root):
     _bridge(path,expected)
-    argv=[path,'__opencli_shim','xyq-web','result-download-bound','--pin',adapter_pin,'-f','json','--workspace',workspace,'--settings',_json(args).decode()]
+    argv=[path,'__opencli_shim','xyq-web','result-download-bound','--pin',adapter_pin,'-f','json','--workspace',workspace,'--download-root',download_root,'--settings',_json(args).decode()]
     env={k:v for k,v in os.environ.items() if k in SAFE_ENV}
     env.update({'NO_COLOR':'1','CI':'1','PIPPIT_CLI_DISABLE_TELEMETRY':'1'})
     with tempfile.TemporaryFile() as out,tempfile.TemporaryFile() as err:
@@ -145,9 +158,26 @@ def _run_bridge(path,expected,adapter_pin,args,workspace):
         if len(data)>128*1024:fail('bridge_protocol','Download bridge response exceeded its bound.')
         try:v=json.loads(data)
         except (ValueError,UnicodeError):fail('bridge_protocol','Download bridge response was not JSON.')
-        if not isinstance(v,list) or len(v)!=1 or not isinstance(v[0],dict) or not isinstance(v[0].get('result'),dict) or v[0]['result'].get('status')!='download_observed':
-            fail('bridge_protocol','Download bridge did not return an observed original download.')
+        if not isinstance(v,list) or len(v)!=1 or not isinstance(v[0],dict) or not isinstance(v[0].get('result'),dict) or v[0]['result'].get('status') not in {'download_observed','download_target_exists'}:
+            fail('bridge_protocol','Download bridge did not return an observed original download or a definite name refusal.')
     # The durable source receipt, not stdout, is authoritative for file identity.
+    # A pre-intent name refusal is returned only for independent local corroboration.
+    return v[0]['result'] if v[0]['result']['status']=='download_target_exists' else None
+
+def _withdraw(fd,key,claim,root,v):
+    # The pinned bridge refused before any native intent because the browser's save
+    # name is taken. Corroborate that locally, then retract only this call's unsent
+    # claim; the existing entry is never opened, moved or replaced.
+    args=claim['settings'];name=key+'.delivery.json'
+    if (not isinstance(v,dict) or set(v)!={'status','thread_id','result_id','request_key','filename','browser_input','intent_recorded'} or
+        any(v[k]!=args[k] for k in ('thread_id','result_id','request_key')) or v['browser_input'] is not False or v['intent_recorded'] is not False or
+        not isinstance(v['filename'],str) or not re.fullmatch(PNG_NAME,v['filename'])):fail('bridge_protocol','Download bridge name refusal has an unknown shape.')
+    if _read_exists(fd,key+'.json') or _read_exists(fd,'active.lock') or not _name_taken(root,v['filename']):
+        fail('download_unknown','Bridge name refusal is not corroborated; keep the original intent and locks.')
+    if _read(fd,'delivery-active.lock')!={'version':1,'request_key':args['request_key'],'fingerprint':claim['fingerprint']} or _read(fd,name)!=claim:
+        fail('receipt_invalid','Original unsent claim changed; it is preserved.')
+    os.unlink('delivery-active.lock',dir_fd=fd);os.unlink(name,dir_fd=fd);os.fsync(fd)
+    raise ClaimWithdrawn('download_target_exists','A same-name file already exists in the reviewed download directory and is preserved. No click was sent and nothing stays locked; move or rename that file, then retry this request.')
 
 def _native(fd,key,args):
     r=_read(fd,key+'.json')
@@ -163,7 +193,7 @@ def _native(fd,key,args):
     if (not isinstance(v,dict) or set(v)!={'filename','state','source_result_id','source_association_verified','download_freshness_verified'} or
         v['state']!='complete' or v['source_result_id']!=args['result_id'] or v['source_association_verified'] is not True or
         v['download_freshness_verified'] is not False or not _canonical(v['filename']) or
-        not isinstance(r.get('filename'),str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_. -]{0,159}\.png',r['filename']) or
+        not isinstance(r.get('filename'),str) or not re.fullmatch(PNG_NAME,r['filename']) or
         Path(v['filename']).name!=r['filename'] or
         any(type(r.get(k)) is not int or not 1<=r[k]<=16384 for k in ('width','height')) or r['width']*r['height']>media.MAX_PIXELS):
         fail('receipt_invalid','Observed native download lacks exact file/source identity.')
@@ -275,7 +305,7 @@ def download(workspace,raw,bridge,bridge_sha256,adapter_pin,download_root):
             _write(fd,name,r,True)
         phase='bridge_dispatch'
         try:
-            if not resume:_run_bridge(bridge,bridge_sha256,adapter_pin,args,workspace)
+            if not resume and (refused:=_run_bridge(bridge,bridge_sha256,adapter_pin,args,workspace,download_root)):_withdraw(fd,key,r,download_root,refused)
             phase='native_source_receipt'
             native=_native(fd,key,args)
             if native is None:fail('download_unknown','No authoritative native source receipt was observed.')
@@ -293,6 +323,7 @@ def download(workspace,raw,bridge,bridge_sha256,adapter_pin,download_root):
                 r['previous_failure']={'code':r.pop('failure_code'),'phase':r.pop('failure_phase')}
             r['status']='delivered';_write(fd,name,r)
             return _public(r,artifact,resume)
+        except ClaimWithdrawn:raise
         except (RouterError,OSError) as error:
             # Preserve any bytes, all native intent and both active locks on uncertainty.
             r['status']='file_verified' if r['status'] in {'file_verified','delivered'} else 'delivery_unknown'
