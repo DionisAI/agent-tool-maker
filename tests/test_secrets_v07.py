@@ -1,12 +1,14 @@
 """Independent negative/positive tests for the credential-first contract; fake keys only."""
 import base64
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from urllib.parse import quote
@@ -480,5 +482,16 @@ def test_secrets_first_demo_receipt_reports_package_version(tmp_path):
     root=Path(__file__).resolve().parents[1];out=tmp_path/'receipt.json'
     # The demo runs `atm` from PATH; put this environment's atm first so the code under test is exercised.
     env={**os.environ,'PATH':str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH','')}
-    subprocess.run([sys.executable,str(root/'scripts/demo_secrets_first.py'),'--out',str(out)],check=True,capture_output=True,timeout=300,env=env)
+    result=subprocess.run([sys.executable,str(root/'scripts/demo_secrets_first.py'),'--out',str(out)],capture_output=True,text=True,timeout=300,env=env)
+    assert result.returncode==0, result.stderr[-4000:]  # The demo prints no secrets; its stderr names the failure.
     assert json.loads(out.read_text())['version']==__version__
+
+
+def test_secrets_first_demo_sandbox_has_no_symlink(tmp_path, monkeypatch):
+    # ATM refuses socket/profile paths through a symlink, and macOS's TMPDIR (/var/folders) is one.
+    spec=importlib.util.spec_from_file_location('demo_secrets_first',Path(__file__).resolve().parents[1]/'scripts/demo_secrets_first.py')
+    demo=importlib.util.module_from_spec(spec);spec.loader.exec_module(demo)
+    (tmp_path/'real').mkdir();(tmp_path/'via').symlink_to(tmp_path/'real',target_is_directory=True)
+    monkeypatch.setattr(tempfile,'tempdir',str(tmp_path/'via'))
+    with demo.scratch() as td:
+        assert Path(td)==Path(td).resolve() and Path(td).parent==(tmp_path/'real').resolve()
