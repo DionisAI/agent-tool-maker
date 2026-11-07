@@ -107,7 +107,7 @@ def oauth_server(router,monkeypatch,error,fail_when):
             if fail_when(sent):raise error
             return 'FIXTURE_OAUTH_ACCESS'
     monkeypatch.setattr('agent_tool_maker.oauth.OAuth',FakeOAuth)
-    bind_server(router.state,'figma',{'transport':'http','url':RESOURCE,'oauth':NAME,'allow_tools':['read']})
+    bind_server(router.state,'figma',{'transport':'http','url':RESOURCE,'oauth':NAME,'allow_tools':['read','increment']})
     def handler(req):
         if req.method=='DELETE':return httpx.Response(204)
         assert req.headers['authorization']=='Bearer FIXTURE_OAUTH_ACCESS'
@@ -123,11 +123,11 @@ def test_oauth_failure_after_a_paid_call_is_partial_not_failed(router,workspace,
     # Call 1 ran and spent credits; the token step for call 2 fails. Never a plain "failed" an Agent would resubmit.
     expected=error()
     sent=oauth_server(router,monkeypatch,expected,lambda sent:sent.count('tools/call')==1)
-    j=router.run('figma.mcp_batch',BATCH,workspace,**PAID)
+    j=router.run('figma.mcp_batch',{'calls':[{'name':'read','arguments':{}},{'name':'increment','arguments':{'amount':1}}]},workspace,**PAID)
     assert j['status']=='submission_unknown',j
     assert j['data']['error']['code']==expected.code and j['data']['error']['outcome_uncertain'] is True
     assert j['data']['mcp_completed']==[{'name':'read','result':OK}]
-    assert sent.count('tools/call')==1  # Call 2 was never sent and is not replayed.
+    assert sent.count('tools/call')==1 and j['data']['mcp_started']=='read'  # Call 2 was never sent, started or replayed.
 
 @pytest.mark.parametrize('error',REFRESH_FAILURES)
 @pytest.mark.parametrize('tool,inputs,options,fail_when',[
@@ -143,6 +143,7 @@ def test_oauth_failure_before_any_tool_call_is_certain_not_sent(router,workspace
     assert j['status']=='failed',j
     assert j['data']['error']['code']==expected.code and j['data']['error']['outcome_uncertain'] is False
     assert 'tools/call' not in sent and not j['data'].get('mcp_completed')
+    assert 'mcp_started' not in j['data']  # A call that failed its token step was never started.
 
 def test_certain_error_after_tool_call_dispatch_is_uncertain(router,workspace):
     # The call reached the server; a later local refusal of its response cannot prove it did not run.

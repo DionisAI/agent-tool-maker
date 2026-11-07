@@ -98,7 +98,8 @@ class Stdio:
     def send(self,msg):
         try:self.proc.stdin.write((canonical(msg)+'\n').encode());self.proc.stdin.flush()
         except (OSError,BrokenPipeError):raise RouterError('mcp_interrupted','MCP process disconnected.',uncertain=True) from None
-    def exchange(self,msg,notify=False):
+    def exchange(self,msg,notify=False,sending=None):
+        if sending:sending(msg)
         self.send(msg)
         if notify:return None
         deadline=time.monotonic()+self.timeout
@@ -137,7 +138,7 @@ class HTTP:
             self.oauth = OAuth(vault.state, vault, network)
         self.headers={'Accept':'application/json, text/event-stream','Content-Type':'application/json'}
         if cfg.get('credential'):self.headers['Authorization']='Bearer '+vault.get(cfg['credential'])
-    def exchange(self,msg,notify=False):
+    def exchange(self,msg,notify=False,sending=None):
         url=self.cfg['url']
         if not self.cfg.get('allow_local'):public_address(url,self.net.resolver)
         headers=dict(self.headers)
@@ -151,6 +152,7 @@ class HTTP:
             self.headers['Authorization'] = headers['Authorization']  # Same pinned resource for session DELETE, without refresh/replay.
         if self.session:headers['Mcp-Session-Id']=self.session
         if self.version:headers['MCP-Protocol-Version']=self.version
+        if sending:sending(msg)  # After the token step, immediately before transmission.
         self.net.client.cookies.clear()
         try:
             with self.net.client.stream('POST',url,headers=headers,json=msg,timeout=self.cfg.get('timeout',120)) as r:
@@ -197,13 +199,17 @@ def execute_mcp(router,tool,job):
     conn=None;counter=0;partial=[];dispatched=False
     try:
         conn=Stdio(cfg,router.vault,job['workspace']) if cfg['transport']=='stdio' else HTTP(cfg,router.vault,router.net)
-        def call(method,params):
+        def call(method,params,sending=None):
             nonlocal counter
             counter+=1;msg={'jsonrpc':'2.0','id':counter,'method':method,'params':params}
-            answer=conn.exchange(msg)
+            answer=conn.exchange(msg,sending=sending)
             if not isinstance(answer,dict) or answer.get('id')!=counter or 'error' in answer or not isinstance(answer.get('result'),dict):
                 raise RouterError('mcp_protocol','MCP response was rejected or malformed.',uncertain=method=='tools/call')
             return answer['result']
+        def started(msg):
+            # Record started status AFTER the token step and BEFORE transmission. Unknown calls are never replayed.
+            nonlocal dispatched
+            router.state.update_job(job['id'],'running',mcp_completed=partial,mcp_started=msg['params']['name']);dispatched=True
         init=call('initialize',{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'agent-tool-maker','version':'0.2.0'}})
         version=init.get('protocolVersion')
         if version not in VERSIONS:raise RouterError('mcp_version','Server selected an unsupported protocol version.')
@@ -228,21 +234,18 @@ def execute_mcp(router,tool,job):
                 if name not in tools:raise RouterError('mcp_tool_missing','Selected tool is not in the live server registry.')
                 if next(Draft202012Validator(tools[name]['inputSchema']).iter_errors(item['arguments']),None):raise RouterError('invalid_input','MCP tool arguments fail the discovered schema.')
             for item in calls:
-                # Record started status BEFORE transmission. Unknown calls are never replayed.
-                router.state.update_job(job['id'],'running',mcp_completed=partial,mcp_started=item['name'])
-                dispatched=True
-                result=call('tools/call',item)
+                result=call('tools/call',item,started)
                 if result.get('isError'):raise RouterError('mcp_tool_error','Server tool reported failure; previous results are retained.',uncertain=True)
                 partial.append({'name':item['name'],'result':router.vault.redact(result)})
+                router.state.update_job(job['id'],'running',mcp_completed=partial)  # Kept even if the next call fails its token step.
             result={'results':partial,'protocol_version':version,'session_scope':'one ATM job; batch calls share the same session'}
         result=router.vault.redact(result)
         artifact=save_artifact(job['workspace'],job['id'],canonical(result).encode(),hint='mcp.json')
         return router.state.update_job(job['id'],'completed',result=result,artifacts=[artifact],verification='mcp_response_not_business_acceptance')
     except RouterError as e:
         # Once a tools/call may have run, no later failure is a plain "failed" an Agent could resubmit.
-        # Unsent proves only that the current call never left; earlier completed calls still ran.
-        from .oauth import Unsent
-        if dispatched and not e.uncertain and (partial or not isinstance(e,Unsent)):
+        # Unsent for a later call proves only that it never left; earlier completed calls still ran.
+        if dispatched and not e.uncertain:
             raise RouterError(e.code,str(e)+' A tool call in this batch may have run; completed results are retained, do not resubmit blindly.',uncertain=True) from None
         raise
     finally:
