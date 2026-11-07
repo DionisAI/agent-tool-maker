@@ -1195,9 +1195,9 @@ BROKER_NOTE = re.compile(r'atm broker serve 记录为运行中（到 \d\d:\d\d�
 @pytest.mark.parametrize('backend', ['keyring', 'passphrase'])
 def test_lock_copy_says_what_each_vault_backend_enforces(browser, tmp_path, monkeypatch, backend):
     import io
-    import time
     from playwright.sync_api import expect
     from agent_tool_maker import session
+    from agent_tool_maker.broker import Broker
     from agent_tool_maker.engine import Router
     from agent_tool_maker.errors import RouterError
     from agent_tool_maker.storage import State
@@ -1233,25 +1233,38 @@ def test_lock_copy_says_what_each_vault_backend_enforces(browser, tmp_path, monk
             assert Vault(State(home)).get('fal') == fx.SECRET + '-fal'
             monkeypatch.delenv('ATM_VAULT_PASSWORD')
         # 立即锁定 ends the shared session, and its toast says the same as the pages.
-        page.get_by_role('button', name='解锁 30 分钟', exact=True).click()
-        if keyring:
-            page.get_by_role('button', name='用系统钥匙串解锁', exact=True).click()
-        else:
-            page.get_by_label('ATM 主密码', exact=True).fill(fx.PASSWORD)
-            page.get_by_role('button', name='用主密码解锁', exact=True).click()
-        expect(page.locator('#credential-session')).to_contain_text('已解锁')
-        page.get_by_role('button', name='立即锁定', exact=True).click()
+        def unlock_then_lock():
+            page.get_by_role('button', name='解锁 30 分钟', exact=True).click()
+            if keyring:
+                page.get_by_role('button', name='用系统钥匙串解锁', exact=True).click()
+            else:
+                page.get_by_label('ATM 主密码', exact=True).fill(fx.PASSWORD)
+                page.get_by_role('button', name='用主密码解锁', exact=True).click()
+            expect(page.locator('#credential-session')).to_contain_text('已解锁')
+            page.get_by_role('button', name='立即锁定', exact=True).click()
+            expect(page.locator('#credential-session')).to_contain_text('Key 已锁定')
+        unlock_then_lock()
         expect(page.locator('#toast')).to_have_text(copy['toast'])
-        expect(page.locator('#credential-session')).to_contain_text('Key 已锁定')
         expect(page.locator('#reach')).to_contain_text(copy['agents'])
-        # A strict broker recorded as running keeps its own lease: the lock copy says so wherever it explains the lock.
-        now = time.time()
-        State(home).set_setting('broker_status', {'pid': os.getpid(), 'socket': str(tmp_path / 'strict.sock'), 'started_at': now,
-                                                  'lease_expires_at': now + 3600, 'state': 'running'})
+        # A strict broker (atm broker serve) keeps its own key and lease: the shared session's start and 立即锁定 leave
+        # its record alone, so the toast and the pages that explain the lock name it.
+        strict = Broker(home, socket_file=tmp_path / 's.sock', ttl_hours=1,
+                        vault=Vault(State(home), keyring_backend=keyring) if keyring else Vault(State(home), password=fx.PASSWORD))
+        strict_thread = threading.Thread(target=strict.serve_forever, daemon=True)
+        strict_thread.start()
+        try:
+            unlock_then_lock()
+            expect(page.locator('#toast')).to_have_text(re.compile('^' + re.escape(copy['toast']) + BROKER_NOTE.pattern))
+            expect(page.locator('#reach dd').first).to_have_text(re.compile('^' + re.escape(copy['agents']) + BROKER_NOTE.pattern))
+            go(page, 'overview')
+            expect(page.locator('#main .page-title .lede')).to_have_text(re.compile(re.escape(copy['home']) + BROKER_NOTE.pattern))
+        finally:
+            strict.shutdown(); strict_thread.join(5); strict.server_close()
+        # Once the strict broker stops, its own record says so and the note goes.
         page.locator('#refresh').click()
-        expect(page.locator('#reach dd').first).to_have_text(re.compile('^' + re.escape(copy['agents']) + BROKER_NOTE.pattern))
-        go(page, 'overview')
-        expect(page.locator('#main .page-title .lede')).to_have_text(re.compile(re.escape(copy['home']) + BROKER_NOTE.pattern))
+        expect(page.locator('#main .page-title .lede')).to_have_text(re.compile(re.escape(copy['home']) + '$'))
+        go(page, 'agents')
+        expect(page.locator('#reach dd').first).to_have_text(copy['agents'])
         assert not log['errors'], log['errors']
         ctx.close()
     finally:

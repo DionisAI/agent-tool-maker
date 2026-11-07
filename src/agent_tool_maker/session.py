@@ -80,6 +80,8 @@ class SessionVault(Vault):
 class SecretSession(Broker):
     # Non-daemon handlers finish admitted bounded commands before process exit.
     daemon_threads = False
+    # Its own record: broker_status stays the strict broker's, so a lock never hides one still serving its grants.
+    status_setting = 'secrets_session_status'
 
     def __init__(self, home, *, seconds=1800, vault=None):
         if type(seconds) not in (int, float) or not 0 < seconds <= 86400:
@@ -113,7 +115,7 @@ class SecretSession(Broker):
         except BaseException:
             self.server_close()
             raise
-        self.state.set_setting('broker_status', {'pid': os.getpid(), 'socket': str(self.path),
+        self.state.set_setting(self.status_setting, {'pid': os.getpid(), 'socket': str(self.path),
             'started_at': self.started_at, 'lease_expires_at': self.started_at + seconds,
             'state': 'running', 'mode': 'secrets_session'})
 

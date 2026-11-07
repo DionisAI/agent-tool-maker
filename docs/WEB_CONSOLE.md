@@ -62,7 +62,9 @@ Shadowrocket、Clash、Surge 的 Fake-IP 模式把每个域名都解析成 `198.
   Agent 运行 ATM 工具时直接读取 Key，锁定只结束共用解锁和项目授权。ATM 主密码方式：Agent 要把 Key 交给程序时会打开
   授权窗口；直接运行 ATM 工具需要主密码，不会打开授权窗口；设置了 `ATM_VAULT_PASSWORD` 的进程可以直接使用 Key。
   `access.broker` 记录一个仍在租期内的 `atm broker serve` 时，另外写明持有受限授权的 Agent 仍可使用授权里的 Key，
-  这里的锁定不会停止它（共用会话自己的记录 `mode: "secrets_session"` 不算）。工具与 Key 路线的说明也按保管方式写，
+  这里的锁定不会停止它。这条记录（设置 `broker_status`）只属于严格模式 Broker：共用会话把自己的记录写在
+  `secrets_session_status`，解锁和“立即锁定”都不碰它；Broker 停止时只把仍是自己（同一 socket 和 pid）的记录标为
+  `stopped`。旧版本由共用会话写下的 `mode: "secrets_session"` 记录不算。工具与 Key 路线的说明也按保管方式写，
   不再说“锁定时 Agent 会打开授权窗口”。会话模式只影响 owner 增删 Key，所以不改变这些文字。
 - **Agent 与权限**列出 Agent 现在能用的 Key、获准的项目和工具数，以及可以撤销的授权；**记录**按天分组，展开后给出
   `atm jobs get <ID> --refresh`。额度读取默认隐藏，可勾选显示。

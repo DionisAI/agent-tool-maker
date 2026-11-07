@@ -176,6 +176,8 @@ def revoke(state: State, identifier: str, *, apply=False) -> dict:
 class Broker(getattr(socketserver, "ThreadingUnixStreamServer", socketserver.ThreadingTCPServer)):
     daemon_threads = True
     block_on_close = True
+    # Owner metadata, not liveness: `atm broker status` and the console's access.broker read this strict-broker record.
+    status_setting = "broker_status"
 
     def __init__(self, home, *, socket_file=None, ttl_hours=8, vault=None, router_factory=None, socket_group=None):
         if os.name != "posix":
@@ -205,8 +207,8 @@ class Broker(getattr(socketserver, "ThreadingUnixStreamServer", socketserver.Thr
         self.socket_inode = self.path.stat().st_ino
         self.vault.password = None
         self.vault._used_secrets.clear()
-        self.state.set_setting("broker_status", {"pid": os.getpid(), "socket": str(self.path), "started_at": self.started_at,
-                                                  "lease_expires_at": self.started_at + _ttl(ttl_hours), "state": "running"})
+        self.state.set_setting(self.status_setting, {"pid": os.getpid(), "socket": str(self.path), "started_at": self.started_at,
+                                                     "lease_expires_at": self.started_at + _ttl(ttl_hours), "state": "running"})
 
     def handle_error(self, request, client_address):
         pass  # No tracebacks containing user inputs, tokens, credentials or responses.
@@ -339,7 +341,14 @@ class Broker(getattr(socketserver, "ThreadingUnixStreamServer", socketserver.Thr
                 self.path.unlink()
         except OSError:
             pass
-        self.state.set_setting("broker_status", {"state": "stopped", "at": time.time(), "socket": str(self.path)})
+        # The record names one broker by socket and pid; one another broker wrote since is left alone.
+        with self.state.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT value FROM settings WHERE name=?", (self.status_setting,)).fetchone()
+            current = json.loads(row[0]) if row else None
+            if isinstance(current, dict) and current.get("socket") == str(self.path) and current.get("pid") == os.getpid():
+                db.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (self.status_setting, canonical(
+                    {"state": "stopped", "at": time.time(), "socket": str(self.path)})))
 
 
 class BrokerHandler(socketserver.StreamRequestHandler):

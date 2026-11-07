@@ -383,7 +383,8 @@
   };
   function keyLock(data, now = nowSeconds()) {
     const backend = str(obj(data?.connections?.vault ?? data?.overview?.vault).backend) === 'keyring' ? 'keyring' : 'passphrase';
-    // broker_status is one record: the shared session writes it with mode secrets_session, a strict broker without one.
+    // access.broker is the strict broker's own record (broker_status); the shared session keeps its own. An older ATM
+    // wrote the session there too, with mode secrets_session: that record is not a strict broker.
     const b = obj(data?.access?.broker), lease = b.lease_expires_at;
     const broker = b.state === 'running' && b.mode !== 'secrets_session' && typeof lease === 'number' && Number.isFinite(lease) && lease > now
       ? zh`atm broker serve 记录为运行中（到 ${time(lease)}）：持有受限授权的 Agent 仍可使用授权里的 Key，这里的锁定不会停止它。` : '';

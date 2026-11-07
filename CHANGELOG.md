@@ -7,6 +7,10 @@
   Key to a program opens the approval window, ATM tools need the password, and a process with `ATM_VAULT_PASSWORD` uses
   Keys directly. A strict `atm broker serve` still within its recorded lease is named as unaffected. Tool and Key-route
   sentences follow the backend too. No new field or endpoint.
+- Broker status: `broker_status` is the strict broker's record alone. The shared unlock session writes its own
+  `secrets_session_status`, and a broker marks the record `stopped` only while it still names that broker's socket and
+  pid, so unlocking and 立即锁定 no longer hide a strict `atm broker serve` that keeps serving its grants (the toast, 首页
+  and Agent 与权限 name it). `atm broker status` and `GET /api/access` read the same record as before.
 - Credits: a website source run through OpenCLIApp that exits 77 (OpenCLI's `AuthRequiredError`, raised by the
   reviewed Tripo Studio and XYQ account adapters on the site's login wall) is stored as `login_required`, so the card's
   需要登录, the 首页 item and the Chrome route's signed-out step finally appear. The server source (`atm` exits 2 for
