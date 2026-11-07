@@ -3,7 +3,7 @@ import hashlib,json,os,subprocess,sys
 from pathlib import Path
 import pytest
 from test_xyq_web_cli import native_page
-from test_xyq_website_download import b,installed_tools
+from test_xyq_website_download import b,installed_tools,ADAPTER,PIN
 from agent_tool_maker import website_download as d
 from agent_tool_maker.errors import RouterError
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'tests/fixtures'))
@@ -61,7 +61,7 @@ sys.path.insert(0,{str(ROOT/'src')!r})
 from agent_tool_maker.cli import main
 raise SystemExit(main())
 ''');source.chmod(0o700)
-    t=b.manifest('result_download',str(bridge),str(root));bundle=pack(t,tmp_path/'bundle');p=Path(bundle['directory'])/'manifest.json'
+    t=b.manifest('result_download',str(bridge),str(root),str(ADAPTER));bundle=pack(t,tmp_path/'bundle');p=Path(bundle['directory'])/'manifest.json'
     install(router.state,router.catalog,p,digest(t));router.catalog=Catalog(router.state);bind_cli(router.state,'atm',str(source))
     inp=tmp_path/'input.json';inp.write_text(json.dumps({'settings':settings(q,'generated-native-once')}))
     command=[sys.executable,str(Path(bundle['directory'])/'tool.py'),'--atm',str(source),'--home',str(router.state.home),'--workspace',str(workspace),
@@ -102,7 +102,7 @@ sys.path.insert(0,{str(ROOT/'tests/fixtures')!r})
 from xyq_download_fixture import bridge_main
 raise SystemExit(bridge_main({str(root)!r},{os.environ['ATM_CHROMIUM']!r}))
 ''');bridge.chmod(0o700)
-    call=lambda:d.download(str(workspace),settings(q,'pipeline-name-clash'),str(bridge),hashlib.sha256(bridge.read_bytes()).hexdigest(),b.bundle_digest(b.DOWNLOAD_FILES),str(root))
+    call=lambda:d.download(str(workspace),settings(q,'pipeline-name-clash'),str(bridge),hashlib.sha256(bridge.read_bytes()).hexdigest(),PIN,str(root),str(ADAPTER))
     with pytest.raises(RouterError) as e:call()
     assert e.value.code=='download_target_exists' and not e.value.uncertain
     ledger=workspace/'.atm/xyq-result-downloads';assert sorted(p.name for p in ledger.iterdir())==['finalize.lock']
@@ -144,7 +144,7 @@ def test_pipeline_name_taken_after_native_intent_is_definite_zero_click_and_same
     root=tmp_path/'downloads';root.mkdir();prepare(native_page);q=quote(native_page,root);key=d._sha(b'late-name')
     def call(scenario):
         bridge=fixture_bridge(tmp_path,root,scenario)
-        return d.download(str(workspace),settings(q,'late-name'),str(bridge),hashlib.sha256(bridge.read_bytes()).hexdigest(),b.bundle_digest(b.DOWNLOAD_FILES),str(root))
+        return d.download(str(workspace),settings(q,'late-name'),str(bridge),hashlib.sha256(bridge.read_bytes()).hexdigest(),PIN,str(root),str(ADAPTER))
     with pytest.raises(RouterError) as e:call('late_name')
     assert e.value.code=='download_target_exists' and not e.value.uncertain
     ledger=workspace/'.atm/xyq-result-downloads';assert sorted(p.name for p in ledger.iterdir())==sorted(['finalize.lock',key+'.json'])

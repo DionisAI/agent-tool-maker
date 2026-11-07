@@ -26,6 +26,9 @@ KEY=r'[A-Za-z0-9][A-Za-z0-9._-]{0,79}'
 SHA=r'[a-f0-9]{64}'
 PNG_NAME=r'[A-Za-z0-9][A-Za-z0-9_. -]{0,159}\.png'
 SAFE_ENV={'PATH','HOME','USER','LOGNAME','LANG','LC_ALL','LC_CTYPE','TMPDIR','TEMP','TMP','DISPLAY','XDG_RUNTIME_DIR'}
+# download.mjs DOWNLOAD_FILES, in order: the bridge loader's reviewed/ closure that --adapter-pin names.
+ADAPTER_FILES=('core.mjs','inspect.js','audio.mjs','audio.js','audio-bound.mjs','audio-bound.js','results.mjs','results.js','download.mjs','download.js')
+MAX_ADAPTER_FILE=1024*1024
 
 def fail(code,message):raise RouterError(code,message,uncertain=code in {'delivery_unknown','download_unknown','receipt_write_failed'})
 class ClaimWithdrawn(RouterError):
@@ -77,6 +80,26 @@ def _name_taken(root,name):
             try:os.stat(entry,dir_fd=fd,follow_symlinks=False);return True
             except OSError:pass
         return False
+
+def adapter_digest(directory):
+    # Read-only, no-follow equivalent of download.mjs downloadDigest() over the bridge
+    # loader's reviewed/ closure; nothing there is executed, created or locked.
+    h=hashlib.sha256()
+    with ExitStack() as stack:
+        try:
+            fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW);stack.callback(os.close,fd)
+            for part in Path(directory).parts[1:]:
+                fd=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd);stack.callback(os.close,fd)
+            for name in ADAPTER_FILES:
+                file=os.open(name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=fd)
+                try:
+                    if not stat.S_ISREG(os.fstat(file).st_mode):return None
+                    with os.fdopen(os.dup(file),'rb') as source:data=source.read(MAX_ADAPTER_FILE+1)
+                finally:os.close(file)
+                if len(data)>MAX_ADAPTER_FILE:return None
+                h.update((name+'\0').encode());h.update(data);h.update(b'\0')
+        except OSError:return None
+    return h.hexdigest()
 
 @contextmanager
 def _ledger(workspace,create=True):
@@ -296,11 +319,16 @@ def _public(r,artifact=None,reused=False):
         'submission_repeated':False,'reused':reused,'provider_checked':False,'locks_finalized':r['status']=='delivered','failure_code':r.get('failure_code'),'failure_phase':r.get('failure_phase'),
         'previous_failure':r.get('previous_failure')}
 
-def download(workspace,raw,bridge,bridge_sha256,adapter_pin,download_root):
+def download(workspace,raw,bridge,bridge_sha256,adapter_pin,download_root,adapter_dir):
     args=settings(raw)
-    if not isinstance(adapter_pin,str) or not re.fullmatch(SHA,adapter_pin) or not _canonical(download_root):fail('invalid_argument','Use reviewed adapter pin and canonical download directory.')
+    if (not isinstance(adapter_pin,str) or not re.fullmatch(SHA,adapter_pin) or not _canonical(download_root) or
+        not _canonical(adapter_dir)):fail('invalid_argument','Use reviewed adapter pin, loader closure and canonical download directory.')
     _bridge(bridge,bridge_sha256)
     _check_directory(download_root)
+    # A stale loader closure refuses its pin only after this pipeline's claim, which then
+    # stays delivery_unknown with its lock; so it is checked first and nothing is written.
+    if adapter_digest(adapter_dir)!=adapter_pin:
+        fail('definition_changed',"The bridge loader's reviewed/ download closure is missing, linked or not the pinned one; reinstall it, then run the download. Nothing was claimed, locked or sent.")
     key=_sha(args['request_key'].encode());fp=_sha(_json(['xyq-image-delivery-v1',args,bridge,bridge_sha256,adapter_pin,download_root]))
     with _ledger(workspace) as fd:
         name=key+'.delivery.json';r=_read(fd,name);resume=bool(r)
@@ -375,6 +403,9 @@ def add_commands(sub):
     d=commands.add_parser('xyq-image',help='One confirmed existing image download and complete local decoding')
     d.add_argument('--workspace',required=True);d.add_argument('--settings',required=True)
     for name in ('bridge','bridge-sha256','adapter-pin','download-root','pin'):d.add_argument('--'+name,required=True)
+    # Required by download(), not the parser: definitions compiled before it still reach the
+    # --pin check and get a definite definition_changed instead of a usage error.
+    d.add_argument('--adapter-dir')
     s=commands.add_parser('status',help='Read the original delivery receipt and verify its selected completed local artifact')
     s.add_argument('--workspace',required=True);s.add_argument('--request-key',required=True);s.add_argument('--pin',required=True)
     u=commands.add_parser('record-unknown',help='Record exact metadata of a pre-existing unknown native download; never permits another click')
@@ -384,4 +415,4 @@ def dispatch(args):
     if args.pin!=source_digest():fail('definition_changed','Review changed website download pipeline source.')
     if args.operation=='status':return [{'result':status(args.workspace,args.request_key)}]
     if args.operation=='record-unknown':return [{'result':record_unknown(args.workspace,args.thread_id,args.result_id,args.request_key)}]
-    return [{'result':download(args.workspace,args.settings,args.bridge,args.bridge_sha256,args.adapter_pin,args.download_root)}]
+    return [{'result':download(args.workspace,args.settings,args.bridge,args.bridge_sha256,args.adapter_pin,args.download_root,args.adapter_dir)}]

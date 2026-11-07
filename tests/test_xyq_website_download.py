@@ -13,6 +13,8 @@ from agent_tool_maker.errors import RouterError
 run_bridge=d._run_bridge
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('xyq_download_builder',ROOT/'scripts/build_xyq_download.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
+# The reviewed download closure the fixture bridges load; its digest is the compiled --adapter-pin.
+ADAPTER=ROOT/'examples/opencli/xyq-web';PIN=b.bundle_digest(b.DOWNLOAD_FILES)
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 def args(key='one-download'):
     return {'thread_id':'00000000-0000-0000-0000-000000000001','result_id':'b'*32,'expected_result_sha256':'a'*64,'quote_sha256':'c'*64,'request_key':key,'human_confirmed':True}
@@ -30,7 +32,7 @@ def setup(tmp_path,workspace,monkeypatch):
         assert r['status']=='dispatch_claimed' and (p/'.atm/xyq-result-downloads/delivery-active.lock').is_file();native_record(p,root,settings)
     monkeypatch.setattr(d,'_run_bridge',run)
     return {'root':root,'source':source,'bridge':bridge,'calls':calls,'run':run,'workspace':workspace}
-def invoke(x,settings=None):return d.download(str(x['workspace']),args() if settings is None else settings,str(x['bridge']),sha(x['bridge']),'f'*64,str(x['root']))
+def invoke(x,settings=None,adapter=ADAPTER):return d.download(str(x['workspace']),args() if settings is None else settings,str(x['bridge']),sha(x['bridge']),PIN,str(x['root']),str(adapter))
 def test_exact_arguments_confirmation_and_pin_before_any_dispatch(setup):
     x=setup
     for bad in ['null',[],{}, {**args(),'url':'https://HOST'}, {**args(),'request_key':'../key'}, {**args(),'thread_id':3}]:
@@ -101,9 +103,9 @@ def test_preexisting_output_bad_root_and_changed_bridge_are_zero_dispatch(setup,
     x=setup;key=d._sha(args()['request_key'].encode());ledger=x['workspace']/'.atm/xyq-result-downloads';ledger.mkdir(parents=True);output=ledger/(key+'.png');output.write_bytes(b'preserve')
     with pytest.raises(RouterError) as e:invoke(x)
     assert e.value.code=='artifact_present_unverified' and output.read_bytes()==b'preserve' and not x['calls']
-    with pytest.raises(RouterError) as e:d.download(str(x['workspace']),args(),str(x['bridge']),'0'*64,'f'*64,str(x['root']))
+    with pytest.raises(RouterError) as e:d.download(str(x['workspace']),args(),str(x['bridge']),'0'*64,PIN,str(x['root']),str(ADAPTER))
     assert e.value.code=='executable_changed' and not x['calls']
-    with pytest.raises(RouterError) as e:d.download(str(x['workspace']),args(),str(x['bridge']),sha(x['bridge']),'f'*64,str(tmp_path/'missing'))
+    with pytest.raises(RouterError) as e:d.download(str(x['workspace']),args(),str(x['bridge']),sha(x['bridge']),PIN,str(tmp_path/'missing'),str(ADAPTER))
     assert e.value.code=='unsafe_path' and not x['calls']
 def test_wrong_native_resource_fingerprint_is_retained_not_trusted(setup,monkeypatch):
     x=setup
@@ -203,7 +205,7 @@ print(json.dumps([{'result':{'status':'download_target_exists','thread_id':s['th
     assert e.value.code=='download_target_exists' and not e.value.uncertain
     argv=json.loads(log.read_text());assert argv[:3]==['__opencli_shim','xyq-web','result-download-bound'] and argv[argv.index('--download-root')+1]==str(x['root'])
     assert sorted(p.name for p in (x['workspace']/'.atm/xyq-result-downloads').iterdir())==['finalize.lock'] and x['source'].read_bytes()==existing
-def installed_tools(router,tmp_path,bridge,root):
+def installed_tools(router,tmp_path,bridge,root,adapter=ADAPTER):
     # Both reviewed definitions installed and the bound, hash-pinned source ATM child,
     # exactly as generated tool.py -> Router -> cli_adapter -> `atm delivery` runs them.
     from agent_tool_maker.catalog import Catalog
@@ -213,7 +215,7 @@ def installed_tools(router,tmp_path,bridge,root):
     source=tmp_path/'source-atm';source.write_text(f'#!{sys.executable}\nimport sys\nsys.path.insert(0,{str(ROOT/"src")!r})\nfrom agent_tool_maker.cli import main\nraise SystemExit(main())\n');source.chmod(0o700)
     bundles={}
     for op in b.OPERATIONS:
-        t=b.manifest(op,str(bridge),str(root));bundles[op]=Path(pack(t,tmp_path/('bundle-'+op))['directory'])
+        t=b.manifest(op,str(bridge),str(root),str(adapter));bundles[op]=Path(pack(t,tmp_path/('bundle-'+op))['directory'])
         install(router.state,router.catalog,bundles[op]/'manifest.json',digest(t))
     router.catalog=Catalog(router.state);bind_cli(router.state,'atm',str(source))
     def tool(op,job_key,inputs,workspace):
@@ -253,6 +255,65 @@ def test_partial_lock_finalization_resumes_only_local_validation_and_retained_lo
     s=d.status(str(x['workspace']),'one-download');assert s['status']=='file_verified' and s['complete_decode_verified'] and not s['locks_finalized']
     monkeypatch.setattr(d,'_release',release);r=invoke(x);assert r['status']=='delivered' and r['locks_finalized'] and len(x['calls'])==1
     assert r['failure_code'] is None and r['failure_phase'] is None and r['previous_failure']=={'code':'receipt_invalid','phase':'lock_finalization'}
+def closure_copy(tmp_path):
+    # A loader laid out as installed: <loader>/reviewed/ holds the exact reviewed closure.
+    copy=tmp_path/'xyq-download-bound/reviewed';copy.mkdir(parents=True)
+    for name in b.DOWNLOAD_FILES:(copy/name).write_bytes((ADAPTER/name).read_bytes())
+    return copy
+@pytest.mark.parametrize('case',['stale','missing','linked_file','linked_dir','not_canonical','absent'])
+def test_stale_or_unreviewed_loader_closure_is_a_definite_refusal_before_any_ledger_or_dispatch(setup,tmp_path,case):
+    # The bridge would refuse its pin only after this pipeline's claim, leaving
+    # delivery_unknown and delivery-active.lock; the closure is checked first, read-only.
+    x=setup;copy=closure_copy(tmp_path);adapter=copy
+    if case=='stale':(copy/'download.mjs').write_bytes((copy/'download.mjs').read_bytes()+b'\n')
+    if case=='missing':(copy/'download.js').unlink()
+    if case=='linked_file':(copy/'core.mjs').unlink();(copy/'core.mjs').symlink_to(ADAPTER/'core.mjs')
+    if case=='linked_dir':adapter=tmp_path/'linked-reviewed';adapter.symlink_to(copy)
+    if case=='not_canonical':adapter=str(copy)+'/../reviewed'
+    if case=='absent':adapter=None
+    before={p.name:p.read_bytes() for p in copy.iterdir() if not p.is_symlink()}
+    with pytest.raises(RouterError) as e:d.download(str(x['workspace']),args(),str(x['bridge']),sha(x['bridge']),PIN,str(x['root']),None if adapter is None else str(adapter))
+    assert e.value.code==('invalid_argument' if case in {'not_canonical','absent'} else 'definition_changed') and not e.value.uncertain
+    assert not x['calls'] and not (x['workspace']/'.atm').exists() and before=={p.name:p.read_bytes() for p in copy.iterdir() if not p.is_symlink()}
+    # Reinstalling the exact closure lets the next run claim and dispatch normally.
+    r=invoke(x,adapter=closure_copy(tmp_path/'reinstalled'));assert r['status']=='delivered' and len(x['calls'])==1
+def test_python_loader_check_and_documented_node_check_agree_with_the_pin(tmp_path):
+    copy=closure_copy(tmp_path);before={p.name:p.read_bytes() for p in copy.iterdir()}
+    assert d.ADAPTER_FILES==b.DOWNLOAD_FILES and d.adapter_digest(str(ADAPTER))==d.adapter_digest(str(copy))==PIN
+    # The read-only check the upgrade contract tells the human to run against <loader>/reviewed/.
+    out=subprocess.run(['node','--input-type=module','-e',f"import {{downloadDigest}} from '{copy}/download.mjs'; console.log(downloadDigest())"],cwd=tmp_path,capture_output=True,text=True,check=True)
+    assert out.stdout.strip()==PIN and before=={p.name:p.read_bytes() for p in copy.iterdir()}
+@pytest.mark.integration
+def test_installed_tool_with_a_stale_loader_closure_is_a_definite_failed_job_that_leaves_no_lock(setup,router,tmp_path):
+    # New definitions over an old xyq-download-bound reviewed/ closure: no claim, no
+    # delivery_unknown, nothing that blocks the workspace; reinstalling it then works.
+    x=setup;calls=tmp_path/'bridge-calls';copy=closure_copy(tmp_path);fresh=(copy/'download.mjs').read_bytes();(copy/'download.mjs').write_bytes(fresh+b'// stale\n')
+    x['bridge'].write_text('#!'+sys.executable+"""
+import json,sys
+a=sys.argv[1:];s=json.loads(a[a.index('--settings')+1])
+open(CALLS,'a').write('x')
+print(json.dumps([{'result':{'status':'download_target_exists','thread_id':s['thread_id'],'result_id':s['result_id'],'request_key':s['request_key'],'filename':'fixture.png','browser_input':False,'intent_recorded':False}}]))
+""".replace('CALLS',repr(str(calls))))
+    tool=installed_tools(router,tmp_path,x['bridge'],x['root'],copy)
+    code,job=tool('result_download','job-stale',{'settings':args()},x['workspace'])
+    assert code==2 and job['status']=='failed' and job['data']['error']['code']=='definition_changed' and job['data']['error']['outcome_uncertain'] is False,job
+    # The job runner keeps only its own artifact directory; no download ledger, claim or lock.
+    assert not (x['workspace']/'.atm/xyq-result-downloads').exists() and not calls.exists()
+    (copy/'download.mjs').write_bytes(fresh)
+    code,job=tool('result_download','job-reinstalled',{'settings':args()},x['workspace'])
+    assert job['data']['error']['code']=='download_target_exists' and calls.read_text()=='x',job
+def test_definition_compiled_without_a_loader_closure_reaches_the_pin_check_first(workspace,tmp_path,setup):
+    # Older definitions lack --adapter-dir: their stale --pin is still definition_changed, and a
+    # current pin without the closure is a definite argument error; neither creates a ledger.
+    x=setup;base=[sys.executable,'-m','agent_tool_maker','--home',str(tmp_path/'unused-home'),'delivery','xyq-image','--workspace',str(workspace),'--settings',json.dumps(args()),
+        '--bridge',str(x['bridge']),'--bridge-sha256',sha(x['bridge']),'--adapter-pin',PIN,'--download-root',str(x['root']),'--pin']
+    for pin,code in [('0'*64,'definition_changed'),(d.source_digest(),'invalid_argument')]:
+        p=subprocess.run(base+[pin],cwd=ROOT,capture_output=True,text=True);error=json.loads(p.stdout)['error']
+        assert p.returncode==2 and error['code']==code and error['outcome_uncertain'] is False and not (workspace/'.atm').exists()
+def test_factory_requires_the_exact_existing_loader_closure_directory(setup,tmp_path):
+    x=setup;linked=tmp_path/'linked-reviewed';linked.symlink_to(ADAPTER)
+    for adapter in [None,'relative/reviewed','/',str(ADAPTER)+'/../xyq-web',str(tmp_path/'missing'),str(linked)]:
+        with pytest.raises(ValueError):b.manifest('result_download',str(x['bridge']),str(x['root']),adapter)
 def test_status_missing_never_creates_a_ledger_or_router_home(workspace,tmp_path):
     with pytest.raises(RouterError) as e:d.status(str(workspace),'missing')
     assert e.value.code=='request_missing' and not (workspace/'.atm').exists();home=tmp_path/'unused-home'
@@ -268,10 +329,13 @@ def test_hardlinked_receipt_write_stops_before_truncation(setup):
 def test_fixed_factory_hashes_permissions_and_compiled_definition(setup,tmp_path,operation):
     from agent_tool_maker.extensions import pack,validate_bundle
     from agent_tool_maker.maker import digest
-    x=setup;t=b.manifest(operation,str(x['bridge']),str(x['root']));pack(t,tmp_path/operation)
+    x=setup;t=b.manifest(operation,str(x['bridge']),str(x['root']),str(ADAPTER));pack(t,tmp_path/operation)
     assert validate_bundle(tmp_path/operation)['sha256']==digest(t) and not t['paid'] and t['executable']=='atm'
     assert t['permissions']==(['execute_code','external_write'] if operation=='result_download' else ['execute_code'])
     assert 'credential' not in t and 'credential_env' not in t['command'] and d.source_digest() in t['command']['argv']
+    argv=t['command']['argv']
+    if operation=='result_download':assert argv[argv.index('--adapter-dir')+1]==str(ADAPTER) and argv[argv.index('--adapter-pin')+1]==PIN
+    else:assert '--adapter-dir' not in argv
 def test_node_python_download_pin_agrees_and_registered_reads_are_unchanged():
     out=subprocess.run(['node','--input-type=module','-e',"import {downloadDigest} from './examples/opencli/xyq-web/download.mjs';import {resultDigest} from './examples/opencli/xyq-web/results.mjs';console.log(JSON.stringify([downloadDigest(),resultDigest()]));"],cwd=ROOT,capture_output=True,text=True,check=True)
     pins=json.loads(out.stdout);assert pins[0]==b.bundle_digest(b.DOWNLOAD_FILES) and pins[1]=='99e0f848f994e3f030f257d9b7894660e70f96c311a28a1ae158810f40eb3dda'
