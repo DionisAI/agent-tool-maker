@@ -8,7 +8,8 @@ INIT={'protocolVersion':'2025-06-18','serverInfo':{'name':'fixture','version':'1
 TOOLS=[{'name':'increment','description':'Fixture counter','inputSchema':{'type':'object','properties':{'amount':{'type':'integer'}},'required':['amount'],'additionalProperties':False}},
        {'name':'read','inputSchema':{'type':'object','properties':{},'additionalProperties':False}}]
 
-def stdio_config(tmp_path):
+def stdio_config(tmp_path,call_line=None):
+    # call_line, when given, is the raw stdout line the fake server writes for every tools/call.
     p=tmp_path/'mcp-server'
     p.write_text(f'''#!{sys.executable}
 import sys,json,os
@@ -21,6 +22,7 @@ for line in sys.stdin:
  if method=='initialize':result={INIT!r}
  elif method=='tools/list':result={{'tools':{TOOLS!r}}}
  elif method=='tools/call':
+  if {call_line!r}:print({call_line!r},flush=True);continue
   if q['params']['name']=='increment':counter+=q['params']['arguments']['amount']
   result={{'content':[{{'type':'text','text':str(counter)}}]}}
  else:result={{}}
@@ -161,3 +163,12 @@ def test_certain_error_after_tool_call_dispatch_is_uncertain(router,workspace):
     assert j['status']=='submission_unknown',j
     assert j['data']['error']['code']=='mcp_protocol' and j['data']['error']['outcome_uncertain'] is True
     assert sent.count('tools/call')==1 and j['data']['mcp_started']=='read'
+
+@pytest.mark.integration
+def test_stdio_non_object_reply_after_tool_call_dispatch_is_uncertain(router,workspace,tmp_path):
+    # The stdio server received the call; a reply ATM rejects as malformed cannot prove it did not run.
+    bind_server(router.state,'playwright',stdio_config(tmp_path,call_line='[]'))
+    j=router.run('playwright.mcp_batch',{'calls':[{'name':'increment','arguments':{'amount':1}}]},workspace,**PAID)
+    assert j['status']=='submission_unknown',j
+    assert j['data']['error']['code']=='mcp_protocol' and j['data']['error']['outcome_uncertain'] is True
+    assert j['data']['mcp_started']=='increment' and not j['data'].get('mcp_completed')
