@@ -1,6 +1,7 @@
 """A rich, FAKE console home for the redesign acceptance tests and screenshots.
 
-Isolated paths only: fake Keys, fake programs (shell scripts), seeded cached records.
+Isolated paths only: fake Keys, fake programs (shell scripts), seeded cached records, and two credits refreshes
+that really run through the signed-out fake programs, so their errors are the ones the server records.
 No provider, network, OS keyring or real Agent configuration is touched.
 """
 import hashlib
@@ -11,6 +12,7 @@ import sys
 import time
 import uuid
 
+from agent_tool_maker import credits
 from agent_tool_maker.cli_adapter import bind_cli
 from agent_tool_maker.engine import Router
 from agent_tool_maker.extensions import declare_credential, new_template
@@ -93,8 +95,11 @@ def build(root, *, saved_elevenlabs=False, empty=False, sync=True):
     for tool_id in ('tripo.server.account', 'higgsfield.subscription.account', 'pippit.cli.credit_balance'):
         install_tool(router, tools[tool_id])
     install_tool(router, recipe_tool())
+    # Signed out, as the real programs behave: OpenCLI exits 77 when an adapter meets the site's login wall
+    # (AuthRequiredError); the official higgsfield CLI just fails, and ATM keeps only its exit status.
+    signed_out = {'opencliapp': 'exit 77', 'higgsfield': 'exit 1'}
     for name in ('opencliapp', 'higgsfield', 'xyq', 'ffprobe'):
-        bind_cli(router.state, name, str(fake_program(bin_dir, 'fake-' + name)))
+        bind_cli(router.state, name, str(fake_program(bin_dir, 'fake-' + name, signed_out.get(name, 'exit 0'))))
     ffmpeg = fake_program(bin_dir, 'fake-ffmpeg')
     bind_cli(router.state, 'ffmpeg', str(ffmpeg))
     router.state.set_setting('cli_hash:ffmpeg', hashlib.sha256(ffmpeg.read_bytes()).hexdigest())
@@ -110,7 +115,7 @@ def build(root, *, saved_elevenlabs=False, empty=False, sync=True):
         db.execute('INSERT OR REPLACE INTO oauth_connections VALUES (?,?,?,?)',
                    ('higgsfield', canonical(meta), b'0' * 12, b'fixture-not-a-token'))
     router.state.set_setting('oauth_service', {'status': 'load_failed', 'label': 'fixture.atm.oauth'})
-    # Cached credits only: nothing is run when the console is viewed.
+    # Cached credits only: nothing is run when the console is viewed. The last good balances ...
     router.state.set_setting('credits:tripo_studio', {
         'provider': 'tripo_studio', 'status': 'ok', 'credits': 6396, 'plan': None, 'unit': 'credits',
         'source': 'tripo.studio.account', 'checked_at': now - 7200, 'last_ok_at': now - 7200, 'error': None})
@@ -118,11 +123,13 @@ def build(root, *, saved_elevenlabs=False, empty=False, sync=True):
         'provider': 'xyq', 'status': 'ok', 'credits': 880, 'plan': None, 'unit': 'credits',
         'source': 'pippit.cli.credit_balance', 'checked_at': now - 960, 'last_ok_at': now - 960, 'error': None})
     router.state.set_setting('credits:higgsfield', {
-        'provider': 'higgsfield', 'status': 'error', 'credits': 1234567, 'plan': 'pro', 'unit': 'credits',
-        'source': 'higgsfield.subscription.account', 'checked_at': now - 3600, 'last_ok_at': now - 3 * 86400,
-        'error': {'code': 'login_required', 'message': 'Fixture: log in to the higgsfield program first.'}})
+        'provider': 'higgsfield', 'status': 'ok', 'credits': 1234567, 'plan': 'pro', 'unit': 'credits',
+        'source': 'higgsfield.subscription.account', 'checked_at': now - 3 * 86400, 'last_ok_at': now - 3 * 86400, 'error': None})
+    # ... then real refreshes through the signed-out programs: the errors are what the server records.
+    codes = {name: credits.refresh(router, name, clock=lambda: now - 3600)['error']['code'] for name in ('tripo_studio', 'higgsfield')}
+    assert codes == {'tripo_studio': 'login_required', 'higgsfield': 'cli_failed'}, codes
     router.state.set_setting('credits_cycle:tripo_studio', {'day': 15})
-    # Records: what Agents ran, including one that needs the owner and one credits refresh.
+    # Records: what Agents ran, including one that needs the owner and one more credits refresh.
     job(router.state, workspace, 'tripo.studio.generate', 'submission_unknown', age=3 * 3600, cost=None)
     job(router.state, workspace, 'elevenlabs.web', 'requires_browser', age=2 * 3600, verification='waiting_for_external_execution')
     job(router.state, workspace, 'elevenlabs.tts', 'completed', age=5 * 3600, verification='ffprobe', cost=0.18,
@@ -168,6 +175,38 @@ def build(root, *, saved_elevenlabs=False, empty=False, sync=True):
         'created_at': now - 600, 'expires_at': now + 1500, 'revoked': False, 'token_hash': '0' * 64})
     router.close()
     return {'home': home, 'user': user, 'bin': bin_dir, 'workspace': workspace, 'grant': grant}
+
+
+class FakeKeyring:
+    """In-memory stand-in for the OS keyring; never the native Keychain."""
+    def __init__(self):
+        self.values = {}
+
+    def set_password(self, service, account, value):
+        self.values[(service, account)] = value
+
+    def get_password(self, service, account):
+        return self.values.get((service, account))
+
+
+def clean(root, backend, keyring=None):
+    """A home with nothing to fix (首页 reads 一切正常): one saved Key and Claude Code installed."""
+    root = Path(root).resolve()
+    home, user, bin_dir = root / 'atm', root / 'user', root / 'bin'
+    for folder in (user, bin_dir):
+        folder.mkdir(parents=True, exist_ok=True)
+    router = Router(home)
+    vault = Vault(router.state, password=PASSWORD, keyring_backend=keyring)
+    vault.init(backend)
+    vault.put('fal', SECRET + '-fal')
+    previous = os.environ.pop('CLAUDE_CONFIG_DIR', None)
+    try:
+        setup(router, agents=['claude'], executable=str(fake_program(bin_dir, 'atm')), apply=True, user_home=user)
+    finally:
+        if previous is not None:
+            os.environ['CLAUDE_CONFIG_DIR'] = previous
+    router.close()
+    return {'home': home, 'user': user, 'bin': bin_dir}
 
 
 def pending_request(home, workspace, names=('elevenlabs', 'tripo')):

@@ -321,7 +321,7 @@
   function toolReadiness(tool, data = {}) {
     const health = obj(tool?.health), code = str(health.state), exe = exeOf(tool), server = serverOf(tool);
     const credential = str(health.credential) || credentialNames(tool)[0] || '';
-    const vault = obj(data?.connections?.vault ?? data?.overview?.vault), session = obj(data?.session);
+    const vault = obj(data?.connections?.vault ?? data?.overview?.vault);
     const service = serviceKeyOf(tool?.provider, tool?.id), kind = routeKindOf(tool), id = routeIdOf(tool, kind);
     const toRoute = label => routeAction(label, service, kind, id);
     let r;
@@ -329,9 +329,10 @@
     switch (code) {
       case 'configured_not_verified': set('ready', '可以使用（ATM 不会提前联网验证）。'); break;
       case 'needs_unlock': case 'unlock_not_checked': case 'unlocked_in_this_process':
-        // The vault-lock rule: the Key is saved; whether it is unlocked lives only in the Key pill.
-        set('ready', session.unlocked ? '可以使用。Key 已解锁。' : vault.backend === 'keyring' ? '可以使用。Key 保存在系统钥匙串里。'
-          : '可以使用。Key 已保存；Key 锁定时，Agent 会打开授权窗口请你解锁。'); break;
+        // The vault-lock rule: the Key is saved; whether it is unlocked lives only in the Key pill. A tool opens the vault
+        // in the Agent's own process (atm run), so the shared unlock does not reach it either way (see keyLock).
+        set('ready', vault.backend === 'keyring' ? '可以使用。Key 保存在系统钥匙串里。'
+          : '可以使用。Key 已保存；Agent 直接运行这个工具时需要 ATM 主密码（ATM_VAULT_PASSWORD），不会打开授权窗口。'); break;
       case 'missing_credential':
         // An MCP tool reports a missing Key only after its reviewed configuration is bound: half set up, so it needs the owner.
         if (kind === 'mcp') set('attention', zh`MCP 服务已设置，还缺少 Key：${credential}。`, dialog('添加 API Key', {d: 'key', mode: 'add', name: credential}), '缺少 Key');
@@ -363,6 +364,30 @@
     }
     if (health.cli_authentication === 'vendor_login_not_verified') r.sentence += zh`登录由 ${exe} 自己管理，ATM 不检查。`;
     return r;
+  }
+
+  // What "Key 已锁定" covers, as vault.py, session.py and broker.py enforce it. The pill shows the shared unlock session
+  // alone: it admits approved projects (atm start / atm use, through the approval window). ATM tools (atm run) open the
+  // vault in the Agent's own process with no session check: a keyring vault reads the system keychain; a passphrase vault
+  // needs ATM_VAULT_PASSWORD (or a password typed in a terminal) and never opens the window. A strict broker
+  // (atm broker serve) holds its own key until its own lease ends. Session mode gates only the owner's Key changes.
+  const LOCKED = {
+    keyring: {
+      home: 'Key 保存在系统钥匙串里：Agent 运行 ATM 工具时直接从钥匙串读取 Key，不经过这里的锁定；锁定只结束共用解锁和项目授权。',
+      agents: '共用解锁已锁定，但这不会锁住系统钥匙串：默认模式下，Agent 运行 ATM 工具（atm run）时直接从钥匙串读取 Key。要把 Key 交给项目里的程序（atm start / atm use）时，Agent 会打开授权窗口请你解锁并确认。',
+      toast: 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。Agent 运行 ATM 工具时仍会直接从系统钥匙串读取 Key。'},
+    passphrase: {
+      home: 'Key 已锁定：Agent 要把 Key 交给程序时，会打开授权窗口请你解锁并确认。设置了 ATM_VAULT_PASSWORD 的进程不经过授权窗口，可以直接使用 Key。',
+      agents: '已锁定。Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具（atm run）需要 ATM 主密码，不会打开授权窗口。设置了 ATM_VAULT_PASSWORD 的进程可以直接使用 Key。',
+      toast: 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。设置了 ATM_VAULT_PASSWORD 的进程仍可以直接使用 Key。'},
+  };
+  function keyLock(data, now = nowSeconds()) {
+    const backend = str(obj(data?.connections?.vault ?? data?.overview?.vault).backend) === 'keyring' ? 'keyring' : 'passphrase';
+    // broker_status is one record: the shared session writes it with mode secrets_session, a strict broker without one.
+    const b = obj(data?.access?.broker), lease = b.lease_expires_at;
+    const broker = b.state === 'running' && b.mode !== 'secrets_session' && typeof lease === 'number' && Number.isFinite(lease) && lease > now
+      ? zh`atm broker serve 记录为运行中（到 ${time(lease)}）：持有受限授权的 Agent 仍可使用授权里的 Key，这里的锁定不会停止它。` : '';
+    return Object.fromEntries(Object.entries(LOCKED[backend]).map(([key, text]) => [key, text + broker]));
   }
 
   // Up to three names joined by 、, then 等 n 个工具.
@@ -559,7 +584,8 @@
       const send = ctx.peers.filter(p => !p?.revoked && arr(p?.send).includes(key.name)).map(p => str(p?.card?.name));
       const receive = ctx.peers.filter(p => !p?.revoked && arr(p?.receive).includes(key.name)).map(p => str(p?.card?.name));
       if (send.length || receive.length) facts.push(['同步', [send.length ? '会发给 ' + send.join('、') : '', receive.length ? '接收自 ' + receive.join('、') : ''].filter(Boolean).join('；')]);
-      if (ctx.vault.backend === 'passphrase' && !ctx.session.unlocked) facts.push(['使用时', 'Key 锁定时，Agent 会打开授权窗口请你解锁。']);
+      if (ctx.vault.backend === 'passphrase' && !ctx.session.unlocked)
+        facts.push(['使用时', 'Agent 要把这个 Key 交给程序时（atm use），会打开授权窗口请你解锁；直接运行 ATM 工具时需要 ATM 主密码（ATM_VAULT_PASSWORD）。']);
       if (key.sharedFrom) facts.push(['共用', zh`与 ${ctx.services.get(key.sharedFrom)?.name || key.sharedFrom} 共用这个 Key`]);
     };
     if (key.why === 'setup') {
@@ -1113,5 +1139,5 @@
     keepsDetail, network: NETWORK, allowedNext, oauth: OAUTH, networkLiterals: NETWORK_LITERALS, fakeIpHint, fakeIpOn,
     kinds: KIND_TITLES, chips: KIND_CHIPS, kindOrder: KIND_ORDER, sites: SITES, date, time, datetime, fullDate, day, relative, listTools, quote, fill, zh, brandOf, slug,
   });
-  W.ATM_MODEL = Object.freeze({derive, T, say, routeKindOf, toolReadiness, serviceKeyOf});
+  W.ATM_MODEL = Object.freeze({derive, T, say, routeKindOf, toolReadiness, serviceKeyOf, keyLock});
 })();

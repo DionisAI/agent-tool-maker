@@ -29,6 +29,11 @@ def bind_cli(state: State, name: str, path: str):
     return {"bound":name,"path":str(p),"authentication":"not_verified"}
 
 
+def exit_failure(returncode: int) -> RouterError:
+    """A CLI that exited non-zero: only its exit status is kept, never its stderr."""
+    return RouterError("cli_failed",f"CLI exited with code {returncode}; stderr suppressed. Check its login/status directly.",uncertain=True)
+
+
 def execute_cli(state: State,name: str,args: list[str],workspace: Path,timeout=60,parse_json=True,output_mode=None,extra_env=None):
     path=state.setting(f"cli:{name}")
     if not path or not Path(path).is_file():
@@ -58,7 +63,7 @@ def execute_cli(state: State,name: str,args: list[str],workspace: Path,timeout=6
             proc.wait()
             raise RouterError("cli_timeout","CLI timed out; upstream completion is unknown. Do not resubmit blindly.",uncertain=True) from None
         if proc.returncode:
-            raise RouterError("cli_failed",f"CLI exited with code {proc.returncode}; stderr suppressed. Check its login/status directly.",uncertain=True)
+            raise exit_failure(proc.returncode)
         out.seek(0)
         data=out.read(2*1024*1024+1)
         if len(data)>2*1024*1024:

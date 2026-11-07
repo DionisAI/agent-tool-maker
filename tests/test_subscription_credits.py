@@ -534,6 +534,100 @@ def test_xyq_website_and_tripo_server_sources(home, fakes):
     assert not Path(fakes.calls()[1]["cwd"]).is_relative_to(home.state.home.resolve())
 
 
+# Signed out of the website: the reviewed Tripo Studio and XYQ account adapters throw OpenCLI's AuthRequiredError on the
+# site's login wall (examples/opencli/tripo-studio/account.js, examples/opencli/xyq-web/inspect.js), and OpenCLI exits
+# 77 for it (sysexits EX_NOPERM, its docs/guide/exit-codes.md). ATM keeps only that exit status; stderr is suppressed.
+SIGNED_OUT = "77"
+
+
+@pytest.mark.parametrize("tool,provider,amount", [
+    (lambda home: definitions(home)["tripo.studio.account"], "tripo_studio", 6396),
+    (lambda home: definitions(home)["xyq.web.account"], "xyq", 880),
+    (lambda home: RUNTIME.runtime_manifest("account"), "xyq", 55),
+], ids=["tripo-studio", "xyq-web", "xyq-media"])
+def test_a_signed_out_website_source_is_login_required(home, fakes, tool, provider, amount):
+    definition = tool(home.state.home)
+    install_tool(home, definition)
+    fakes.bind(home, "opencliapp")
+    fakes.output("opencliapp", tripo_row(amount) if provider == "tripo_studio" else xyq_row(amount))
+    assert credits.refresh(home, provider, clock=lambda: 1000)["credits"] == amount
+    (fakes.root / "opencliapp.exit").write_text(SIGNED_OUT)
+    result = credits.refresh(home, provider, clock=lambda: 2000)
+    assert (result["refresh"], result["status"], result["error"]["code"]) == ("error", "error", "login_required")
+    assert result["error"]["message"] == credits.LOGIN_REQUIRED
+    assert (result["source"], result["source_kind"]) == (definition["id"], "website")
+    # The last good value stays, as for any failed refresh; the stored record keeps its fields.
+    assert (result["credits"], result["checked_at"], result["last_ok_at"]) == (amount, 2000, 1000)
+    stored = home.state.setting("credits:" + provider)
+    assert set(stored) == {"provider", "unit", "source", "checked_at", "credits", "plan", "last_ok_at", "status", "error"}
+    assert stored["error"] == {"code": "login_required", "message": credits.LOGIN_REQUIRED}
+    assert "FAKE_STDERR_SECRET" not in json.dumps(result) + json.dumps(stored)
+    # Signed in again: the next refresh reads the balance.
+    (fakes.root / "opencliapp.exit").unlink()
+    assert credits.refresh(home, provider, clock=lambda: 3000)["error"] is None
+
+
+@pytest.mark.parametrize("tool_id,exe,code", [
+    ("tripo.studio.account", "opencliapp", "69"),  # OpenCLI: Browser Bridge not connected.
+    ("tripo.studio.account", "opencliapp", "75"),  # OpenCLI: timed out.
+    ("tripo.studio.account", "opencliapp", "1"),
+    # atm exits 2 for every error, a missing server-browser login among them: not distinguishable here.
+    ("tripo.server.account", "atm", "2"),
+    ("tripo.server.account", "atm", "77"),
+    # The official CLIs document no exit status for a missing login, and their stderr is never read.
+    ("pippit.cli.credit_balance", "xyq", "77"),
+    ("pippit.cli.credit_balance", "xyq", "1"),
+    ("higgsfield.subscription.account", "higgsfield", "77"),
+    ("higgsfield.subscription.account", "higgsfield", "1"),
+])
+def test_other_failures_are_not_reported_as_a_login(home, fakes, tool_id, exe, code):
+    install_tool(home, definitions(home.state.home)[tool_id])
+    fakes.bind(home, exe)
+    (fakes.root / f"{exe}.exit").write_text(code)
+    name = next(p for p, spec in credits.PROVIDERS.items() if tool_id in spec["sources"])
+    result = credits.refresh(home, name)
+    assert (result["refresh"], result["error"]["code"]) == ("error", "cli_failed")
+    assert result["error"]["message"] == f"CLI exited with code {code}; stderr suppressed. Check its login/status directly."
+
+
+# tests/model.test.mjs derives the console from these rows; NOW there is 1_800_000_000.
+CONSOLE_ROWS = ROOT / "tests/fixtures/credits_refresh_rows.json"
+MODEL_NOW = 1_800_000_000
+
+
+def refreshed_rows(root):
+    """The rows GET /api/credits returns after real refreshes through signed-out fake programs.
+
+    Each provider reads once while signed in (five days before MODEL_NOW), then again three days before it while signed
+    out: OpenCLIApp exits 77 for the website; the official higgsfield CLI fails, and ATM keeps only its exit status."""
+    router = Router(root / "state")
+    try:
+        fakes = Fakes(root)
+        tools = definitions(router.state.home)
+        for tool_id in ("tripo.studio.account", "higgsfield.subscription.account"):
+            install_tool(router, tools[tool_id])
+        fakes.bind(router, "opencliapp")
+        fakes.bind(router, "higgsfield")
+        fakes.output("opencliapp", tripo_row(6396))
+        fakes.output("higgsfield", HIGGSFIELD)
+        for name in ("tripo_studio", "higgsfield"):
+            assert credits.refresh(router, name, clock=lambda: MODEL_NOW - 5 * 86400)["status"] == "ok"
+        (fakes.root / "opencliapp.exit").write_text(SIGNED_OUT)
+        (fakes.root / "higgsfield.exit").write_text("1")
+        for name in ("tripo_studio", "higgsfield"):
+            credits.refresh(router, name, clock=lambda: MODEL_NOW - 3 * 86400)
+        return {name: credits.row(router, name) for name in ("tripo_studio", "higgsfield")}
+    finally:
+        router.close()
+
+
+def test_console_model_rows_come_from_a_real_refresh(tmp_path):
+    rows = refreshed_rows(tmp_path)
+    assert rows["tripo_studio"]["error"]["code"] == "login_required"
+    assert rows["higgsfield"]["error"]["code"] == "cli_failed"
+    assert json.loads(CONSOLE_ROWS.read_text()) == rows, "Regenerate the fixture from refreshed_rows() and review the diff."
+
+
 def test_concurrent_refresh_of_one_provider_is_refused(home, fakes):
     install_tool(home, definitions(home.state.home)["pippit.cli.credit_balance"])
     fakes.bind(home, "xyq")

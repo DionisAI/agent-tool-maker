@@ -51,6 +51,24 @@ def _unreadable():
     return RouterError("credits_unreadable", "The account tool returned no readable credit balance; nothing was assumed.")
 
 
+# Signed out of a website: the reviewed Tripo Studio and XYQ account adapters throw OpenCLI's AuthRequiredError on
+# the site's login wall, and OpenCLI exits 77 for it (sysexits EX_NOPERM). ATM keeps only that exit status.
+OPENCLI_AUTH_REQUIRED = 77
+LOGIN_REQUIRED = ("Not logged in: the website showed its login page in the browser OpenCLIApp uses (OpenCLI exit 77). "
+                  "Log in there, then refresh. No balance was read.")
+
+
+def _signed_out(tool_id, error):
+    """A website source run through OpenCLIApp that exited 77.
+
+    Nothing else counts as a missing login: the server source (atm studio adapter) exits 2 for every error, and the
+    official CLIs document no exit status for one while their stderr is never read. Those stay as they failed."""
+    from .cli_adapter import exit_failure
+    kind, _, executable, _ = SOURCES[tool_id]
+    return (kind == "website" and executable == "opencliapp"
+            and error == exit_failure(OPENCLI_AUTH_REQUIRED).as_dict())
+
+
 def _amount(value):
     # bool is not a number here; neither is NaN, infinity, a negative or an absurd balance.
     # Integers are bounded before any float math, so a 400-digit value cannot overflow.
@@ -320,7 +338,10 @@ def _read(router, name, tool):
         shutil.rmtree(folder, ignore_errors=True)
         _forget_raw_output(router, job)
         if job["status"] != "completed":
-            return _failure(job["data"].get("error") or {"code": "refresh_" + job["status"]})
+            error = job["data"].get("error")
+            if _signed_out(tool["id"], error):
+                return {"error": {"code": "login_required", "message": LOGIN_REQUIRED}}
+            return _failure(error or {"code": "refresh_" + job["status"]})
         return SOURCES[tool["id"]][1](job["data"].get("result"))
     except RouterError as error:
         return _failure(error.as_dict())

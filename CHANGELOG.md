@@ -1,3 +1,20 @@
+# Unreleased — the Key lock copy says what is enforced; a signed-out website reads as a login
+
+- Console: "Key 已锁定" no longer claims Agents get no Key. The pill shows only the shared unlock session, while
+  `atm run` opens the vault in the Agent's process with no session check. The 首页 line, the Agent 与权限 Key fact and
+  the 立即锁定 toast now come from one `keyLock()` in `model.js`, by vault backend: with the system keychain, Agents running
+  ATM tools read Keys directly and locking ends only the shared unlock and project grants; with the ATM 主密码, handing a
+  Key to a program opens the approval window, ATM tools need the password, and a process with `ATM_VAULT_PASSWORD` uses
+  Keys directly. A strict `atm broker serve` still within its recorded lease is named as unaffected. Tool and Key-route
+  sentences follow the backend too. No new field or endpoint.
+- Credits: a website source run through OpenCLIApp that exits 77 (OpenCLI's `AuthRequiredError`, raised by the
+  reviewed Tripo Studio and XYQ account adapters on the site's login wall) is stored as `login_required`, so the card's
+  需要登录, the 首页 item and the Chrome route's signed-out step finally appear. The server source (`atm` exits 2 for
+  every error) and the official CLIs (no documented exit status, stderr unread) stay `cli_failed`. Same record shape.
+- Tests: the console fixtures and `tests/model.test.mjs` use records from real refreshes through signed-out fake
+  programs (`tests/fixtures/credits_refresh_rows.json`, regenerated and compared in pytest) instead of a hand-written
+  `login_required`.
+
 # Unreleased — Higgsfield refuses ATM's OAuth login; cancel a pending login
 
 - First real-provider result (2026-10-21, docs/OAUTH_REFRESH.md): with the owner's Fake-IP opt-in on, discovery and
