@@ -1,7 +1,7 @@
 // Strategy UI_SELECTOR / visible-ui: exactly one already-open result download.
 // The public observer's URL is checked internally, stripped before any receipt.
 import {createHash} from 'node:crypto';
-import {existsSync,lstatSync,mkdirSync,openSync,closeSync,fstatSync,ftruncateSync,readFileSync,writeFileSync,fsyncSync,constants} from 'node:fs';
+import {existsSync,lstatSync,mkdirSync,openSync,closeSync,fstatSync,ftruncateSync,readFileSync,writeFileSync,fsyncSync,unlinkSync,constants} from 'node:fs';
 import {join,resolve,dirname,isAbsolute,basename} from 'node:path';
 import {XyqError} from './core.mjs';
 import {RESULT_FILES,resultScope,inspectConversationResults} from './results.mjs';
@@ -28,12 +28,22 @@ function paths(workspace,key){
   for(let p=dir;;p=dirname(p)){if(existsSync(p)){const s=lstatSync(p);if(s.isSymbolicLink()||!s.isDirectory())fail('unsafe_path','Download ledger directories must not be linked.');}if(dirname(p)===p)break;}
   return{dir,receipt:join(dir,sha(key)+'.json'),lock:join(dir,'active.lock')};
 }
+function reviewedRoot(root){
+  if(typeof root!=='string'||!isAbsolute(root)||root==='/'||resolve(root)!==root||/[\x00-\x1f]/.test(root))fail('unsafe_path','Use the exact reviewed download directory.');
+  return root;
+}
+// Chrome saves over a taken name as "name (1).png", which never matches this
+// receipt, or may replace the user's file. It also uniquifies against another
+// in-progress download reserving the name, seen on disk as "<name>.crdownload".
+// That reservation is checked first: Chrome renames it atomically to "<name>", so
+// one of the two is always seen. Any entry, even a link, is never followed.
+const nameTaken=(root,name)=>[name+'.crdownload',name].some(n=>{try{return lstatSync(join(root,n),{throwIfNoEntry:false})!==undefined;}catch{return true;}});
 function readReceipt(path){
   if(!existsSync(path))return null;let fd,r;
   try{fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);const s=fstatSync(fd);if(!s.isFile()||s.nlink!==1||s.size<2||s.size>32000)fail('receipt_invalid','Expected one bounded regular download receipt.');r=JSON.parse(readFileSync(fd,'utf8'));}
   catch(e){if(e instanceof XyqError)throw e;fail('receipt_invalid','Download receipt is malformed or inaccessible.');}finally{if(fd!==undefined)closeSync(fd);}
   if(!r||Array.isArray(r)||r.version!==1||typeof r.request_key!=='string'||typeof r.fingerprint!=='string'||!/^[a-f0-9]{64}$/.test(r.fingerprint)||
-    !['download_dispatch_claimed','download_unknown','download_observed','delivered'].includes(r.status))fail('receipt_invalid','Download receipt has an unknown contract.');
+    !['download_dispatch_claimed','download_unknown','download_not_sent','download_observed','delivered'].includes(r.status))fail('receipt_invalid','Download receipt has an unknown contract.');
   return r;
 }
 function durable(path,record,exclusive=false){
@@ -41,6 +51,16 @@ function durable(path,record,exclusive=false){
   const fd=openSync(path,constants.O_WRONLY|constants.O_CREAT|constants.O_NOFOLLOW|constants.O_NONBLOCK|(exclusive?constants.O_EXCL:0),0o600);
   try{const s=fstatSync(fd);if(!s.isFile()||s.nlink!==1)fail('unsafe_path','Download receipt must be a single-link regular file.');if(!exclusive)ftruncateSync(fd,0);writeFileSync(fd,JSON.stringify(record));fsyncSync(fd);}finally{closeSync(fd);}
   const parent=openSync(dirname(path),constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW);try{fsyncSync(parent);}finally{closeSync(parent);}
+}
+// download_not_sent is written only before any observer or input of the call that
+// wrote this intent; dispatch_claimed/unknown are never cleared or retried.
+const unsent=r=>r.status==='download_not_sent'&&r.failure_code==='download_target_exists'&&!Object.hasOwn(r,'download')&&!Object.hasOwn(r,'native_input_acknowledged');
+function releaseUnsent(path,record){
+  // Remove only the exact lock this call created, after its receipt durably says no input was sent.
+  const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);let same;
+  try{const s=fstatSync(fd);same=s.isFile()&&s.nlink===1&&readFileSync(fd,'utf8')===JSON.stringify(record);}finally{closeSync(fd);}
+  if(!same)fail('receipt_invalid','Original download lock changed; it is preserved.');
+  unlinkSync(path);const parent=openSync(dirname(path),constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW);try{fsyncSync(parent);}finally{closeSync(parent);}
 }
 const boundedCodes=new Set(['result_changed','results_changed','result_missing','preview_required','result_not_ready','download_unavailable','control_obscured','thread_changed','origin_mismatch','unsupported_surface','dialog_open','control_changed','bridge_protocol','download_source_unverified','download_unknown']);
 export function verifiedDownloadEvent(raw,result_id,filename){
@@ -81,8 +101,14 @@ function publicObserved(r,reused=false){
     file:r.download,preview:{width:r.width,height:r.height},reused,submission_repeated:false,complete_decode_verified:false,artifact_verified:false,
     task_association_verified:false,provider_generation_verified:false,secrets_returned:false,generation_submitted:false,paid_submitted:false,upload_started:false}}];
 }
-export async function downloadExistingResult(page,raw,workspace){
-  const args=downloadSettings(raw),p=paths(workspace,args.request_key),fingerprint=sha(JSON.stringify(['xyq-existing-image-download-v1',args])),old=readReceipt(p.receipt);
+// A definite refusal with no input and no lock left (intent_recorded: an unsent
+// receipt remains), returned (not thrown) so the outer pipeline can corroborate
+// it and withdraw its own unsent claim.
+function publicTargetExists(args,filename,intent_recorded=false){
+  return[{result:{status:'download_target_exists',thread_id:args.thread_id,result_id:args.result_id,request_key:args.request_key,filename,browser_input:false,intent_recorded}}];
+}
+export async function downloadExistingResult(page,raw,workspace,downloadRoot){
+  const args=downloadSettings(raw),root=reviewedRoot(downloadRoot),p=paths(workspace,args.request_key),fingerprint=sha(JSON.stringify(['xyq-existing-image-download-v1',args])),old=readReceipt(p.receipt);
   if(old){
     if(old.request_key!==args.request_key||old.fingerprint!==fingerprint)fail('request_conflict','Original download has different parameters.');
     if(old.thread_id!==args.thread_id||old.result_id!==args.result_id||old.result_sha256!==args.expected_result_sha256||old.quote_sha256!==args.quote_sha256||
@@ -93,7 +119,7 @@ export async function downloadExistingResult(page,raw,workspace){
         !isAbsolute(old.download.filename)||resolve(old.download.filename)!==old.download.filename||/[\x00-\x1f]/.test(old.download.filename)||basename(old.download.filename)!==old.filename)fail('receipt_invalid','Retained download association is incomplete.');
       return publicObserved(old,true);
     }
-    fail('download_unknown','Inspect the original download; this request never repeats native input.');
+    if(!unsent(old))fail('download_unknown','Inspect the original download; this request never repeats native input.');
   }
   if(existsSync(p.lock))fail('workspace_busy','Another result download is unresolved; keep its original receipt.');
   const scope={thread_id:args.thread_id,result_id:args.result_id,expected_result_sha256:args.expected_result_sha256};
@@ -104,16 +130,26 @@ export async function downloadExistingResult(page,raw,workspace){
   if(!input||typeof input!=='object'||!boundedCodes.has(input.kind)&&input.kind!=='ready'||input.kind==='ready'&&(!Number.isFinite(input.x)||!Number.isFinite(input.y)))fail('bridge_protocol','Unexpected download control response.');
   if(input.kind!=='ready')fail(input.kind,'Selected download control is not ready.');
   if(typeof page.nativeClick!=='function'||typeof page.waitForDownload!=='function')fail('unsupported_backend','One download requires the public native input and download observer.');
+  if(nameTaken(root,quote.filename))return publicTargetExists(args,quote.filename);
   mkdirSync(p.dir,{recursive:true,mode:0o700});
-  try{durable(p.lock,{version:1,request_key:args.request_key,fingerprint},true);}catch(e){if(e.code==='EEXIST')fail('workspace_busy','Another result download claimed the project.');throw e;}
+  const lock={version:1,request_key:args.request_key,fingerprint};
+  try{durable(p.lock,lock,true);}catch(e){if(e.code==='EEXIST')fail('workspace_busy','Another result download claimed the project.');throw e;}
+  // Holding the lock, an unsent receipt is replaced only if nothing changed it since it was read.
+  if(old&&JSON.stringify(readReceipt(p.receipt))!==JSON.stringify(old))fail('download_unknown','Original unsent receipt changed; the lock is preserved.');
   const r={version:1,status:'download_dispatch_claimed',request_key:args.request_key,fingerprint,thread_id:args.thread_id,result_id:args.result_id,
     result_sha256:args.expected_result_sha256,quote_sha256:args.quote_sha256,filename:quote.filename,width:quote.width,height:quote.height};
+  let recordedUnsent=false;
   try{
-    durable(p.receipt,r,true);
+    durable(p.receipt,r,!old);
     const final=(await inspectConversationResults(page,scope,'result_download_quote'))[0].result;
     if(final.quote_sha256!==args.quote_sha256)fail('result_changed','Download plan changed after durable intent.');
     input=unwrap(await page.evaluate(readDownloadInputDOM,{thread_id:args.thread_id,result_id:args.result_id,filename:quote.filename}));
     if(!input||input.kind!=='ready'||!Number.isFinite(input.x)||!Number.isFinite(input.y))fail(boundedCodes.has(input?.kind)?input.kind:'bridge_protocol','Download control changed after durable intent.');
+    if(nameTaken(root,quote.filename)){
+      // No observer or input yet: record that durably, then drop only this call's lock.
+      r.status='download_not_sent';r.failure_code='download_target_exists';durable(p.receipt,r);recordedUnsent=true;
+      releaseUnsent(p.lock,lock);return publicTargetExists(args,quote.filename,true);
+    }
     const observed=Promise.resolve(page.waitForDownload(quote.filename,20000)).then(value=>({value}),()=>({error:true}));
     // A lost native-input acknowledgement is not a reason to click again. The
     // original observer may still prove the selected completed file independently.
@@ -121,12 +157,13 @@ export async function downloadExistingResult(page,raw,workspace){
     const event=await observed;if(event.error)fail('download_unknown','Download observer did not confirm the completed selected file.');
     r.download=verifiedDownloadEvent(event.value,args.result_id,quote.filename);r.native_input_acknowledged=acknowledged;r.status='download_observed';durable(p.receipt,r);
     return publicObserved(r);
-  }catch(e){r.status='download_unknown';r.failure_code=e instanceof XyqError&&boundedCodes.has(e.code)?e.code:'bridge_failed';durable(p.receipt,r);fail('download_unknown','One download remains unverified; retain intent/lock and inspect the original request.');}
+  }catch(e){if(recordedUnsent)fail('download_unknown','No click was sent and that is recorded; its lock may remain.');
+    r.status='download_unknown';r.failure_code=e instanceof XyqError&&boundedCodes.has(e.code)?e.code:'bridge_failed';durable(p.receipt,r);fail('download_unknown','One download remains unverified; retain intent/lock and inspect the original request.');}
 }
 export async function createDownloadPage(routing){const {Page}=await import('@jackwener/opencli/browser/page');const page=new Page('site:xyq-home',undefined,routing.contextId,undefined,'browser','persistent',routing.preferredContextId);return Object.freeze({evaluate:(fn,arg)=>page.evaluate(fn,arg),nativeClick:(x,y)=>page.nativeClick(x,y),waitForDownload:(pattern,timeout)=>page.waitForDownload(pattern,timeout)});}
-export async function downloadBoundResult(context,raw,workspace,createPage=createDownloadPage){
-  const args=downloadSettings(raw);let page;
+export async function downloadBoundResult(context,raw,workspace,downloadRoot,createPage=createDownloadPage){
+  const args=downloadSettings(raw),root=reviewedRoot(downloadRoot);let page;
   try{page=await createPage(boundReadRouting(context));if(!page||typeof page.evaluate!=='function')fail('unsupported_backend','Download Page requires public browser APIs.');}
   catch(e){if(e instanceof XyqError)throw e;fail('bridge_failed','Download Page preparation failed.');}
-  return downloadExistingResult(page,args,workspace);
+  return downloadExistingResult(page,args,workspace,root);
 }

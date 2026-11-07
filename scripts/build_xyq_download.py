@@ -15,35 +15,38 @@ from build_xyq_web import bundle_digest,RESULT_FILES
 DOWNLOAD_FILES=(*RESULT_FILES,'download.mjs','download.js')
 OPERATIONS=('result_download','result_download_status')
 
-def manifest(operation,bridge=None,download_root=None):
+def manifest(operation,bridge=None,download_root=None,adapter_dir=None):
     if operation not in OPERATIONS:raise ValueError('Unknown result delivery operation')
     write=operation=='result_download'
     argv=['delivery','xyq-image' if write else 'status','--pin',source_digest(),'--workspace',{'workspace':''}]
     props={'request_key':{'type':'string','pattern':'^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$'}}
     if write:
-        bridge=Path(bridge);root=Path(download_root)
+        bridge=Path(bridge);root=Path(download_root);adapter=Path(adapter_dir or '')
         if not bridge.is_absolute() or bridge.is_symlink() or not bridge.is_file() or not os.access(bridge,os.X_OK):raise ValueError('Select a reviewed existing regular bridge executable')
         if not root.is_absolute() or str(root)=='/' or root.is_symlink() or not root.is_dir():raise ValueError('Select the exact existing regular download directory')
-        if any(p.is_symlink() for p in (*bridge.parents,*root.parents)):raise ValueError('Reviewed bridge/download paths must not have linked ancestors')
+        if (not adapter.is_absolute() or str(adapter)=='/' or os.path.normpath(adapter)!=str(adapter) or adapter.is_symlink() or
+            not adapter.is_dir()):raise ValueError("Select the bridge loader's exact existing reviewed/ closure directory")
+        if any(p.is_symlink() for p in (*bridge.parents,*root.parents,*adapter.parents)):raise ValueError('Reviewed bridge/download/loader paths must not have linked ancestors')
         fields={'thread_id':{'type':'string','pattern':'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$'},
                 'result_id':{'type':'string','pattern':'^[a-f0-9]{32}$'},'expected_result_sha256':{'type':'string','pattern':'^[a-f0-9]{64}$'},
                 'quote_sha256':{'type':'string','pattern':'^[a-f0-9]{64}$'},'request_key':props['request_key'],
                 'human_confirmed':{'type':'boolean','const':True}}
         props={'settings':{'type':'object','properties':fields,'required':list(fields),'additionalProperties':False}}
         argv+=['--settings',{'json':'settings'},'--bridge',str(bridge),'--bridge-sha256',hashlib.sha256(bridge.read_bytes()).hexdigest(),
-               '--adapter-pin',bundle_digest(DOWNLOAD_FILES),'--download-root',str(root)]
+               '--adapter-pin',bundle_digest(DOWNLOAD_FILES),'--adapter-dir',str(adapter),'--download-root',str(root)]
     else:argv+=['--request-key',{'input':'request_key'}]
     return validate_manifest({'id':'xyq.web.'+operation,'provider':'xyq','title':'小云雀交付 · '+operation,
         'capabilities':['website','media-delivery',operation],'adapter':'command','executable':'atm','paid':False,
         'permissions':['execute_code']+(['external_write'] if write else []),
         'schema':{'type':'object','properties':props,'required':list(props),'additionalProperties':False},
         'command':{'argv':argv,'output':'json','timeout':120},'sources':['https://xyq.jianying.com/'],'checked_on':'2026-10-08',
-        'notes':'One exact existing-image preview download through a hash-pinned public OpenCLI bridge. Original native and local intents/locks precede side effects. Event source resource identity is required; filename/blob URL alone is unverified. Read only the one observed PNG in the fixed download directory, copy without overwrite, then reuse complete media decoding. No auth, prompt, generation, upload, paid action, automatic second click or broad download enumeration.',
+        'notes':'One exact existing-image preview download through a hash-pinned public OpenCLI bridge. Original native and local intents/locks precede side effects. Event source resource identity is required; filename/blob URL alone is unverified. Read only the one observed PNG in the fixed download directory, copy without overwrite, then reuse complete media decoding. A taken save name in that directory (or its in-progress .crdownload) is refused before any click, before native intent or after it with a durable unsent native record; the unsent outer claim is withdrawn and the existing file is preserved. A bridge-loader reviewed/ closure that does not match the adapter pin is refused read-only before any claim or lock. No auth, prompt, generation, upload, paid action, automatic second click or broad download enumeration.',
         'completion':'delivered requires an observed source-associated download and a stable decoded project PNG. Download freshness and provider task/generation association remain unverified. Status rechecks the exact local artifact, never browser-polled tasks. Same-key local finalization can resume an observed original download without bridge dispatch; unknown native requests stay locked. Native fixtures and actual provider download acceptance stay separate.'})
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--bridge',required=True);p.add_argument('--download-root',required=True);a=p.parse_args()
-    result=[extensions.pack(manifest(op,a.bridge,a.download_root),a.out/op) for op in OPERATIONS]
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--bridge',required=True);p.add_argument('--download-root',required=True)
+    p.add_argument('--adapter-dir',required=True,help="The bridge loader's reviewed/ closure directory, e.g. ~/.opencli/clis/xyq-download-bound/reviewed");a=p.parse_args()
+    result=[extensions.pack(manifest(op,a.bridge,a.download_root,a.adapter_dir),a.out/op) for op in OPERATIONS]
     print(json.dumps({'status':'compiled','scope':'existing-conversation-image-download','operations':list(OPERATIONS),
         'adapter_sha256':bundle_digest(DOWNLOAD_FILES),'pipeline_sha256':source_digest(),'bundles':result,'provider_download_verified':False}))
 
