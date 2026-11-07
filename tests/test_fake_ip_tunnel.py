@@ -137,7 +137,7 @@ def test_one_bad_answer_refuses_the_whole_set(ips, off, on):
 
 @pytest.mark.parametrize('url', ['https://198.18.0.1/x', 'https://198.19.255.255/x', 'https://[::ffff:198.18.0.1]/x',
                                  'https://3323068417/x', 'https://0xc6120001/x', 'https://198.18.1/x', 'https://198.018.0.1/x',
-                                 'https://198.18.0.1./x'])
+                                 'https://198.18.0.1./x', 'https://10.0.0.08/x', 'https://1.2.3.0x/x'])
 def test_an_address_literal_never_uses_the_exemption(url):
     # The fake resolver answers like the system resolver would for the numeral: 198.18.0.1.
     for on in (False, True):
@@ -145,9 +145,23 @@ def test_an_address_literal_never_uses_the_exemption(url):
 
 
 def test_numeric_host_is_offline_and_exact():
-    for host in ['198.18.0.1', '3323068417', '0xc6120001', '198.18.1', '198.018.0.1', '198.18.0.1.', '::ffff:198.18.0.1']:
+    for host in ['198.18.0.1', '3323068417', '0xc6120001', '198.18.1', '198.018.0.1', '198.18.0.1.', '::ffff:198.18.0.1',
+                 '10.0.0.08', '1.2.3.0x', 'example.123']:
         assert numeric_host(host), host
-    for host in ['mcp.higgsfield.ai', 'clerk.higgsfield.ai', 'assets.example.test', 'mcp.higgsfield.ai.', '198-18-0-1.example']:
+    for host in ['mcp.higgsfield.ai', 'clerk.higgsfield.ai', 'assets.example.test', 'mcp.higgsfield.ai.', '198-18-0-1.example',
+                 '123.example', '0x1.example', 'example.0xyz']:
+        assert not numeric_host(host), host
+
+
+def test_numeric_host_does_not_depend_on_the_platform_parser(monkeypatch):
+    # glibc refuses notations macOS accepts (198.018.0.1); a numeric last label is a literal either way.
+    def refuse(*args, **kwargs):
+        raise OSError('fixture: strict platform')
+    monkeypatch.setattr(socket, 'getaddrinfo', refuse)
+    monkeypatch.setattr(socket, 'inet_aton', refuse)
+    for host in ['198.018.0.1', '10.0.0.08', '3323068417', '0xc6120001', '198.18.0.1.']:
+        assert numeric_host(host), host
+    for host in ['mcp.higgsfield.ai', '198-18-0-1.example']:
         assert not numeric_host(host), host
 
 

@@ -448,7 +448,7 @@ def test_every_api_endpoint_has_a_caller():
     for path in ['/api/console/redeem', '/api/overview', '/api/tools', '/api/connections', '/api/jobs', '/api/clis', '/api/sync', '/api/access',
                  '/api/extensions', '/api/session', '/api/passkeys', "'/api/tools/'", '/api/session/unlock', '/api/session/lock',
                  '/api/passkeys/register/begin', '/api/passkeys/register/verify', '/api/passkeys/register/finish', '/api/passkeys/auth/begin',
-                 '/api/passkeys/cancel', '/api/passkeys/disable', '/api/oauth/login', '/api/oauth/keep-login', '/api/credits/refresh',
+                 '/api/passkeys/cancel', '/api/passkeys/disable', '/api/oauth/login', '/api/oauth/cancel', '/api/oauth/keep-login', '/api/credits/refresh',
                  '/api/credits/cycle', '/api/setup/preview', '/api/setup/apply', '/api/agents/unregister', '/api/tools/toggle', '/api/vault/init',
                  '/api/connections/save', '/api/connections/remove', '/api/verify', '/api/credentials/declare', '/api/extensions/validate',
                  '/api/extensions/install', '/api/sync/init', '/api/sync/trust', '/api/sync/revoke', '/api/sync/export', '/api/sync/import',
@@ -747,6 +747,9 @@ def test_a_working_atm_login_can_be_replaced(browser, tmp_path, monkeypatch):
             expect(replace).not_to_be_checked()
             replace.check()
             page.locator('#modal').get_by_role('button', name='打开官方登录页面', exact=True).click()
+            # D11 stays on the pending login (its refusal line and 取消登录); closing it leaves the login pending.
+            expect(page.locator('#modal').get_by_role('button', name='取消登录', exact=True)).to_be_visible()
+            page.keyboard.press('Escape')
             expect(page.locator('#modal')).to_be_hidden()
             assert sent == [{'provider': 'higgsfield', 'keep_login': False, 'replace': True}], sent
             assert not log['errors'], log['errors']

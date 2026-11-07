@@ -1,3 +1,15 @@
+# ATM 登录等待中：说明拒绝，取消登录
+
+- 点“打开官方登录页面”后，D11 不再关闭，而是停在等待中的登录上：说明浏览器是否已打开、一行拒绝说明，按钮为
+  “取消登录 / 刷新状态”（焦点在“刷新状态”上）。ATM 登录卡片和首页的“等你在浏览器里完成 Higgsfield 登录”有同一行说明
+  和“取消登录”。
+- 这一行说明：浏览器里如果是 Higgsfield（Clerk）返回的、含 `authorization_invalid`（“Unauthorized request”）的 JSON，
+  就是 Higgsfield 拒绝了 ATM 客户端的这次登录；可能它只允许部分 OAuth 客户端，也可能套餐不含 MCP。两种原因都写出，
+  不断定是哪一种。可以改用“higgsfield 程序”（官方 CLI，`higgsfield auth login`）。
+- “取消登录”只发 `POST /api/oauth/cancel {"provider": "higgsfield"}`（bearer 与精确 Origin/Host，只写连接元数据，
+  不要 ATM 主密码，不联网），不必等 5 分钟的登录期限。之后焦点在“重新登录”上，可以马上重新登录。没有 CLI 命令，
+  授权窗口也没有这个接口。详见 docs/OAUTH_REFRESH.md 的 2026-10-21 记录。
+
 # 网络：Fake-IP 代理（设置 › 高级）
 
 Shadowrocket、Clash、Surge 的 Fake-IP 模式把每个域名都解析成 `198.18.0.0/15`。ATM 默认拒绝连接这类
