@@ -571,7 +571,7 @@ def test_a_signed_out_website_source_is_login_required(home, fakes, tool, provid
     ("tripo.studio.account", "opencliapp", "69"),  # OpenCLI: Browser Bridge not connected.
     ("tripo.studio.account", "opencliapp", "75"),  # OpenCLI: timed out.
     ("tripo.studio.account", "opencliapp", "1"),
-    # atm exits 2 for every error, a missing server-browser login among them: not distinguishable here.
+    # The server source (atm studio adapter) is never recorded as login_required, whatever it exits with.
     ("tripo.server.account", "atm", "2"),
     ("tripo.server.account", "atm", "77"),
     # The official CLIs document no exit status for a missing login, and their stderr is never read.

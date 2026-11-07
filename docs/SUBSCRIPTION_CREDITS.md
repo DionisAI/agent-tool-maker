@@ -65,9 +65,9 @@
   结束；适配器从不返回 `logged_in:false` 的行。ATM 只保留退出码（不读 stderr），把这一次失败记为
   `{code:"login_required", message: credits.LOGIN_REQUIRED}`；首页“需要重新登录”、卡片“需要登录”和服务页 Chrome 路线
   “没有登录”的一步都由它显示。OpenCLIApp 的其他退出码（如 69 浏览器桥未连接、75 超时）仍是 `cli_failed`。
-  其余来源无法可靠区分，保持原样：`tripo.server.account`（`atm studio adapter` 对任何错误都以 2 退出，服务器浏览器
-  没登录与其他错误分不开）；`pippit.cli.credit_balance` 与 `higgsfield.subscription.account`（官方 CLI 没有公开“没有
-  登录”的退出码，ATM 也不读它们的 stderr），失败一律是 `cli_failed`，不显示为登录问题。记录格式不变，旧记录照常读取。
+  `tripo.server.account` 从不记为 `login_required`。`pippit.cli.credit_balance` 与 `higgsfield.subscription.account`
+  （官方 CLI 没有公开“没有登录”的退出码，ATM 也不读它们的 stderr）失败一律是 `cli_failed`，不显示为登录问题。
+  记录格式不变，旧记录照常读取。
 - 不保存邮箱、用户 ID 或原始输出：刷新 job 完成后清空 `result` 与 `artifacts`（`raw_output_discarded`），临时目录删除。错误信息只含 ATM 自己的代码与说明。
 - 刷新 job：工具是上表固定来源之一，且 request key 为 `credits-<provider>-<32 位小写十六进制>`。任何 job 读取方
   （`atm jobs list/get`、`public_job`、管理台任务视图）都不返回刷新 job 的 `result` 与 `artifacts`（管理台 `artifact_count` 为 0），
@@ -113,9 +113,9 @@
   新 request key、失败保留上次值、崩溃遗留输出清理（job 完成后崩溃：记录、工作区与 artifact 文件都清理，job 列表不含结果；
   无法确认的工作区保留并记录；只认刷新 job 的 key）、另一进程持有租约、锁路径为符号链接/硬链接/FIFO 时拒绝、
   `-0.0`、CLI 与退出码（某个提供方租约被占时继续其余并以 2 退出）、严格客户端拒绝、网页鉴权/Origin/409、不阻塞管理台、同步排除、扩展安装；
-  经假 OpenCLIApp 退出 77 的三个网站账户来源记为 `login_required`（保留上次余额，重新登录后恢复），其他退出码、服务器来源与
-  两个官方 CLI 仍是 `cli_failed`。`tests/fixtures/credits_refresh_rows.json` 是真实刷新（假程序先登录、再退出登录）得到的
-  `GET /api/credits` 行，由 `test_console_model_rows_come_from_a_real_refresh` 重新生成并比对；`tests/model.test.mjs` 用它，
+  经假 OpenCLIApp 退出 77 的三个网站账户来源记为 `login_required`（保留上次余额，重新登录后恢复）；其他退出码与两个官方
+  CLI 仍是 `cli_failed`，服务器来源不记为 `login_required`。`tests/fixtures/credits_refresh_rows.json` 是真实刷新
+  （假程序先登录、再退出登录）得到的 `GET /api/credits` 行，由 `test_console_model_rows_come_from_a_real_refresh` 重新生成并比对；`tests/model.test.mjs` 用它，
   管理台浏览器测试的夹具（`tests/console_fixture.py`）也经真实刷新写入错误，不再手写 `login_required`。
 - `tests/test_credits_browser.py`（browser）：原生 Chromium 在 1440 / 1024 / 390 宽度渲染面板（1024 起三张卡片一行）、
   刷新忙碌状态与焦点保留、所有刷新串行（“刷新中…”/“排队中…”、无不透明度、焦点环）、错误短标签与说明（含失败提示与 409，

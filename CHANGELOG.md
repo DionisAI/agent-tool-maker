@@ -25,8 +25,9 @@
   `login_required` branch: only a website source read through OpenCLIApp is ever recorded as signed out.
 - Credits: a website source run through OpenCLIApp that exits 77 (OpenCLI's `AuthRequiredError`, raised by the
   reviewed Tripo Studio and XYQ account adapters on the site's login wall) is stored as `login_required`, so the card's
-  需要登录, the 首页 item and the Chrome route's signed-out step finally appear. The server source (`atm` exits 2 for
-  every error) and the official CLIs (no documented exit status, stderr unread) stay `cli_failed`. Same record shape.
+  需要登录, the 首页 item and the Chrome route's signed-out step finally appear. `tripo.server.account` is never recorded
+  as `login_required`, and the official CLIs (no documented exit status, stderr unread) stay `cli_failed`. Same record
+  shape.
 - Tests: the console fixtures and `tests/model.test.mjs` use records from real refreshes through signed-out fake
   programs (`tests/fixtures/credits_refresh_rows.json`, regenerated and compared in pytest) instead of a hand-written
   `login_required`.

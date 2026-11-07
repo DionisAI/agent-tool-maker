@@ -61,7 +61,7 @@ LOGIN_REQUIRED = ("Not logged in: the website showed its login page in the brows
 def _signed_out(tool_id, error):
     """A website source run through OpenCLIApp that exited 77.
 
-    Nothing else counts as a missing login: the server source (atm studio adapter) exits 2 for every error, and the
+    Nothing else counts as a missing login: the server source (tripo.server.account) is never recorded as one, and the
     official CLIs document no exit status for one while their stderr is never read. Those stay as they failed."""
     from .cli_adapter import exit_failure
     kind, _, executable, _ = SOURCES[tool_id]
