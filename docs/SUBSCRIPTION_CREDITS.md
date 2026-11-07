@@ -60,6 +60,14 @@
   失败时保留上次成功的 `credits`/`plan`/`last_ok_at`，只更新 `status`、`error`、`checked_at`。
 - 读不出数字（缺字段、非数字、负数、NaN/Infinity、布尔值、超过 10^15）记为 `credits_unreadable`，绝不当作 0；
   整数先比较范围再做任何浮点运算，400 位的整数不会溢出。Pippit 的 `"0"` 是真实的 0；`-0.0` 记为 `0.0`。
+- 没有登录记为 `login_required`，只在能确定时：经 OpenCLIApp 运行的网站来源（`tripo.studio.account`、`xyq.web.account`）
+  遇到网站的登录页时，审查过的账户适配器抛出 OpenCLI 的 `AuthRequiredError`，OpenCLI 以退出码 77（sysexits `EX_NOPERM`）
+  结束；适配器从不返回 `logged_in:false` 的行。ATM 只保留退出码（不读 stderr），把这一次失败记为
+  `{code:"login_required", message: credits.LOGIN_REQUIRED}`；首页“需要重新登录”、卡片“需要登录”和服务页 Chrome 路线
+  “没有登录”的一步都由它显示。OpenCLIApp 的其他退出码（如 69 浏览器桥未连接、75 超时）仍是 `cli_failed`。
+  `tripo.server.account` 从不记为 `login_required`。`pippit.cli.credit_balance` 与 `higgsfield.subscription.account`
+  （官方 CLI 没有公开“没有登录”的退出码，ATM 也不读它们的 stderr）失败一律是 `cli_failed`，不显示为登录问题。
+  记录格式不变，旧记录照常读取。
 - 不保存邮箱、用户 ID 或原始输出：刷新 job 完成后清空 `result` 与 `artifacts`（`raw_output_discarded`），临时目录删除。错误信息只含 ATM 自己的代码与说明。
 - 刷新 job：工具是上表固定来源之一，且 request key 为 `credits-<provider>-<32 位小写十六进制>`。任何 job 读取方
   （`atm jobs list/get`、`public_job`、管理台任务视图）都不返回刷新 job 的 `result` 与 `artifacts`（管理台 `artifact_count` 为 0），
@@ -104,9 +112,14 @@
   可用来源规则（付费、写入、凭证、同 id 不同别名、argv、pin、bundle、output 或 timeout 均拒绝且不运行；两个 XYQ pin 与 Tripo pin 的契约重算）、`next_source`/`bound`、经 Router 与假子进程刷新三家提供方、
   新 request key、失败保留上次值、崩溃遗留输出清理（job 完成后崩溃：记录、工作区与 artifact 文件都清理，job 列表不含结果；
   无法确认的工作区保留并记录；只认刷新 job 的 key）、另一进程持有租约、锁路径为符号链接/硬链接/FIFO 时拒绝、
-  `-0.0`、CLI 与退出码（某个提供方租约被占时继续其余并以 2 退出）、严格客户端拒绝、网页鉴权/Origin/409、不阻塞管理台、同步排除、扩展安装。
+  `-0.0`、CLI 与退出码（某个提供方租约被占时继续其余并以 2 退出）、严格客户端拒绝、网页鉴权/Origin/409、不阻塞管理台、同步排除、扩展安装；
+  经假 OpenCLIApp 退出 77 的三个网站账户来源记为 `login_required`（保留上次余额，重新登录后恢复）；其他退出码与两个官方
+  CLI 仍是 `cli_failed`，服务器来源不记为 `login_required`。`tests/fixtures/credits_refresh_rows.json` 是真实刷新
+  （假程序先登录、再退出登录）得到的 `GET /api/credits` 行，由 `test_console_model_rows_come_from_a_real_refresh` 重新生成并比对；`tests/model.test.mjs` 用它，
+  管理台浏览器测试的夹具（`tests/console_fixture.py`）也经真实刷新写入错误，不再手写 `login_required`。
 - `tests/test_credits_browser.py`（browser）：原生 Chromium 在 1440 / 1024 / 390 宽度渲染面板（1024 起三张卡片一行）、
   刷新忙碌状态与焦点保留、所有刷新串行（“刷新中…”/“排队中…”、无不透明度、焦点环）、错误短标签与说明（含失败提示与 409，
   只认自有键）、未安装的紧凑卡片、未绑定提示、对话框内校验续期日（打开即聚焦输入框、提示写入 `role=alert` 并设
-  `aria-invalid`，输入即清除）、设置与清除续期日。
+  `aria-invalid`，输入即清除）、设置与清除续期日；在页面上刷新已退出登录的 Chrome（假 OpenCLIApp 退出 77）后，卡片、首页
+  与服务页 Chrome 路线显示需要登录，重新登录后“检查 Chrome 登录”恢复。
 - 均为隔离状态与假程序；真实账户、真实已登录浏览器与供应商输出未验收。

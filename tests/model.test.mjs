@@ -10,6 +10,11 @@ for (const name of ['brand-data.js', 'brands.js', 'model.js']) vm.runInContext(r
 const M = context.window.ATM_MODEL;
 const NOW = 1_800_000_000;
 const plain = value => JSON.parse(JSON.stringify(value));
+// Credits rows as GET /api/credits returns them after real refreshes through signed-out fake programs, checked by
+// tests/test_subscription_credits.py::test_console_model_rows_come_from_a_real_refresh: Tripo Studio's website
+// (OpenCLIApp exits 77: login_required) and the higgsfield CLI (a failed run: cli_failed), both read three days before NOW.
+const ROWS = JSON.parse(readFileSync(new URL('fixtures/credits_refresh_rows.json', import.meta.url), 'utf8'));
+const row = name => structuredClone(ROWS[name]);
 
 function tool(id, adapter, provider, state, extra = {}) {
   const {health = {}, ...rest} = extra;
@@ -111,14 +116,64 @@ test('a saved Key reads ready whatever the lock: the lock lives only in the pill
     const locked = M.toolReadiness(t, data({session: {unlocked: false}}));
     assert.equal(locked.state, 'ready');
     assert.equal(locked.word, '可以使用');
-    assert.equal(locked.sentence, '可以使用。Key 已保存；Key 锁定时，Agent 会打开授权窗口请你解锁。');
-    assert.equal(M.toolReadiness(t, data({session: {unlocked: true}})).sentence, '可以使用。Key 已解锁。');
-    assert.equal(M.toolReadiness(t, data({vault: {backend: 'keyring', state: 'unlock_not_checked'}})).sentence, '可以使用。Key 保存在系统钥匙串里。');
+    // A tool opens the vault in the Agent's own process (atm run): a passphrase vault needs the password there,
+    // shared unlock or not, and nothing opens the approval window. The keychain needs neither.
+    const passphrase = '可以使用。Key 已保存；Agent 直接运行这个工具时需要 ATM 主密码（ATM_VAULT_PASSWORD），不会打开授权窗口。';
+    assert.equal(locked.sentence, passphrase);
+    assert.equal(M.toolReadiness(t, data({session: {unlocked: true}})).sentence, passphrase);
+    for (const session of [{unlocked: false}, {unlocked: true}])
+      assert.equal(M.toolReadiness(t, data({session, vault: {backend: 'keyring', state: 'unlock_not_checked'}})).sentence, '可以使用。Key 保存在系统钥匙串里。');
     assert.ok(!JSON.stringify(locked).includes('需要解锁'));
   }
   const vendor = tool('wrangler.deploy', 'command', 'cloudflare_wrangler', 'configured_not_verified',
     {executable: 'wrangler', health: {cli_authentication: 'vendor_login_not_verified'}});
   assert.equal(M.toolReadiness(vendor, data()).sentence, '可以使用（ATM 不会提前联网验证）。登录由 wrangler 自己管理，ATM 不检查。');
+});
+
+test('"Key 已锁定" says only what the lock enforces, for each vault backend', () => {
+  // The pill shows the shared unlock session alone. ATM tools (atm run) open the vault in the Agent's process with no
+  // session check: the keychain directly, a passphrase vault through ATM_VAULT_PASSWORD. A strict broker keeps its lease.
+  const locked = {unlocked: false, seconds_remaining: 0, session_mode_enabled: true};
+  const keyring = M.keyLock(data({vault: {backend: 'keyring', state: 'unlock_not_checked'}, session: locked}), NOW);
+  assert.deepEqual(plain(keyring), {
+    home: 'Key 保存在系统钥匙串里：Agent 运行 ATM 工具时直接从钥匙串读取 Key，不经过这里的锁定；锁定只结束共用解锁和项目授权。',
+    agents: '共用解锁已锁定，但这不会锁住系统钥匙串：默认模式下，Agent 运行 ATM 工具（atm run）时直接从钥匙串读取 Key。要把 Key 交给项目里的程序（atm start / atm use）时，Agent 会打开授权窗口请你解锁并确认。',
+    toast: 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。Agent 运行 ATM 工具时仍会直接从系统钥匙串读取 Key。'});
+  const passphrase = M.keyLock(data({vault: {backend: 'passphrase', state: 'needs_unlock'}, session: locked}), NOW);
+  assert.deepEqual(plain(passphrase), {
+    home: 'Key 已锁定：Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具需要 ATM 主密码。设置了 ATM_VAULT_PASSWORD 的进程不经过授权窗口，可以直接使用 Key。',
+    agents: '已锁定。Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具（atm run）需要 ATM 主密码，不会打开授权窗口。设置了 ATM_VAULT_PASSWORD 的进程可以直接使用 Key。',
+    toast: 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。设置了 ATM_VAULT_PASSWORD 的进程仍可以直接使用 Key。'});
+  for (const copy of [keyring, passphrase]) for (const text of Object.values(copy)) {
+    assert.ok(!text.includes('拿不到任何 Key') && !text.includes('新的 Key 使用已停止'), text);
+  }
+  // Session mode gates only the owner's Key changes, not what an Agent can read: the copy is the same without it.
+  const never = {unlocked: false, seconds_remaining: 0, session_mode_enabled: false};
+  assert.deepEqual(plain(M.keyLock(data({vault: {backend: 'keyring', state: 'unlock_not_checked'}, session: never}), NOW)), plain(keyring));
+  assert.deepEqual(plain(M.keyLock(data({vault: {backend: 'passphrase', state: 'needs_unlock'}, session: never}), NOW)), plain(passphrase));
+  // A strict broker (atm broker serve) recorded as running keeps serving its grants until its own lease ends.
+  const broker = {pid: 4242, socket: '/fake/atm/broker.sock', started_at: NOW - 60, lease_expires_at: NOW + 3600, state: 'running'};
+  const served = M.keyLock(data({vault: {backend: 'keyring', state: 'unlock_not_checked'}, session: locked,
+    access: {grants: [], clock: NOW, broker, requests: []}}), NOW);
+  const note = 'atm broker serve 记录为运行中（到 ' + M.T.datetime(NOW + 3600, NOW) + '）：持有受限授权的 Agent 仍可使用授权里的 Key，这里的锁定不会停止它。';
+  for (const key of ['home', 'agents', 'toast']) assert.equal(served[key], keyring[key] + note, key);
+  // A strict lease can run for days (up to 720 hours): the note names the day as well as the time.
+  assert.match(note, /（到 \d{1,2} 月 \d{1,2} 日 \d\d:\d\d）/);
+  const later = M.keyLock(data({vault: {backend: 'keyring', state: 'unlock_not_checked'}, session: locked,
+    access: {grants: [], clock: NOW, broker: {...broker, lease_expires_at: NOW + 3 * 86400}, requests: []}}), NOW);
+  assert.ok(later.toast.includes('（到 ' + M.T.date(NOW + 3 * 86400, NOW) + ' ' + M.T.time(NOW + 3 * 86400) + '）'), later.toast);
+  // The shared session's own record, a stopped broker, an ended lease or no record add nothing.
+  for (const record of [{...broker, mode: 'secrets_session'}, {state: 'stopped', at: NOW, socket: '/fake/atm/broker.sock'},
+    {...broker, lease_expires_at: NOW - 1}, {...broker, lease_expires_at: 'soon'}, null, undefined, 'running'])
+    assert.deepEqual(plain(M.keyLock(data({vault: {backend: 'keyring', state: 'unlock_not_checked'}, session: locked,
+      access: {grants: [], clock: NOW, broker: record, requests: []}}), NOW)), plain(keyring), JSON.stringify(record));
+  // The Key route says the same: a passphrase Key reaches a program through the window, an ATM tool through the password.
+  const parts = {tools: [tool('elevenlabs.tts', 'elevenlabs', 'elevenlabs', 'needs_unlock', {credentials: ['elevenlabs']})],
+    connections: [conn('elevenlabs', {configured: true, configured_at: NOW - 86400})]};
+  const facts = session => M.derive(data({...parts, session}), NOW).byKey.get('elevenlabs').routes.find(r => r.kind === 'key').facts;
+  assert.deepEqual(plain(facts(locked).find(([term]) => term === '使用时')),
+    ['使用时', 'Agent 要把这个 Key 交给程序时（atm use），会打开授权窗口请你解锁；直接运行 ATM 工具时需要 ATM 主密码（ATM_VAULT_PASSWORD）。']);
+  assert.ok(!facts({unlocked: true, seconds_remaining: 600}).some(([term]) => term === '使用时'));
 });
 
 test('each tool maps to exactly one route kind, with and without the reference fields', () => {
@@ -236,8 +291,7 @@ test('route and service states aggregate, and the lead sentence follows them', (
 test('the Chrome route explains OpenCLIApp and the website login in three steps', () => {
   const tools = [tool('tripo.studio.account', 'command', 'tripo', 'configured_not_verified', {executable: 'opencliapp', health: {binary: {path: '/fake/opencliapp'}}}),
     tool('tripo.studio.generate', 'command', 'tripo', 'configured_not_verified', {executable: 'opencliapp', paid: true})];
-  const credits = [{provider: 'tripo_studio', label: 'Tripo Studio', brand: 'tripo', installed: true, bound: true, source: 'tripo.studio.account',
-    source_kind: 'website', status: 'error', error: {code: 'login_required', message: 'x'}, checked_at: NOW - 3 * 86400, next_source: 'tripo.studio.account', sources: ['tripo.studio.account', 'tripo.server.account']}];
+  const credits = [row('tripo_studio')];  // Signed out of the website three days ago, from a real refresh.
   let route = M.derive(data({tools, credits, clis: [{name: 'opencliapp', state: 'configured_not_verified', path: '/fake/opencliapp'}]}), NOW).byKey.get('tripo').routes.find(r => r.kind === 'chrome');
   assert.equal(route.title, '你的 Chrome 登录 · Tripo Studio');
   assert.equal(route.steps.length, 3);
@@ -299,8 +353,7 @@ function inboxFixture() {
       conn('tripo', {configured: true, expires_at: NOW + 2 * 86400}), conn('runway'), conn('acme.production', {label: 'Acme 生产环境'})],
     clis: [{name: 'ffmpeg', state: 'executable_changed', path: '/fake/ffmpeg'}, {name: 'atm', state: 'cli_not_configured'}],
     oauth: [{provider: 'higgsfield', status: 'ready', keep_login: true, expires_at: NOW + 3600, service: {status: 'load_failed'}}],
-    credits: [{provider: 'higgsfield', label: 'Higgsfield', brand: 'higgsfield', installed: true, bound: true, source: 'higgsfield.subscription.account',
-      source_kind: 'cli', status: 'error', error: {code: 'login_required'}, next_executable: 'higgsfield', sources: ['higgsfield.subscription.account']}],
+    credits: [row('tripo_studio'), row('higgsfield')],
     jobs: [{id: 'job-unknown', tool: 'tripo.studio.generate', status: 'submission_unknown', created: NOW - 600, updated: NOW - 600, verification: null, cost_usd: null, cost_status: 'unknown', artifact_count: 0, kind: 'tool'},
       {id: 'job-human', tool: 'tripo.studio.generate', status: 'requires_human', created: NOW - 300, updated: NOW - 300, verification: null, cost_usd: null, cost_status: 'unknown', artifact_count: 0, kind: 'tool'},
       {id: 'job-credits', tool: 'xyq.web.account', status: 'blocked', created: NOW - 60, updated: NOW - 60, verification: null, cost_usd: null, cost_status: 'unknown', artifact_count: 0, kind: 'credits_refresh'}],
@@ -314,7 +367,7 @@ function inboxFixture() {
 test('every inbox rule fires from its own fixture, in severity order, with stable ids', () => {
   const model = M.derive(inboxFixture(), NOW);
   const ids = model.inbox.map(i => i.id);
-  for (const id of ['key-expired:fal', 'key-conflict:exa', 'program:ffmpeg', 'renew:higgsfield', 'credits-login:higgsfield', 'mcp-key:linear:linear',
+  for (const id of ['key-expired:fal', 'key-conflict:exa', 'program:ffmpeg', 'renew:higgsfield', 'credits-login:tripo_studio', 'mcp-key:linear:linear',
     'custom:tripo:studio_server:studio_server', 'key-soon:tripo', 'job-unknown:job-unknown', 'job-needs:job-human', 'agent-missing:codex', 'passkey:state', 'slot:acme.production'])
     assert.ok(ids.includes(id), id + ' in ' + ids.join(' '));
   assert.ok(ids.some(id => id.startsWith('session:')));
@@ -330,7 +383,10 @@ test('every inbox rule fires from its own fixture, in severity order, with stabl
   assert.equal(byId['program:ffmpeg'].title, 'ffmpeg 程序已更新，需要你重新确认');
   assert.equal(byId['program:ffmpeg'].detail, '用到它的 1 个工具已暂停，直到你确认。');
   assert.equal(byId['renew:higgsfield'].title, 'Higgsfield 自动续期没有运行');
-  assert.equal(byId['credits-login:higgsfield'].detail, 'higgsfield 程序自己的登录已失效，读不到积分。');
+  assert.equal(byId['credits-login:tripo_studio'].title, 'Tripo Studio 需要重新登录');
+  assert.equal(byId['credits-login:tripo_studio'].detail, 'Chrome 里没有登录 Tripo Studio，读不到积分，相关工具也可能失败。');
+  // A CLI that failed is not reported as a login: ATM keeps only its exit status, which names no cause.
+  assert.ok(!ids.includes('credits-login:higgsfield'));
   assert.equal(byId['mcp-key:linear:linear'].title, 'Linear 的 MCP 服务已设置，但缺少 Key：linear');
   assert.equal(byId['job-unknown:job-unknown'].action.target, 'jobs');
   assert.equal(byId['job-unknown:job-unknown'].action.job, 'job-unknown');
@@ -357,7 +413,7 @@ test('inbox: vault, OAuth and pending-login rules', () => {
   model = M.derive(data({agents: [{agent: 'claude', label: 'Claude Code', state: 'registration_changed'}]}), NOW);
   assert.equal(model.inbox[0].title, 'Claude Code 里的 ATM 说明文件被改过');
   // A website credits source that needs a login names the website.
-  model = M.derive(data({credits: [{provider: 'tripo_studio', label: 'Tripo Studio', brand: 'tripo', installed: true, source: 'tripo.studio.account', source_kind: 'website', status: 'error', error: {code: 'login_required'}}]}), NOW);
+  model = M.derive(data({credits: [row('tripo_studio')]}), NOW);
   assert.equal(model.inbox[0].detail, 'Chrome 里没有登录 Tripo Studio，读不到积分，相关工具也可能失败。');
 });
 
@@ -398,6 +454,15 @@ test('grants, jobs, verification and cost words', () => {
   assert.deepEqual(plain(grants.ended.map(g => g.time)), ['已过期', '已撤销']);
   assert.equal(grants.ended[0].title, 'Codex · 受限授权');
   assert.ok(grants.ended[0].lines.includes('会在本机运行程序'));
+  // Right after 立即锁定, GET /api/access lists the project approval as ended with the unlock session (session.py records
+  // it; tests/test_quickstart_v08.py checks the record). It is not the owner's 撤销, and it is not live.
+  const project = access.grants[0];
+  const locked = {clock: NOW, requests: [], grants: [{...project, revoked: true, revoked_reason: 'session_ended'},
+    {...project, id: 'o'.repeat(32), revoked: true, revoked_reason: null}]};
+  const after = M.derive(data({access: locked}), NOW);
+  assert.deepEqual(plain(after.grants.active), []);
+  assert.deepEqual(plain(after.grants.ended.map(g => [g.id, g.time])), [[project.id, '已随锁定结束'], ['o'.repeat(32), '已撤销']]);
+  assert.equal(after.grants.ended[0].title, '项目 demo-video · 由授权窗口批准');
   for (const [code, word] of [['completed', '完成'], ['submission_unknown', '不确定是否已提交'], ['requires_browser', '等 Agent 的浏览器'], ['download_failed', '下载失败'], ['fixture_x', '其他状态（fixture_x）']]) {
     const job = M.derive(data({jobs: [{id: code, tool: 'x.y', status: code, created: NOW - 10, updated: NOW, verification: 'ffprobe', cost_usd: 0.004, cost_status: 'provider_estimate', artifact_count: 2}]}), NOW).jobs[0];
     assert.equal(job.word, word);
@@ -542,15 +607,25 @@ test('one primary per intent: the header fix is not repeated, and an optional se
       assert.ok(!r.actions.some(a => a.primary), s.key + ' ' + r.anchor);
     for (const r of s.routes) assert.ok(!r.actions.some(a => a.kind === 'copy' && r.commands.some(c => c.text === a.target)), r.anchor);
   }
-  // Higgsfield: the CLI login fix is the header; the Key route and the CLI route do not add more filled buttons.
+  // Tripo: the website login fix (from a real signed-out refresh) is the header; the Key route and the Chrome route
+  // do not add more filled buttons.
+  const tripo = M.derive(data({
+    tools: [tool('tripo.text_to_3d', 'tripo', 'tripo', 'missing_credential', {credentials: ['tripo'], health: {credential: 'tripo'}}),
+      tool('tripo.studio.account', 'command', 'tripo', 'configured_not_verified', {executable: 'opencliapp', health: {binary: {path: '/fake/opencliapp'}}})],
+    clis: [{name: 'opencliapp', state: 'configured_not_verified', path: '/fake/opencliapp'}],
+    credits: [row('tripo_studio')]}), NOW).byKey.get('tripo');
+  assert.equal(tripo.primary.label, '检查 Chrome 登录');
+  assert.deepEqual(plain(tripo.routes.flatMap(r => r.actions.filter(a => a.primary).map(a => a.label))), []);
+  // Higgsfield's CLI failed (a real refresh): ATM keeps only its exit status, which names no cause, so the program
+  // route stays usable with no login step or check of its own; the failure shows on the credits card alone.
   const higgs = M.derive(data({
     tools: [tool('higgsfield.generate', 'higgsfield', 'higgsfield', 'missing_credential', {credentials: ['higgsfield'], health: {credential: 'higgsfield'}}),
       tool('higgsfield.subscription.account', 'command', 'higgsfield', 'configured_not_verified', {executable: 'higgsfield'})],
     clis: [{name: 'higgsfield', state: 'configured_not_verified', path: '/fake/higgsfield'}],
-    credits: [{provider: 'higgsfield', label: 'Higgsfield', brand: 'higgsfield', installed: true, bound: true, source: 'higgsfield.subscription.account', source_kind: 'cli',
-      status: 'error', error: {code: 'login_required'}, next_source: 'higgsfield.subscription.account', sources: ['higgsfield.subscription.account']}],
+    credits: [row('higgsfield')],
     oauth: [{provider: 'higgsfield', status: 'ready', keep_login: true, expires_at: NOW + 3600, service: {status: 'load_failed'}}]}), NOW).byKey.get('higgsfield');
-  assert.equal(higgs.primary.label, '检查登录');
+  const program = higgs.routes.find(r => r.kind === 'program');
+  assert.deepEqual(plain([program.state, program.word, program.actions, program.commands]), ['ready', '可以使用', [], []]);
   assert.deepEqual(plain(higgs.routes.flatMap(r => r.actions.filter(a => a.primary).map(a => a.label))), []);
 });
 

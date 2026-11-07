@@ -15,6 +15,11 @@ SAFE_ENV={"PATH","HOME","USER","LOGNAME","LANG","LC_ALL","LC_CTYPE","TMPDIR","TE
           "DBUS_SESSION_BUS_ADDRESS","XDG_RUNTIME_DIR","XDG_CONFIG_HOME","DISPLAY"}
 
 
+def exit_failure(returncode: int) -> RouterError:
+    """A CLI that exited non-zero: only its exit status is kept, never its stderr."""
+    return RouterError("cli_failed",f"CLI exited with code {returncode}; stderr suppressed. Check its login/status directly.",uncertain=True)
+
+
 def bind_cli(state: State, name: str, path: str):
     from .catalog import Catalog
     allowed={t.get("executable") for t in Catalog(state).tools.values()}-{None}
@@ -75,7 +80,7 @@ def execute_cli(state: State,name: str,args: list[str],workspace: Path,timeout=6
         if proc.returncode:
             refusal=native_refusal(out) if name=="atm" and expected and proc.returncode==2 else None
             if refusal: raise refusal
-            raise RouterError("cli_failed",f"CLI exited with code {proc.returncode}; stderr suppressed. Check its login/status directly.",uncertain=True)
+            raise exit_failure(proc.returncode)
         out.seek(0)
         data=out.read(2*1024*1024+1)
         if len(data)>2*1024*1024:

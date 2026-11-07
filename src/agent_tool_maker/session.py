@@ -80,6 +80,8 @@ class SessionVault(Vault):
 class SecretSession(Broker):
     # Non-daemon handlers finish admitted bounded commands before process exit.
     daemon_threads = False
+    # Its own record: broker_status stays the strict broker's, so a lock never hides one still serving its grants.
+    status_setting = 'secrets_session_status'
 
     def __init__(self, home, *, seconds=1800, vault=None):
         if type(seconds) not in (int, float) or not 0 < seconds <= 86400:
@@ -97,6 +99,9 @@ class SecretSession(Broker):
             previous = self.state.setting('access:' + str(old.get('id')))
             if previous:
                 self.state.set_setting('access:' + previous['id'], {**previous, 'revoked': True})
+            # If that session was killed before it closed, its project approvals end now.
+            from .quickstart import end_project_grants
+            end_project_grants(self.state, old.get('id'))
         identifier, token = uuid.uuid4().hex, secrets.token_urlsafe(32)
         self.owner_id = identifier
         policy = {'id': identifier, 'kind': 'session_owner', 'agent': 'owner-session', 'tools': [],
@@ -113,7 +118,7 @@ class SecretSession(Broker):
         except BaseException:
             self.server_close()
             raise
-        self.state.set_setting('broker_status', {'pid': os.getpid(), 'socket': str(self.path),
+        self.state.set_setting(self.status_setting, {'pid': os.getpid(), 'socket': str(self.path),
             'started_at': self.started_at, 'lease_expires_at': self.started_at + seconds,
             'state': 'running', 'mode': 'secrets_session'})
 
@@ -193,6 +198,9 @@ class SecretSession(Broker):
                 self.vault.password = None
                 self.vault._used_secrets.clear()
                 self.closing.set()
+                # Recorded before the reply, so a listing right after `atm lock` or 立即锁定 shows them ended.
+                from .quickstart import end_project_grants
+                end_project_grants(self.state, self.owner_id)
                 return self.metadata_status()
         if not self.capacity.acquire(blocking=False):
             raise RouterError('session_busy', 'Two bounded calls are active; no new call or automatic retry was started.')
@@ -240,6 +248,8 @@ class SecretSession(Broker):
             p = self.state.setting('access:' + self.owner_id)
             if p:
                 self.state.set_setting('access:' + self.owner_id, {**p, 'revoked': True})
+            from .quickstart import end_project_grants
+            end_project_grants(self.state, self.owner_id)  # Expiry, Ctrl-C or a closing console, as well as a lock.
 
 
 def run_service(server):

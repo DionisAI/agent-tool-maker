@@ -259,3 +259,20 @@ def test_live_broker_blocks_conflict_and_expired_credential(broker_env,tmp_path)
     a.vault.put('fal','FAKE-expired',expires_at=time.time()-1)
     with pytest.raises(RouterError) as e:call(p,'describe',{'tool':'fal.generate'})
     assert e.value.code=='credential_expired' and not requests
+
+
+def test_a_broker_marks_only_its_own_status_record_stopped(tmp_path):
+    # broker_status names one broker by its socket and pid: closing an older broker leaves a newer one's record alone.
+    with tempfile.TemporaryDirectory(prefix='atm-b-') as runtime:
+        state=State(tmp_path/'state');Vault(state,password='fake-long-broker-password').init('passphrase')
+        first=Broker(state.home,socket_file=Path(runtime)/'a',vault=Vault(state,password='fake-long-broker-password'))
+        second=Broker(state.home,socket_file=Path(runtime)/'b',vault=Vault(state,password='fake-long-broker-password'))
+        try:
+            running=state.setting('broker_status')
+            assert running['state']=='running' and running['socket']==str(second.path) and running['pid']==os.getpid()
+            first.server_close()
+            assert state.setting('broker_status')==running
+        finally:
+            second.server_close()
+        stopped=state.setting('broker_status')
+        assert stopped['state']=='stopped' and stopped['socket']==str(second.path)

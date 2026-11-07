@@ -1,3 +1,37 @@
+# Unreleased — the Key lock copy says what is enforced; a signed-out website reads as a login
+
+- Console: "Key 已锁定" no longer claims Agents get no Key. The pill shows only the shared unlock session, while
+  `atm run` opens the vault in the Agent's process with no session check. The 首页 line, the Agent 与权限 Key fact and
+  the 立即锁定 toast now come from one `keyLock()` in `model.js`, by vault backend: with the system keychain, Agents running
+  ATM tools read Keys directly and locking ends only the shared unlock and project grants; with the ATM 主密码, handing a
+  Key to a program opens the approval window, ATM tools need the password, and a process with `ATM_VAULT_PASSWORD` uses
+  Keys directly. A strict `atm broker serve` still within its recorded lease is named as unaffected, with the day and time
+  its lease ends (a strict lease can run up to 720 hours). Tool and Key-route sentences follow the backend too.
+- Project approvals end with their unlock session in the record, as the toast says. 立即锁定 / `atm lock` (before it
+  replies), the lease's auto-lock and a closing console mark every project approval bound to that unlock `revoked` with
+  `revoked_reason: "session_ended"`, so `atm access list` and `GET /api/access` list it as ended and Agent 与权限 shows it
+  under 已结束的授权 as 已随锁定结束 (an owner's 撤销 keeps no reason and still reads 已撤销). If the session's process was
+  killed, the next unlock records it; until then the approval lists until its own lease end, though no session admits it.
+- Broker status: `broker_status` is the strict broker's record alone. The shared unlock session writes its own
+  `secrets_session_status`, and a broker marks the record `stopped` only while it still names that broker's socket and
+  pid, so unlocking and 立即锁定 no longer hide a strict `atm broker serve` that keeps serving its grants (the toast, 首页
+  and Agent 与权限 name it). `atm broker status` (`last_report`) and `GET /api/access` (`access.broker`) read the same
+  setting as before, so they no longer show the shared unlock session: its record is now `secrets_session_status`
+  (`atm session` reports the session; `default_socket_exists` can still be true while it holds the default socket). The
+  record is one setting, so only the most recently started strict broker is reported: once that one stops it reads
+  `stopped`, even while an older broker on another socket still serves.
+- The ATM 主密码 home line names the commands that open the approval window (`atm start` / `atm use`) and says ATM tools
+  run directly need the ATM 主密码. The credits card, the program route and the 首页 item no longer carry a CLI
+  `login_required` branch: only a website source read through OpenCLIApp is ever recorded as signed out.
+- Credits: a website source run through OpenCLIApp that exits 77 (OpenCLI's `AuthRequiredError`, raised by the
+  reviewed Tripo Studio and XYQ account adapters on the site's login wall) is stored as `login_required`, so the card's
+  需要登录, the 首页 item and the Chrome route's signed-out step finally appear. `tripo.server.account` is never recorded
+  as `login_required`, and the official CLIs (no documented exit status, stderr unread) stay `cli_failed`. Same record
+  shape.
+- Tests: the console fixtures and `tests/model.test.mjs` use records from real refreshes through signed-out fake
+  programs (`tests/fixtures/credits_refresh_rows.json`, regenerated and compared in pytest) instead of a hand-written
+  `login_required`.
+
 # Unreleased — Higgsfield refuses ATM's OAuth login; cancel a pending login
 
 - First real-provider result (2026-10-21, docs/OAUTH_REFRESH.md): with the owner's Fake-IP opt-in on, discovery and

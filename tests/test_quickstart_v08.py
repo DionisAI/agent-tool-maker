@@ -17,7 +17,7 @@ import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from agent_tool_maker import quickstart_web, webapp
-from agent_tool_maker.broker import call, revoke
+from agent_tool_maker.broker import call, list_grants, revoke
 from agent_tool_maker.engine import Router
 from agent_tool_maker.errors import RouterError
 from agent_tool_maker.quickstart import (PENDING_SECONDS, profile_path, scope_plan, ready, start, use, request_record)
@@ -236,6 +236,7 @@ def test_revocation_and_lock_fail_closed(window):
     owner_call(r.state.home,'session.lock')
     with pytest.raises(RouterError):call(p,'exec',{'argv':[sys.executable,'app.py'],'environment':{'FAL_KEY':'fal'},'workspace':str(w),'request_key':'after-lock'})
     assert not r.state.jobs()
+    assert project_grant(r.state)['revoked_reason'] is None  # The owner's revocation stays the owner's, not the lock's.
 
 
 @pytest.mark.parametrize('iteration', range(4))
@@ -273,6 +274,64 @@ def test_old_project_approval_not_revived_by_new_unlock(window):
         with pytest.raises(RouterError) as e:call(p,'status',{})
         assert e.value.code=='unauthorized'
     finally:second.closing.set();t.join(5)
+
+
+def project_grant(state):
+    return next(g for g in list_grants(state)['grants'] if g['kind']=='project_session')
+
+
+def test_lock_ends_the_project_approval_in_the_record(window):
+    r,w,ui,c,root=window;approve(window)
+    before=project_grant(r.state)
+    assert before['revoked'] is False and before['revoked_reason'] is None
+    owner_call(r.state.home,'session.lock')
+    # No join: the lock itself ends the approvals bound to this unlock, so a listing right after it says so.
+    after=project_grant(r.state)
+    assert after['id']==before['id'] and after['revoked'] is True and after['revoked_reason']=='session_ended'
+    ui.secret_session_thread.join(5)
+    assert project_grant(r.state)==after  # Closing the listener keeps the same record.
+    from agent_tool_maker.multidevice_web import read
+    console=read(r,'/api/access')
+    assert [g for g in console['grants'] if g['id']==after['id']]==[after]
+    p=subprocess.run([sys.executable,'-m','agent_tool_maker','--home',str(r.state.home),'access','list'],
+                     stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=15)
+    assert p.returncode==0,p.stdout+p.stderr
+    listed=[g for g in json.loads(p.stdout)['grants'] if g['id']==after['id']]
+    assert [(g['revoked'],g['revoked_reason']) for g in listed]==[(True,'session_ended')]
+
+
+def grant_project_now(r, w):
+    """The approval window's consent for this project, as session.project records it for the running unlock."""
+    plan=scope_plan(r.state,w,['fal'])
+    return owner_call(r.state.home,'session.project',{'workspace':plan['workspace'],'credentials':plan['credentials'],
+                                                      'approved_sha256':fingerprint(plan)})
+
+
+def test_an_unlock_that_expires_or_crashed_ends_its_project_approval(window):
+    r,w,ui,c,root=window
+    # Expiry: the session closes at its deadline, and the approval bound to it ends with it.
+    expiring=SecretSession(r.state.home,seconds=2,vault=Vault(r.state,password=PASSWORD))
+    t=threading.Thread(target=run_service,args=(expiring,),daemon=True);t.start()
+    assert grant_project_now(r,w)['status']=='ready'
+    first=project_grant(r.state)
+    assert first['revoked'] is False
+    t.join(10);assert not t.is_alive()
+    assert next(g for g in list_grants(r.state)['grants'] if g['id']==first['id'])['revoked_reason']=='session_ended'
+    # A crash: nothing runs at close, so the approval still reads as live until the next unlock ends it.
+    crashed=SecretSession(r.state.home,vault=Vault(r.state,password=PASSWORD))
+    t=threading.Thread(target=run_service,args=(crashed,),daemon=True);t.start()
+    grant_project_now(r,w)
+    second=next(g for g in list_grants(r.state)['grants'] if g['kind']=='project_session' and not g['revoked'])
+    crashed.server_close=lambda:None  # As if the process were killed.
+    crashed.closing.set();t.join(5)
+    crashed.socket.close();crashed.path.unlink()  # The owner removes the confirmed stale socket.
+    assert next(g for g in list_grants(r.state)['grants'] if g['id']==second['id'])['revoked'] is False
+    following=SecretSession(r.state.home,vault=Vault(r.state,password=PASSWORD))
+    try:
+        ended=next(g for g in list_grants(r.state)['grants'] if g['id']==second['id'])
+        assert (ended['revoked'],ended['revoked_reason'])==(True,'session_ended')
+        assert [g for g in list_grants(r.state)['grants'] if not g['revoked']]==[]
+    finally:following.server_close()
 
 
 @pytest.mark.parametrize('state_name',['sync_conflict','credential_expired'])

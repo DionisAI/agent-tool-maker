@@ -104,9 +104,11 @@ def test_owner_jobs_from_home_without_any_write(browser, tmp_path, monkeypatch):
         expect(page.locator('#inbox li.issue')).to_have_count(n)
         inbox = page.locator('#inbox')
         for text in ['fal.ai 的 API Key 已过期', 'Exa 的 Key 在两台设备上不一致', 'ffmpeg 程序已更新，需要你重新确认', 'Higgsfield 自动续期没有运行',
-                     'Higgsfield 需要重新登录', 'Linear 的 MCP 服务已设置，但缺少 Key：linear', '不确定 tripo.studio.generate 是否已提交']:
+                     'Tripo Studio 需要重新登录', 'Linear 的 MCP 服务已设置，但缺少 Key：linear', '不确定 tripo.studio.generate 是否已提交']:
             expect(inbox).to_contain_text(text)
         expect(inbox).not_to_contain_text('Runway')
+        # The credits errors are what real refreshes recorded: a signed-out website is a login; a failed CLI is not.
+        expect(inbox).not_to_contain_text('Higgsfield 需要重新登录')
         # A-JOB-06: the pending approval-window request is visible, counted, and cannot be answered here.
         req = page.locator('#home-requests')
         expect(req).to_contain_text('有 Agent 请求在项目 demo-video 中使用 2 个 Key')
@@ -1174,3 +1176,150 @@ def test_probes_from_home(browser, tmp_path, monkeypatch):
             expect(page.locator('#main')).not_to_contain_text(raw)
         assert posts(log) == [] and not log['errors'], (posts(log), log['errors'])
         ctx.close()
+
+
+# What 已锁定 means, per vault backend: the copy the page shows, and the vault behaviour it describes.
+LOCK_COPY = {
+    'keyring': {
+        'home': 'Key 保存在系统钥匙串里：Agent 运行 ATM 工具时直接从钥匙串读取 Key，不经过这里的锁定；锁定只结束共用解锁和项目授权。',
+        'agents': '共用解锁已锁定，但这不会锁住系统钥匙串：默认模式下，Agent 运行 ATM 工具（atm run）时直接从钥匙串读取 Key。要把 Key 交给项目里的程序（atm start / atm use）时，Agent 会打开授权窗口请你解锁并确认。',
+        'toast': 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。Agent 运行 ATM 工具时仍会直接从系统钥匙串读取 Key。'},
+    'passphrase': {
+        'home': 'Key 已锁定：Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具需要 ATM 主密码。设置了 ATM_VAULT_PASSWORD 的进程不经过授权窗口，可以直接使用 Key。',
+        'agents': '已锁定。Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具（atm run）需要 ATM 主密码，不会打开授权窗口。设置了 ATM_VAULT_PASSWORD 的进程可以直接使用 Key。',
+        'toast': 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。设置了 ATM_VAULT_PASSWORD 的进程仍可以直接使用 Key。'},
+}
+# The lease end names the day too (a strict lease can run up to 720 hours); the year only when it differs from today's.
+BROKER_NOTE = re.compile(r'atm broker serve 记录为运行中（到 (\d{4} 年 )?\d{1,2} 月 \d{1,2} 日 \d\d:\d\d）：持有受限授权的 Agent 仍可使用授权里的 Key，这里的锁定不会停止它。$')
+
+
+@pytest.mark.parametrize('backend', ['keyring', 'passphrase'])
+def test_lock_copy_says_what_each_vault_backend_enforces(browser, tmp_path, monkeypatch, backend):
+    import io
+    from playwright.sync_api import expect
+    from agent_tool_maker import session
+    from agent_tool_maker.broker import Broker
+    from agent_tool_maker.engine import Router
+    from agent_tool_maker.errors import RouterError
+    from agent_tool_maker.storage import State
+    from agent_tool_maker.vault import Vault
+    monkeypatch.delenv('CLAUDE_CONFIG_DIR', raising=False)
+    monkeypatch.delenv('ATM_VAULT_PASSWORD', raising=False)
+    keyring = fx.FakeKeyring() if backend == 'keyring' else None
+    info = fx.clean(tmp_path / backend[0], backend, keyring)
+    home, copy = info['home'], LOCK_COPY[backend]
+    monkeypatch.setenv('PATH', str(info['bin']) + ':/usr/bin:/bin')
+    factory = (lambda password=None: Router(home, vault=Vault(State(home), keyring_backend=keyring))) if keyring else None
+    server = Console(home, localhost=True, user_home=info['user'], router_factory=factory)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        ctx, page, log = open_page(browser, server)
+        expect(page.locator('#credential-session')).to_contain_text('Key 已锁定')
+        expect(page.locator('#main .page-title h1')).to_have_text('一切正常')
+        expect(page.locator('#main .page-title .lede')).to_have_text(re.compile(re.escape(copy['home']) + '$'))
+        go(page, 'agents')
+        expect(page.locator('#reach')).to_contain_text(copy['agents'])
+        expect(page.locator('#main')).not_to_contain_text('拿不到任何 Key')
+        # The copy holds: the shared session is locked, yet a direct vault read (what atm run does) behaves as described.
+        assert session.status(home)['unlocked'] is False
+        if keyring:
+            assert Vault(State(home), keyring_backend=keyring).get('fal') == fx.SECRET + '-fal'
+        else:
+            monkeypatch.setattr('sys.stdin', io.StringIO())  # An Agent's process: no terminal to type a password in.
+            with pytest.raises(RouterError) as no_password:
+                Vault(State(home)).get('fal')
+            assert no_password.value.code == 'interactive_required'
+            monkeypatch.setenv('ATM_VAULT_PASSWORD', fx.PASSWORD)
+            assert Vault(State(home)).get('fal') == fx.SECRET + '-fal'
+            monkeypatch.delenv('ATM_VAULT_PASSWORD')
+        # 立即锁定 ends the shared session, and its toast says the same as the pages.
+        def unlock_then_lock():
+            page.get_by_role('button', name='解锁 30 分钟', exact=True).click()
+            if keyring:
+                page.get_by_role('button', name='用系统钥匙串解锁', exact=True).click()
+            else:
+                page.get_by_label('ATM 主密码', exact=True).fill(fx.PASSWORD)
+                page.get_by_role('button', name='用主密码解锁', exact=True).click()
+            expect(page.locator('#credential-session')).to_contain_text('已解锁')
+            page.get_by_role('button', name='立即锁定', exact=True).click()
+            expect(page.locator('#credential-session')).to_contain_text('Key 已锁定')
+        unlock_then_lock()
+        expect(page.locator('#toast')).to_have_text(copy['toast'])
+        expect(page.locator('#reach')).to_contain_text(copy['agents'])
+        # A strict broker (atm broker serve) keeps its own key and lease: the shared session's start and 立即锁定 leave
+        # its record alone, so the toast and the pages that explain the lock name it.
+        strict = Broker(home, socket_file=tmp_path / 's.sock', ttl_hours=1,
+                        vault=Vault(State(home), keyring_backend=keyring) if keyring else Vault(State(home), password=fx.PASSWORD))
+        strict_thread = threading.Thread(target=strict.serve_forever, daemon=True)
+        strict_thread.start()
+        try:
+            unlock_then_lock()
+            expect(page.locator('#toast')).to_have_text(re.compile('^' + re.escape(copy['toast']) + BROKER_NOTE.pattern))
+            expect(page.locator('#reach dd').first).to_have_text(re.compile('^' + re.escape(copy['agents']) + BROKER_NOTE.pattern))
+            go(page, 'overview')
+            expect(page.locator('#main .page-title .lede')).to_have_text(re.compile(re.escape(copy['home']) + BROKER_NOTE.pattern))
+        finally:
+            strict.shutdown(); strict_thread.join(5); strict.server_close()
+        # Once the strict broker stops, its own record says so and the note goes.
+        page.locator('#refresh').click()
+        expect(page.locator('#main .page-title .lede')).to_have_text(re.compile(re.escape(copy['home']) + '$'))
+        go(page, 'agents')
+        expect(page.locator('#reach dd').first).to_have_text(copy['agents'])
+        assert not log['errors'], log['errors']
+        ctx.close()
+    finally:
+        server.shutdown(); server.server_close(); thread.join(5)
+
+
+def test_lock_ends_the_project_approval_it_says_it_ends(browser, tmp_path, monkeypatch):
+    # The toast says 共用解锁和项目授权已结束: right after 立即锁定 the project approval is listed as ended, not live.
+    from playwright.sync_api import expect
+    from agent_tool_maker import session
+    from agent_tool_maker.broker import list_grants
+    from agent_tool_maker.quickstart import scope_plan
+    from agent_tool_maker.secrets_provider import fingerprint
+    from agent_tool_maker.storage import State
+    monkeypatch.delenv('ATM_VAULT_PASSWORD', raising=False)
+    info = fx.clean(tmp_path / 'g', 'passphrase')
+    home, workspace = info['home'], tmp_path / 'demo-video'
+    workspace.mkdir()
+    monkeypatch.setenv('PATH', str(info['bin']) + ':/usr/bin:/bin')
+    server = Console(home, localhost=True, user_home=info['user'])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        ctx, page, log = open_page(browser, server)
+        page.get_by_role('button', name='解锁 30 分钟', exact=True).click()
+        page.get_by_label('ATM 主密码', exact=True).fill(fx.PASSWORD)
+        page.get_by_role('button', name='用主密码解锁', exact=True).click()
+        expect(page.locator('#credential-session')).to_contain_text('已解锁')
+        # The approval window's consent for this project, recorded for the unlock the console just started.
+        plan = scope_plan(State(home), workspace, ['fal'])
+        session.owner_call(home, 'session.project', {'workspace': plan['workspace'], 'credentials': plan['credentials'],
+                                                     'approved_sha256': fingerprint(plan)})
+        page.locator('#refresh').click()
+        go(page, 'agents')
+        grants = page.locator('#grants')
+        expect(grants.locator('h2')).to_have_text('正在生效的授权 · 1')
+        expect(grants.locator('li.grant')).to_contain_text('项目 demo-video · 由授权窗口批准')
+        expect(page.locator('#reach')).to_contain_text('1 个项目获准使用 Key：demo-video')
+        page.get_by_role('button', name='立即锁定', exact=True).click()
+        expect(page.locator('#credential-session')).to_contain_text('Key 已锁定')
+        expect(page.locator('#toast')).to_contain_text('共用解锁和项目授权已结束')
+        expect(grants.locator('h2')).to_have_text('正在生效的授权 · 0')
+        expect(page.locator('#reach')).to_contain_text('还没有获准的项目')
+        ended = grants.locator('[data-key="details:ended-grants"]')
+        expect(ended.locator('summary')).to_have_text('已结束的授权 · 1')
+        ended.locator('summary').click()
+        row = ended.locator('li.grant')
+        expect(row).to_contain_text('项目 demo-video · 由授权窗口批准')
+        expect(row.locator('.when')).to_have_text('已随锁定结束')
+        expect(row.get_by_role('button', name='撤销')).to_have_count(0)
+        # The record says the same as the page: `atm access list` reads it.
+        [project] = [g for g in list_grants(State(home))['grants'] if g['kind'] == 'project_session']
+        assert (project['revoked'], project['revoked_reason']) == (True, 'session_ended')
+        assert not log['errors'], log['errors']
+        ctx.close()
+    finally:
+        server.shutdown(); server.server_close(); thread.join(5)
