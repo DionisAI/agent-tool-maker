@@ -11,6 +11,9 @@
   `secrets_session_status`, and a broker marks the record `stopped` only while it still names that broker's socket and
   pid, so unlocking and 立即锁定 no longer hide a strict `atm broker serve` that keeps serving its grants (the toast, 首页
   and Agent 与权限 name it). `atm broker status` and `GET /api/access` read the same record as before.
+- The ATM 主密码 home line names the commands that open the approval window (`atm start` / `atm use`) and says ATM tools
+  run directly need the ATM 主密码. The credits card, the program route and the 首页 item no longer carry a CLI
+  `login_required` branch: only a website source read through OpenCLIApp is ever recorded as signed out.
 - Credits: a website source run through OpenCLIApp that exits 77 (OpenCLI's `AuthRequiredError`, raised by the
   reviewed Tripo Studio and XYQ account adapters on the site's login wall) is stored as `login_required`, so the card's
   需要登录, the 首页 item and the Chrome route's signed-out step finally appear. The server source (`atm` exits 2 for

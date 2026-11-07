@@ -141,7 +141,7 @@ test('"Key 已锁定" says only what the lock enforces, for each vault backend',
     toast: 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。Agent 运行 ATM 工具时仍会直接从系统钥匙串读取 Key。'});
   const passphrase = M.keyLock(data({vault: {backend: 'passphrase', state: 'needs_unlock'}, session: locked}), NOW);
   assert.deepEqual(plain(passphrase), {
-    home: 'Key 已锁定：Agent 要把 Key 交给程序时，会打开授权窗口请你解锁并确认。设置了 ATM_VAULT_PASSWORD 的进程不经过授权窗口，可以直接使用 Key。',
+    home: 'Key 已锁定：Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具需要 ATM 主密码。设置了 ATM_VAULT_PASSWORD 的进程不经过授权窗口，可以直接使用 Key。',
     agents: '已锁定。Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具（atm run）需要 ATM 主密码，不会打开授权窗口。设置了 ATM_VAULT_PASSWORD 的进程可以直接使用 Key。',
     toast: 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。设置了 ATM_VAULT_PASSWORD 的进程仍可以直接使用 Key。'});
   for (const copy of [keyring, passphrase]) for (const text of Object.values(copy)) {
@@ -602,15 +602,16 @@ test('one primary per intent: the header fix is not repeated, and an optional se
     credits: [row('tripo_studio')]}), NOW).byKey.get('tripo');
   assert.equal(tripo.primary.label, '检查 Chrome 登录');
   assert.deepEqual(plain(tripo.routes.flatMap(r => r.actions.filter(a => a.primary).map(a => a.label))), []);
-  // Higgsfield's CLI failed (a real refresh): its exit status names no cause, so nothing offers a login check.
+  // Higgsfield's CLI failed (a real refresh): ATM keeps only its exit status, which names no cause, so the program
+  // route stays usable with no login step or check of its own; the failure shows on the credits card alone.
   const higgs = M.derive(data({
     tools: [tool('higgsfield.generate', 'higgsfield', 'higgsfield', 'missing_credential', {credentials: ['higgsfield'], health: {credential: 'higgsfield'}}),
       tool('higgsfield.subscription.account', 'command', 'higgsfield', 'configured_not_verified', {executable: 'higgsfield'})],
     clis: [{name: 'higgsfield', state: 'configured_not_verified', path: '/fake/higgsfield'}],
     credits: [row('higgsfield')],
     oauth: [{provider: 'higgsfield', status: 'ready', keep_login: true, expires_at: NOW + 3600, service: {status: 'load_failed'}}]}), NOW).byKey.get('higgsfield');
-  assert.ok(higgs.primary && higgs.primary.label !== '检查登录', higgs.primary?.label);
-  assert.ok(!higgs.routes.some(r => r.actions.some(a => a.label === '检查登录')));
+  const program = higgs.routes.find(r => r.kind === 'program');
+  assert.deepEqual(plain([program.state, program.word, program.actions, program.commands]), ['ready', '可以使用', [], []]);
   assert.deepEqual(plain(higgs.routes.flatMap(r => r.actions.filter(a => a.primary).map(a => a.label))), []);
 });
 

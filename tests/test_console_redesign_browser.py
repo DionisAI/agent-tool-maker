@@ -1185,7 +1185,7 @@ LOCK_COPY = {
         'agents': '共用解锁已锁定，但这不会锁住系统钥匙串：默认模式下，Agent 运行 ATM 工具（atm run）时直接从钥匙串读取 Key。要把 Key 交给项目里的程序（atm start / atm use）时，Agent 会打开授权窗口请你解锁并确认。',
         'toast': 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。Agent 运行 ATM 工具时仍会直接从系统钥匙串读取 Key。'},
     'passphrase': {
-        'home': 'Key 已锁定：Agent 要把 Key 交给程序时，会打开授权窗口请你解锁并确认。设置了 ATM_VAULT_PASSWORD 的进程不经过授权窗口，可以直接使用 Key。',
+        'home': 'Key 已锁定：Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具需要 ATM 主密码。设置了 ATM_VAULT_PASSWORD 的进程不经过授权窗口，可以直接使用 Key。',
         'agents': '已锁定。Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具（atm run）需要 ATM 主密码，不会打开授权窗口。设置了 ATM_VAULT_PASSWORD 的进程可以直接使用 Key。',
         'toast': 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。设置了 ATM_VAULT_PASSWORD 的进程仍可以直接使用 Key。'},
 }

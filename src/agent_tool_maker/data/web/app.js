@@ -644,14 +644,14 @@ function creditCard(p) {
       el('p',{class:'quiet'},zh`还不能读取：先在“${name}”页完成设置。`,' ',go_({label:'去设置',kind:'nav',target:'services/'+key})),cycle,el('div',{class:'card-actions'},cycleButton));
   const stale=p.last_ok_at&&Date.now()/1000-p.last_ok_at>86400;
   const amount=typeof p.credits==='number'?creditNumber(p.credits):'—';
-  const site=T.sites[key], exe=sourceTool?.tool.executable||p.next_executable;
-  const login=p.status==='error'&&p.error?.code==='login_required';
+  const site=T.sites[key];
+  const login=p.status==='error'&&p.error?.code==='login_required';  // Only a website source is recorded as signed out.
   return el('article',{class:'credit-card'+(creditsBusy.has(p.provider)?' busy':''),'data-provider':p.provider},head,
     el('strong',{class:'credit-amount'+(amount.length>12?' long':'')},amount,el('small',{},' 积分')),
     el('div',{class:'credit-meta'},p.plan?el('span',{class:'badge'},p.plan):null,el('small',{},p.last_ok_at?'上次读取 '+relativeTime(p.last_ok_at):'尚未读取'),
       stale?el('span',{class:'badge warn'},'超过 24 小时，可能已变化'):null,
       p.status==='error'&&p.error?creditError(p.error):null),
-    login?el('p',{class:'quiet'},'需要登录：'+(p.source_kind==='cli'?zh`用 ${exe} 自己的登录命令登录`:zh`在 Chrome 里登录 ${site?.name||name}`),' ',go_({...routeOf(),label:'怎么登录'})):null,
+    login?el('p',{class:'quiet'},zh`需要登录：在 Chrome 里登录 ${site?.name||name}`,' ',go_({...routeOf(),label:'怎么登录'})):null,
     p.bound?null:el('p',{class:'quiet'},zh`还不能读取：需要先绑定 ${p.next_executable} 程序。`,' ',go_(routeOf())),
     cycle,
     el('div',{class:'card-actions'},p.bound?creditsButton('刷新',[p.provider],'secondary','refresh',p.provider):null,

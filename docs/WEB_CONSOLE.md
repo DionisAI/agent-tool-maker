@@ -59,8 +59,9 @@ Shadowrocket、Clash、Surge 的 Fake-IP 模式把每个域名都解析成 `198.
 - **“已锁定”只说代码真正做到的**（`model.js` 的 `keyLock`，首页、Agent 与权限、“立即锁定”的提示同一套文字）：
   右上角只显示共用解锁会话。它管的是授权窗口批准的项目（`atm start` / `atm use`）和开启会话模式后的 Key 增删；
   ATM 工具（`atm run`）在 Agent 自己的进程里直接打开保管库，不看会话。系统钥匙串方式：这里的锁定不会锁住钥匙串，默认模式下
-  Agent 运行 ATM 工具时直接读取 Key，锁定只结束共用解锁和项目授权。ATM 主密码方式：Agent 要把 Key 交给程序时会打开
-  授权窗口；直接运行 ATM 工具需要主密码，不会打开授权窗口；设置了 `ATM_VAULT_PASSWORD` 的进程可以直接使用 Key。
+  Agent 运行 ATM 工具时直接读取 Key，锁定只结束共用解锁和项目授权。ATM 主密码方式：Agent 要把 Key 交给项目里的程序
+  （`atm start` / `atm use`）时会打开授权窗口；直接运行 ATM 工具需要主密码，不会打开授权窗口；设置了 `ATM_VAULT_PASSWORD`
+  的进程可以直接使用 Key。
   `access.broker` 记录一个仍在租期内的 `atm broker serve` 时，另外写明持有受限授权的 Agent 仍可使用授权里的 Key，
   这里的锁定不会停止它。这条记录（设置 `broker_status`）只属于严格模式 Broker：共用会话把自己的记录写在
   `secrets_session_status`，解锁和“立即锁定”都不碰它；Broker 停止时只把仍是自己（同一 socket 和 pid）的记录标为

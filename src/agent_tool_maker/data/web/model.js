@@ -377,7 +377,7 @@
       agents: '共用解锁已锁定，但这不会锁住系统钥匙串：默认模式下，Agent 运行 ATM 工具（atm run）时直接从钥匙串读取 Key。要把 Key 交给项目里的程序（atm start / atm use）时，Agent 会打开授权窗口请你解锁并确认。',
       toast: 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。Agent 运行 ATM 工具时仍会直接从系统钥匙串读取 Key。'},
     passphrase: {
-      home: 'Key 已锁定：Agent 要把 Key 交给程序时，会打开授权窗口请你解锁并确认。设置了 ATM_VAULT_PASSWORD 的进程不经过授权窗口，可以直接使用 Key。',
+      home: 'Key 已锁定：Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具需要 ATM 主密码。设置了 ATM_VAULT_PASSWORD 的进程不经过授权窗口，可以直接使用 Key。',
       agents: '已锁定。Agent 要把 Key 交给项目里的程序（atm start / atm use）时，会打开授权窗口请你解锁并确认；直接运行 ATM 工具（atm run）需要 ATM 主密码，不会打开授权窗口。设置了 ATM_VAULT_PASSWORD 的进程可以直接使用 Key。',
       toast: 'Key 已锁定：共用解锁和项目授权已结束，已经在运行的程序可能仍持有取到的 Key。设置了 ATM_VAULT_PASSWORD 的进程仍可以直接使用 Key。'},
   };
@@ -698,8 +698,6 @@
       } else route.word = '可以使用';
     } else if (kind === 'program' || kind === 'studio_server') {
       const exe = kind === 'program' ? id : exeOf(tools[0]?.tool), program = programCondition(exe, ctx, tools);
-      const credits = ctx.creditRows.find(r => r?.source_kind === 'cli' && r.status === 'error' && r.error?.code === 'login_required'
-        && tools.some(v => v.id === r.source));
       if (kind === 'studio_server') {
         route.title = '服务器上的 Tripo Studio'; route.chip = '服务器浏览器';
         route.sub = 'tripo.server.* · 在另一台服务器上长期运行 Tripo Studio 浏览器，用同一份网站订阅。';
@@ -730,13 +728,6 @@
           }[program.state] || ['不能使用', `${path}：${program.state}`, zh`${exe} 不能使用。`];
           route.word ||= table[0]; route.body = [table[1]]; cmd(bind);
           route.summary = table[2];
-        } else if (credits) {
-          if (state !== 'off' && severity(state) > severity('attention')) state = 'attention';
-          route.word ||= '需要重新登录';
-          route.body = [zh`${exe} 自己的登录已失效。` + (exe === 'higgsfield' ? '请在终端登录：' : zh`请用 ${exe} 自己的登录命令登录。`)];
-          if (exe === 'higgsfield') cmd('higgsfield auth login');
-          route.actions = credits.next_source && tools.some(v => v.id === credits.next_source) ? [{label: '检查登录', kind: 'credits', target: [credits.provider], primary: true}] : [];
-          route.summary = zh`${exe} 自己的登录已失效。`;
         } else {
           route.word ||= '可以使用';
           if (path) route.facts.push(['程序', path], ['指纹', '已记录']);
@@ -1081,12 +1072,11 @@
     }
     for (const row of creditRows) {
       if (!row?.installed || row.status !== 'error' || row.error?.code !== 'login_required') continue;
+      // Only a website source read through OpenCLIApp is recorded as signed out (credits.py _signed_out).
       const key = serviceKeyOf(row.brand || row.provider), site = siteOf(key, svc(key).name), source = toolViews.get(row.source);
-      const website = row.source_kind !== 'cli';
-      const exe = source ? exeOf(source.tool) : str(row.next_executable);
       const action = source ? routeAction('查看登录方法', key, source.route, source.routeId) : nav('查看登录方法', 'services/' + key);
       push('credits-login', row.provider, 'warn', key, zh`${str(row.label)} 需要重新登录`,
-        website ? zh`Chrome 里没有登录 ${site.name}，读不到积分，相关工具也可能失败。` : zh`${exe} 程序自己的登录已失效，读不到积分。`, action);
+        zh`Chrome 里没有登录 ${site.name}，读不到积分，相关工具也可能失败。`, action);
     }
     const mcpHit = new Map();
     for (const v of toolViews.values()) {
