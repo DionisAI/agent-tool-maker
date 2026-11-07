@@ -165,18 +165,30 @@ def _run_bridge(path,expected,adapter_pin,args,workspace,download_root):
         if not isinstance(v,list) or len(v)!=1 or not isinstance(v[0],dict) or not isinstance(v[0].get('result'),dict) or v[0]['result'].get('status') not in {'download_observed','download_target_exists'}:
             fail('bridge_protocol','Download bridge did not return an observed original download or a definite name refusal.')
     # The durable source receipt, not stdout, is authoritative for file identity.
-    # A pre-intent name refusal is returned only for independent local corroboration.
+    # A no-input name refusal is returned only for independent local corroboration.
     return v[0]['result'] if v[0]['result']['status']=='download_target_exists' else None
 
+def _unsent(fd,key,args):
+    # None: no native receipt. True: this exact request's receipt durably records
+    # that the bridge stopped before any observer or input. False: anything else.
+    try:
+        r=_read(fd,key+'.json')
+        if r is None:return None
+        return (_native(fd,key,args) is None and r['status']=='download_not_sent' and r.get('failure_code')=='download_target_exists' and
+            'download' not in r and 'native_input_acknowledged' not in r)
+    except RouterError:return False
+
 def _withdraw(fd,key,claim,root,v):
-    # The pinned bridge refused before any native intent because the browser's save
-    # name is taken. Corroborate that locally, then retract only this call's unsent
-    # claim; the existing entry is never opened, moved or replaced.
+    # The pinned bridge refused with no browser input because the browser's save
+    # name is taken: before any native intent, or after it with an unsent receipt
+    # and its lock already dropped. Corroborate that locally, then retract only this
+    # call's unsent claim; the existing entry is never opened, moved or replaced.
     args=claim['settings'];name=key+'.delivery.json'
     if (not isinstance(v,dict) or set(v)!={'status','thread_id','result_id','request_key','filename','browser_input','intent_recorded'} or
-        any(v[k]!=args[k] for k in ('thread_id','result_id','request_key')) or v['browser_input'] is not False or v['intent_recorded'] is not False or
+        any(v[k]!=args[k] for k in ('thread_id','result_id','request_key')) or v['browser_input'] is not False or type(v['intent_recorded']) is not bool or
         not isinstance(v['filename'],str) or not re.fullmatch(PNG_NAME,v['filename'])):fail('bridge_protocol','Download bridge name refusal has an unknown shape.')
-    if _read_exists(fd,key+'.json') or _read_exists(fd,'active.lock') or not _name_taken(root,v['filename']):
+    unsent=_unsent(fd,key,args)
+    if unsent is False or (v['intent_recorded'] and unsent is None) or _read_exists(fd,'active.lock') or not _name_taken(root,v['filename']):
         fail('download_unknown','Bridge name refusal is not corroborated; keep the original intent and locks.')
     if _read(fd,'delivery-active.lock')!={'version':1,'request_key':args['request_key'],'fingerprint':claim['fingerprint']} or _read(fd,name)!=claim:
         fail('receipt_invalid','Original unsent claim changed; it is preserved.')
@@ -190,7 +202,7 @@ def _native(fd,key,args):
     if (r.get('version')!=1 or r.get('request_key')!=args['request_key'] or r.get('fingerprint')!=expected or
         r.get('thread_id')!=args['thread_id'] or r.get('result_id')!=args['result_id'] or
         r.get('result_sha256')!=args['expected_result_sha256'] or r.get('quote_sha256')!=args['quote_sha256'] or
-        r.get('status') not in {'download_dispatch_claimed','download_unknown','download_observed','delivered'}):
+        r.get('status') not in {'download_dispatch_claimed','download_unknown','download_not_sent','download_observed','delivered'}):
         fail('receipt_invalid','Original native receipt differs from this exact download.')
     if r['status'] not in {'download_observed','delivered'}:return None
     v=r.get('download')

@@ -112,8 +112,28 @@ def test_wrong_native_resource_fingerprint_is_retained_not_trusted(setup,monkeyp
     monkeypatch.setattr(d,'_run_bridge',wrong)
     with pytest.raises(RouterError):invoke(x)
     ledger=x['workspace']/'.atm/xyq-result-downloads';assert not list(ledger.glob('*.png'));r=json.loads(next(ledger.glob('*.delivery.json')).read_bytes());assert r['failure_code']=='receipt_invalid'
-def refusal(settings,filename='fixture.png'):
-    return {'status':'download_target_exists','thread_id':settings['thread_id'],'result_id':settings['result_id'],'request_key':settings['request_key'],'filename':filename,'browser_input':False,'intent_recorded':False}
+def refusal(settings,filename='fixture.png',intent_recorded=False):
+    return {'status':'download_target_exists','thread_id':settings['thread_id'],'result_id':settings['result_id'],'request_key':settings['request_key'],'filename':filename,'browser_input':False,'intent_recorded':intent_recorded}
+def unsent_record(workspace,settings,status='download_not_sent'):
+    # The bridge's durable record of an attempt that stopped after intent and before any observer or input.
+    ledger=workspace/'.atm/xyq-result-downloads';key=d._sha(settings['request_key'].encode());fp=d._sha(d._json(['xyq-existing-image-download-v1',settings]))
+    r={'version':1,'status':status,'request_key':settings['request_key'],'fingerprint':fp,'thread_id':settings['thread_id'],'result_id':settings['result_id'],'result_sha256':settings['expected_result_sha256'],'quote_sha256':settings['quote_sha256'],'filename':'fixture.png','width':81,'height':108,'failure_code':'download_target_exists'}
+    (ledger/(key+'.json')).write_bytes(d._json(r));return r
+def test_name_taken_after_native_intent_is_definite_once_the_bridge_recorded_no_input(setup,monkeypatch):
+    x=setup;existing=x['source'].read_bytes();key=d._sha(b'one-download')
+    def refused(path,pin,adapter,settings,work,root):
+        x['calls'].append('unsent');unsent_record(Path(work),settings);return refusal(settings,intent_recorded=True)
+    monkeypatch.setattr(d,'_run_bridge',refused)
+    with pytest.raises(RouterError) as e:invoke(x)
+    assert e.value.code=='download_target_exists' and not e.value.uncertain
+    ledger=x['workspace']/'.atm/xyq-result-downloads';assert sorted(p.name for p in ledger.iterdir())==sorted(['finalize.lock',key+'.json'])
+    assert json.loads((ledger/(key+'.json')).read_bytes())['status']=='download_not_sent' and x['source'].read_bytes()==existing
+    # Same key, file still there: the bridge refuses before a new intent and the unsent record stays.
+    monkeypatch.setattr(d,'_run_bridge',lambda path,pin,adapter,settings,work,root:refusal(settings))
+    with pytest.raises(RouterError) as e:invoke(x)
+    assert e.value.code=='download_target_exists' and not e.value.uncertain and sorted(p.name for p in ledger.iterdir())==sorted(['finalize.lock',key+'.json'])
+    monkeypatch.setattr(d,'_run_bridge',x['run']);r=invoke(x)
+    assert r['status']=='delivered' and r['locks_finalized'] and x['calls'][0]=='unsent' and len(x['calls'])==2
 def test_same_name_download_target_is_definite_and_leaves_no_claim_or_lock(setup,monkeypatch):
     # The browser would save "fixture (1).png" or replace the user's file; nothing may stay locked.
     x=setup;existing=x['source'].read_bytes();seen=[]
@@ -137,13 +157,16 @@ def test_in_progress_crdownload_reservation_corroborates_a_definite_name_refusal
     assert e.value.code=='download_target_exists' and not e.value.uncertain and '.crdownload' in str(e.value)
     assert sorted(p.name for p in (x['workspace']/'.atm/xyq-result-downloads').iterdir())==['finalize.lock']
     assert partial.read_bytes()==existing and sorted(p.name for p in x['root'].iterdir())==['fixture.png.crdownload']
-@pytest.mark.parametrize('case',['missing_name','native_lock','native_receipt','shape','other_result'])
+@pytest.mark.parametrize('case',['missing_name','native_lock','native_receipt','shape','other_result','intent_without_receipt','unknown_receipt','unsent_with_lock','unsent_acknowledged'])
 def test_uncorroborated_name_refusal_keeps_original_intent_and_locks(setup,monkeypatch,case):
     x=setup;ledger=x['workspace']/'.atm/xyq-result-downloads'
     def refused(path,pin,adapter,settings,work,root):
-        x['calls'].append(case);v=refusal(settings,'other.png' if case=='missing_name' else 'fixture.png')
-        if case=='native_lock':(ledger/'active.lock').write_bytes(b'{}')
+        x['calls'].append(case);v=refusal(settings,'other.png' if case=='missing_name' else 'fixture.png',case in {'intent_without_receipt','unknown_receipt','unsent_with_lock','unsent_acknowledged'})
+        if case in {'native_lock','unsent_with_lock'}:(ledger/'active.lock').write_bytes(b'{}')
         if case=='native_receipt':(ledger/(d._sha(settings['request_key'].encode())+'.json')).write_bytes(b'{}')
+        if case=='unknown_receipt':unsent_record(ledger.parents[1],settings,'download_unknown')
+        if case=='unsent_with_lock':unsent_record(ledger.parents[1],settings)
+        if case=='unsent_acknowledged':r=unsent_record(ledger.parents[1],settings);r['native_input_acknowledged']=False;(ledger/(d._sha(settings['request_key'].encode())+'.json')).write_bytes(d._json(r))
         if case=='shape':v['browser_input']=True
         if case=='other_result':v['result_id']='c'*32
         return v

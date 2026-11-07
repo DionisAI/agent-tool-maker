@@ -108,13 +108,46 @@ test('a same-name entry in the reviewed download directory is a definite refusal
     assert.equal(ok.status,'download_observed');assert.equal(ok.reused,false);assert.equal(x.calls.filter(v=>v==='nativeClick').length,1);
   }
 });
-test('a same-name file appearing after durable intent stops the click and keeps the original lock',async()=>{
-  const x=await fixture(),old=x.page.evaluate,existing=join(x.root,'fixture.png');let n=0;
-  x.page.evaluate=(fn,arg)=>{if(fn.name==='readDownloadInputDOM'&&++n===2)writeFileSync(existing,'USER_OWNED_FILE');return old(fn,arg);};
+test('a same-name entry appearing after durable intent is recorded as definitely not sent, then the same key can retry',async()=>{
+  for(const name of ['fixture.png','fixture.png.crdownload']){
+    const x=await fixture(),old=x.page.evaluate,existing=join(x.root,name);let n=0;
+    x.page.evaluate=(fn,arg)=>{if(fn.name==='readDownloadInputDOM'&&++n===2)writeFileSync(existing,'USER_OWNED_FILE');return old(fn,arg);};
+    const r=(await downloadExistingResult(x.page,x.settings,x.workspace,x.root))[0].result;
+    assert.deepEqual(r,{status:'download_target_exists',thread_id:scope.thread_id,result_id:scope.result_id,request_key:'one-download',filename:'fixture.png',browser_input:false,intent_recorded:true});
+    assert(!x.calls.includes('nativeClick')&&!x.calls.includes('waitForDownload'));assert.equal(readFileSync(existing,'utf8'),'USER_OWNED_FILE');
+    // The receipt keeps the unsent attempt; only the lock this call created is gone.
+    const dir=join(x.workspace,'.atm','xyq-result-downloads'),file=join(dir,readdirSync(dir).find(n=>n.endsWith('.json'))),receipt=readFileSync(file);
+    assert.deepEqual(readdirSync(dir),[file.split('/').pop()]);const v=JSON.parse(receipt);
+    assert.equal(v.status,'download_not_sent');assert.equal(v.failure_code,'download_target_exists');assert(!('download' in v)&&!('native_input_acknowledged' in v));
+    n=99;const again=(await downloadExistingResult(x.page,x.settings,x.workspace,x.root))[0].result;
+    assert.equal(again.status,'download_target_exists');assert.equal(again.intent_recorded,false);assert.deepEqual(readFileSync(file),receipt);assert(!existsSync(join(dir,'active.lock')));
+    renameSync(existing,join(x.root,'moved-by-user'));
+    const ok=(await downloadExistingResult(x.page,x.settings,x.workspace,x.root))[0].result;
+    assert.equal(ok.status,'download_observed');assert.equal(x.calls.filter(v=>v==='nativeClick').length,1);assert.equal(JSON.parse(readFileSync(file)).status,'download_observed');
+    assert(existsSync(join(dir,'active.lock')));assert.equal(readFileSync(join(x.root,'moved-by-user'),'utf8'),'USER_OWNED_FILE');
+  }
+});
+test('only a clean unsent receipt with no lock is retried; unknown or locked attempts never click again',async()=>{
+  for(const kind of ['lock','unknown','acknowledged','failure']){
+    const x=await fixture(),old=x.page.evaluate,existing=join(x.root,'fixture.png');let n=0;
+    x.page.evaluate=(fn,arg)=>{if(fn.name==='readDownloadInputDOM'&&++n===2)writeFileSync(existing,'USER_OWNED_FILE');return old(fn,arg);};
+    await downloadExistingResult(x.page,x.settings,x.workspace,x.root);renameSync(existing,join(x.root,'moved-by-user'));
+    const dir=join(x.workspace,'.atm','xyq-result-downloads'),file=join(dir,readdirSync(dir).find(n=>n.endsWith('.json'))),v=JSON.parse(readFileSync(file));
+    if(kind==='lock')writeFileSync(join(dir,'active.lock'),JSON.stringify({version:1,request_key:v.request_key,fingerprint:v.fingerprint}));
+    if(kind==='unknown')v.status='download_unknown';if(kind==='acknowledged')v.native_input_acknowledged=false;if(kind==='failure')v.failure_code='result_changed';
+    if(kind!=='lock')writeFileSync(file,JSON.stringify(v));const before=readFileSync(file);n=99;
+    await assert.rejects(downloadExistingResult(x.page,x.settings,x.workspace,x.root),e=>e.code===(kind==='lock'?'workspace_busy':'download_unknown'));
+    assert(!x.calls.includes('nativeClick'));assert.deepEqual(readFileSync(file),before);
+  }
+});
+test('an unsent attempt never removes a lock it did not write',async()=>{
+  const x=await fixture(),old=x.page.evaluate,dir=join(x.workspace,'.atm','xyq-result-downloads');let n=0;
+  x.page.evaluate=(fn,arg)=>{if(fn.name==='readDownloadInputDOM'&&++n===2){writeFileSync(join(x.root,'fixture.png'),'USER_OWNED_FILE');writeFileSync(join(dir,'active.lock'),'{"other":true}');}return old(fn,arg);};
   await assert.rejects(downloadExistingResult(x.page,x.settings,x.workspace,x.root),e=>e.code==='download_unknown');
-  assert(!x.calls.includes('nativeClick'));assert.equal(readFileSync(existing,'utf8'),'USER_OWNED_FILE');
-  const dir=join(x.workspace,'.atm','xyq-result-downloads');assert(existsSync(join(dir,'active.lock')));
-  const r=JSON.parse(readFileSync(join(dir,readdirSync(dir).find(n=>n.endsWith('.json')))));assert.equal(r.status,'download_unknown');assert.equal(r.failure_code,'download_target_exists');
+  assert(!x.calls.includes('nativeClick'));assert.equal(readFileSync(join(dir,'active.lock'),'utf8'),'{"other":true}');
+  const file=join(dir,readdirSync(dir).find(n=>n.endsWith('.json')));assert.equal(JSON.parse(readFileSync(file)).status,'download_not_sent');
+  renameSync(join(x.root,'fixture.png'),join(x.root,'moved-by-user'));n=99;
+  await assert.rejects(downloadExistingResult(x.page,x.settings,x.workspace,x.root),e=>e.code==='workspace_busy');assert(!x.calls.includes('nativeClick'));
 });
 test('download root must be the exact canonical reviewed directory before any browser read',async()=>{
   const x=await fixture();
