@@ -10,7 +10,7 @@ try{
   if(config.operation==='quote'){
     const item=(await inspectConversationResults(page,config.scope,'result_inspect'))[0].result;
     result=await inspectConversationResults(page,{...config.scope,expected_result_sha256:item.result_sha256},'result_download_quote');
-  }else {if(config.adapter_pin)checkDownloadPin(config.adapter_pin);result=await downloadExistingResult(page,config.settings,config.workspace);}
+  }else {if(config.adapter_pin)checkDownloadPin(config.adapter_pin);result=await downloadExistingResult(page,config.settings,config.workspace,config.download_root);}
   process.stdout.write(JSON.stringify({type:'done',result})+'\n');
 }catch(e){process.stdout.write(JSON.stringify({type:'done',error:{code:e.code||'fixture_failed'}})+'\n');}
 finally{for(const p of pending.values())clearTimeout(p.timer);lines.close();}
