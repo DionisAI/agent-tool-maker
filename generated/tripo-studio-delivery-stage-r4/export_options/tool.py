@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.export_options'
-DEFINITION_SHA256 = '9025d5743e72224492bd6de544513412434006339ea6c625f7b199e7c5bb898d'
+DEFINITION_SHA256 = 'b8079308c36c73e74126bb8763510c09ee323bd18cf2a6238495ad30e888839b'
 
 
 def main(argv=None):

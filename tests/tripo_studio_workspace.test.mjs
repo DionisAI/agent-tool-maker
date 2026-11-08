@@ -143,7 +143,7 @@ test('shared older upload lock blocks these new paid modules unchanged',async()=
 function domFixture(module,{price='40',disabled=false}={}) {
   const visible=()=>({width:100,height:20});
   const button=(text,selected=false,action=false)=>({innerText:text,disabled,closest:()=>null,getBoundingClientRect:visible,getAttribute:name=>name==='aria-pressed'?(selected?'true':'false'):null,classList:{contains:name=>action?name==='animate-button':selected&&name==='ring-purple-1'}});
-  const labels={segment:'Start Segmenting',texture:'Generate Texture',edit:'Generate Preview',upscale:'Enhance Now',pbr:'Generate PBR',image:'Generate Image',smart_uv:'Unwrap UV',animate:'Generate'};
+  const labels={segment:'Start Segmenting',texture:'Generate Texture',edit:'Generate Preview',upscale:'Enhance Now',pbr:'Generate PBR',image:'Generate Image',smart_uv:'Unwrap UV',animate:'Generate',rig:'Auto Rig'};
   const buttons=[...(module==='segment'?[button('Simple\n3-6 parts'),button('Balanced\n6-15 parts',true),button('Detailed\n15+ parts')]:module==='upscale'?[button('4K\n4096*4096'),button('8K\n8192*8192',true)]:module==='texture'?[button('2K'),button('4K'),button('8K',true)]:[]),button(labels[module]+(price?'\n'+price:''),false,true)];
   const fields=module==='texture'?[{tagName:'TEXTAREA',value:'fixture',getAttribute:()=>null}]:module==='edit'?[{tagName:'TEXTAREA',value:'',getAttribute:()=>null},{tagName:'INPUT',value:'0.6',getAttribute:n=>n==='type'?'text':null}]:[];
   for(const field of fields)field.closest=()=>null;
@@ -207,31 +207,23 @@ test('animation preset list is separate from primary controls, with real rig pre
   f.panel.innerText='Animation\nRig the Model First\nRig the Model First';
   const out=readWorkspaceDOM('animate');assert.equal(out.kind,'ready');assert.equal(out.quoted_credits,20);assert.deepEqual(out.presets,['walk']);assert.deepEqual(out.warnings,['Rig the Model First']);assert.equal(out.button_enabled,false);
 });
-function cardsFixture(module,own,cards=[]){
-  // A card is {text, hidden, parent}: parent is an enclosing card inside the same panel.
-  const f=domFixture(module),query=f.panel.querySelectorAll;
-  const elsewhere=selector=>['[role="tabpanel"]','[role="dialog"]','a[href]'].every(part=>selector.includes(part));
-  const nodes=cards.map(card=>({innerText:card.text,getClientRects:()=>card.hidden?[]:[1]}));
-  nodes.forEach((node,i)=>{node.parentElement={closest:selector=>elsewhere(selector)&&cards[i].parent!==undefined?nodes[cards[i].parent]:null};});
-  // The panel text holds each rendered top-level card once; a nested card's text is in its parent's.
-  f.panel.innerText=[MODULES[module][2],...own,...cards.filter(card=>!card.hidden&&card.parent===undefined).map(card=>card.text)].join('\n');
-  f.panel.contains=node=>nodes.includes(node);
-  f.panel.querySelectorAll=selector=>elsewhere(selector)?nodes:query(selector);
+function ownPartFixture(module,text,{price='40',disabled=false}={}){
+  // The form's own preset tabpanel (Animate) or Animate shortcut link (rig), inside the panel.
+  const f=domFixture(module,{price,disabled}),query=f.panel.querySelectorAll;
+  const part={innerText:text,getClientRects:()=>[1],parentElement:{closest:()=>null},getAttribute:name=>name==='href'?'/workspace/animate/'+ID:null};
+  f.panel.innerText=MODULES[module][2]+'\n'+text;f.panel.contains=node=>node===part;
+  f.panel.querySelectorAll=selector=>selector.includes('[role="tabpanel"],')||selector.includes('a[href]')?[part]:query(selector);
   return f;
 }
-test('a failure shown by a card or dialog inside the panel is never this ready form\'s warning',()=>{
-  cardsFixture('texture',[]);const ready=readWorkspaceDOM('texture');assert.equal(ready.kind,'ready');assert.deepEqual(ready.warnings,[]);assert.equal(ready.button_enabled,true);
-  for(const text of ['Generation failed','Unknown server error','Task failed']){
-    // Sidebar tabpanel, asset link and dialog cards, also an asset link nested in the sidebar.
-    cardsFixture('texture',[],[{text},{text:'Asset\n'+text},{text:text+'\nRetry'}]);let out=readWorkspaceDOM('texture');
-    assert.deepEqual(out.warnings,[]);assert.equal(workspaceQuoteHash(out),workspaceQuoteHash(ready));
-    cardsFixture('texture',[],[{text:'Sidebar\n'+text},{text,parent:0}]);out=readWorkspaceDOM('texture');
-    assert.deepEqual(out.warnings,[]);assert.equal(workspaceQuoteHash(out),workspaceQuoteHash(ready));
+test('the form\'s own preset list and shortcut link stay part of its warnings and quote',()=>{
+  // Animate shows its prerequisite in the preset list; the rig form's Animate shortcut is a link.
+  for(const [module,shown,line] of [['animate','walk','Rig the Model First'],['animate','walk','Unknown server error'],
+    ['rig','Rigged models can be used for animation','Task failed'],['rig','Rigged models can be used for animation','Use a T-pose model']]){
+    ownPartFixture(module,shown);const clean=readWorkspaceDOM(module);assert.equal(clean.kind,'ready');assert.deepEqual(clean.warnings,[]);assert.equal(clean.quoted_credits,40);
+    ownPartFixture(module,shown+'\n'+line);const out=readWorkspaceDOM(module);assert.equal(out.kind,'ready');assert.deepEqual(out.warnings,[line]);
+    // Text anywhere in the panel fails closed: it changes the approved quote hash.
+    assert.notEqual(workspaceQuoteHash(out),workspaceQuoteHash(clean));
   }
-  // The panel's own warnings stay, in order, also when a card repeats one or a hidden card holds the same text.
-  cardsFixture('texture',['Unknown server error','Task failed'],[{text:'Sidebar\nGeneration failed'}]);assert.deepEqual(readWorkspaceDOM('texture').warnings,['Unknown server error','Task failed']);
-  cardsFixture('texture',['Task failed'],[{text:'Sidebar\nTask failed'},{text:'Task failed',parent:0}]);assert.deepEqual(readWorkspaceDOM('texture').warnings,['Task failed']);
-  cardsFixture('texture',['Unknown server error'],[{text:'Unknown server error',hidden:true}]);assert.deepEqual(readWorkspaceDOM('texture').warnings,['Unknown server error']);
 });
 test('rigged same-href form shortcut does not make the inspected Animate sidebar click ambiguous',async()=>{
   const href='/workspace/animate/'+ID,link=text=>({innerText:text,closest:()=>null,parentElement:null,

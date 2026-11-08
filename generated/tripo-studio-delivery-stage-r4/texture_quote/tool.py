@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.texture_quote'
-DEFINITION_SHA256 = '6bb919edda6eac17c54353361a89f187344ed91eac65c4ec287c2395e0336e48'
+DEFINITION_SHA256 = '505349ccecd7e0799b6fec338126ed9c475dc8bf8c94547f7379bd3543dbab12'
 
 
 def main(argv=None):

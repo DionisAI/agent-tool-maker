@@ -83,14 +83,7 @@ export function readWorkspaceDOM(module) {
   const credit=document.querySelector('header [class~="i-tripo:bolt:search"]')?.parentElement?.querySelector('p[title]')?.getAttribute('title');
   if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(credit||'')) return {kind:'pending'};
   const match=location.pathname.match(/([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/);
-  // A card (sidebar tabpanel, asset link) or a dialog inside the panel is not this form's
-  // warning: drop the lines each rendered outermost one shows before reading the text.
-  const lines=e=>(e.innerText||'').split(/\n+/).map(s=>s.trim()).filter(Boolean),own=lines(panel);
-  for(const card of panel.querySelectorAll('[role="tabpanel"],[role="dialog"],a[href]')){
-    if(!card.getClientRects().length||panel.contains(card.parentElement?.closest('[role="tabpanel"],[role="dialog"],a[href]')))continue;
-    for(const line of lines(card)){const i=own.indexOf(line);if(i>=0)own.splice(i,1);}
-  }
-  const warnings=[...new Set(own.filter(s=>/Not Ready|Use a T-|Unknown server error|failed|segmented model|select.*model|Rig the Model First/i.test(s)))];
+  const warnings=[...new Set(panel.innerText.split(/\n+/).map(s=>s.trim()).filter(s=>/Not Ready|Use a T-|Unknown server error|failed|segmented model|select.*model|Rig the Model First/i.test(s)))];
   const radios=[...panel.querySelectorAll('[role="radio"]')].map(e=>({label:e.innerText.trim(),checked:e.getAttribute('aria-checked')}));
   if(radios.some(r=>!['true','false'].includes(r.checked)))return{kind:'workspace_fields_changed'};
   const settings={choices,fields,switches,combos,radios,file_counts:files,previews};

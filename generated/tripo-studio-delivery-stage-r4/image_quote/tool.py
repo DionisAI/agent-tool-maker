@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.image_quote'
-DEFINITION_SHA256 = '1d43a4bc63d37bd7c3fc107a808618fea7692b61a66e728f44ef5a23f9a5ae8d'
+DEFINITION_SHA256 = 'd8009e05aa4ec945a0267bf221c952e42c9b193d5b7cca81b35211d3b9f93943'
 
 
 def main(argv=None):

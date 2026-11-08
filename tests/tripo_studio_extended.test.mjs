@@ -354,33 +354,23 @@ test('another card or a dialog showing a failure never marks the ready routed as
     progressDOM(route,{progress:[['Retopologizing...',[]],[text,[]]]});assert.equal(readAssetDOM().status,'failed');
   }
 });
-const ELSEWHERE=selector=>['[role="tabpanel"]','[role="dialog"]','a[href]'].every(part=>selector.includes(part));
-function retopoPanelDOM(own,cards=[]){
-  // A card is {text, hidden, parent}: parent is an enclosing card inside the same panel.
-  const nodes=cards.map(card=>({innerText:card.text,getClientRects:()=>card.hidden?[]:[1]}));
-  nodes.forEach((node,i)=>{node.parentElement={closest:selector=>ELSEWHERE(selector)&&cards[i].parent!==undefined?nodes[cards[i].parent]:null};});
-  // The panel text holds each rendered top-level card once; a nested card's text is in its parent's.
-  const rendered=cards.filter(card=>!card.hidden&&card.parent===undefined).map(card=>card.text);
-  const button={innerText:'Retopology 40',disabled:false,getAttribute:()=>null};
-  const fields={'h2':{innerText:'Retopology'},'button.animate-button':button,'button[aria-pressed="true"]':{innerText:'Quad'},'input[type="text"]':{value:'10000'},
-    '[role="switch"]':{getAttribute:()=> 'true'},'[role="slider"]':{getAttribute:name=>name==='aria-valuemin'?'500':'10000'}};
-  const panel={innerText:[...own,...rendered].join('\n'),contains:node=>nodes.includes(node),querySelector:selector=>fields[selector]||null,
-    querySelectorAll:selector=>selector==='button.animate-button'?[button]:ELSEWHERE(selector)?nodes:[]};
-  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/retopology/'+ID};
+function rigPanelDOM(own,shortcut){
+  // The rig form's own Animate shortcut is a link inside the panel; what it shows is panel text.
+  const button={innerText:'Auto Rig 20',disabled:false,getAttribute:()=>null};
+  const link={innerText:shortcut,getClientRects:()=>[1],parentElement:{closest:()=>null},getAttribute:name=>name==='href'?'/workspace/animate/'+ID:null};
+  const fields={'h2':{innerText:'3D Rigging'},'button.animate-button':button,'[role="radio"][aria-checked="true"]':{innerText:'Humanoid'}};
+  const panel={innerText:['3D Rigging',...own,shortcut].join('\n'),contains:node=>node===link,querySelector:selector=>fields[selector]||null,
+    querySelectorAll:selector=>selector==='button.animate-button'?[button]:selector==='button[aria-expanded]'?[{innerText:'Mixamo'}]:selector.includes('a[href]')?[link]:[]};
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/rigging/'+ID};
   globalThis.document={querySelectorAll:()=>[panel],querySelector:()=>({parentElement:{querySelector:()=>({getAttribute:()=> '100'})}})};
 }
-test('a failure shown by a card or dialog inside the panel never blocks this ready form',()=>{
-  retopoPanelDOM(['Retopology']);const ready=readPanelDOM('retopo');assert.equal(ready.kind,'ready');assert.equal(ready.blocked,false);assert.equal(ready.button_enabled,true);
-  for(const text of ['Generation failed','Unknown server error','Task failed','Not Ready for Auto-Rigging']){
-    // Sidebar tabpanel, asset link and dialog cards, also an asset link nested in the sidebar.
-    retopoPanelDOM(['Retopology'],[{text},{text:'Asset\n'+text},{text:text+'\nRetry'}]);assert.equal(readPanelDOM('retopo').blocked,false);
-    retopoPanelDOM(['Retopology'],[{text:'Sidebar\n'+text},{text,parent:0}]);
-    assert.equal(readPanelDOM('retopo').blocked,false);
+test('the whole panel, its own shortcut link included, decides blocked: a failure inside it refuses',()=>{
+  rigPanelDOM([],'Rigged models can be used for animation');const ready=readPanelDOM('rig');
+  assert.equal(ready.kind,'ready');assert.equal(ready.blocked,false);assert.equal(ready.button_enabled,true);assert.equal(ready.settings.skeleton,'Mixamo');
+  for(const text of ['Not Ready for Auto-Rigging','Unknown server error','Task failed']){
+    rigPanelDOM([],'Rigged models can be used for animation\n'+text);assert.equal(readPanelDOM('rig').blocked,true);
+    rigPanelDOM([text],'Rigged models can be used for animation');assert.equal(readPanelDOM('rig').blocked,true);
   }
-  // The panel's own failure still blocks, also when a card repeats it or a hidden card holds the same text.
-  retopoPanelDOM(['Retopology','Task failed']);assert.equal(readPanelDOM('retopo').blocked,true);
-  retopoPanelDOM(['Retopology','Task failed'],[{text:'Sidebar\nTask failed'},{text:'Task failed',parent:0}]);assert.equal(readPanelDOM('retopo').blocked,true);
-  retopoPanelDOM(['Retopology','Unknown server error'],[{text:'Unknown server error',hidden:true}]);assert.equal(readPanelDOM('retopo').blocked,true);
 });
 test('image quote binds distinct blob preview identities even when file input is cleared',()=>{
   globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/generate'};

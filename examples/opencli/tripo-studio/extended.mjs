@@ -230,17 +230,9 @@ export function readPanelDOM(operation) {
     image = { files: selected, previews };
   }
   const match = location.pathname.match(/([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/);
-  // A card (sidebar tabpanel, asset link) or a dialog inside the panel is not this form's
-  // prerequisite: drop the lines each rendered outermost one shows before reading the text.
-  const lines = el => (el.innerText || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
-  const own = lines(panel);
-  for (const card of panel.querySelectorAll('[role="tabpanel"], [role="dialog"], a[href]')) {
-    if (!card.getClientRects().length || panel.contains(card.parentElement?.closest('[role="tabpanel"], [role="dialog"], a[href]'))) continue;
-    for (const line of lines(card)) { const i = own.indexOf(line); if (i >= 0) own.splice(i, 1); }
-  }
   return { kind: 'ready', operation, asset_id: match?.[1] || null, credits: Number(credit.replaceAll(',', '')), price, settings,
     image, button_enabled: !button.disabled && button.getAttribute('aria-disabled') !== 'true', button_label: label,
-    blocked: own.some(line => /Not Ready for Auto-Rigging|Unknown server error|Task failed/i.test(line)) };
+    blocked: /Not Ready for Auto-Rigging|Unknown server error|Task failed/i.test(panel.innerText) };
 }
 async function panelData(page, operation) { return pollDOM({ evaluate: () => page.evaluate(readPanelDOM, operation) }, readPanelDOM); }
 export function quoteHash(data, imageSha = null) {
