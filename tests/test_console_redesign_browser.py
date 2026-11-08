@@ -452,7 +452,7 @@ def test_every_api_endpoint_has_a_caller():
                  '/api/credits/cycle', '/api/setup/preview', '/api/setup/apply', '/api/agents/unregister', '/api/tools/toggle', '/api/vault/init',
                  '/api/connections/save', '/api/connections/remove', '/api/verify', '/api/credentials/declare', '/api/extensions/validate',
                  '/api/extensions/install', '/api/sync/init', '/api/sync/trust', '/api/sync/revoke', '/api/sync/export', '/api/sync/import',
-                 '/api/sync/resolve', '/api/access/grant', '/api/access/revoke']:
+                 '/api/sync/resolve', '/api/access/grant', '/api/access/revoke', '/api/settings/network']:
         assert path in app, path
     assert "'/api/agents'" not in app and "'/api/credits'" not in app and '/api/desktop' not in (WEB / 'app.js').read_text()
 
@@ -499,6 +499,7 @@ DIALOGS = [
     ('C3', 'agents', lambda p: p.locator('#grants').get_by_role('button', name='撤销', exact=True), '撤销「项目 demo-video · 由授权窗口批准」？'),
     ('C4', 'services/xyq', lambda p: p.get_by_role('button', name='全部停用…').first, re.compile(r'^停用「.+」的 \d+ 个工具？$')),
     ('C5', 'services/higgsfield', lambda p: p.get_by_role('button', name='停止自动续期', exact=True), '停止 Higgsfield 自动续期？'),
+    ('C6', 'settings/advanced', lambda p: p.get_by_role('switch', name='通过本机代理的 Fake-IP 连接（198.18.0.0/15）', exact=True), '允许 ATM 连接本机代理给出的 198.18.x.x 地址？'),
 ]
 
 

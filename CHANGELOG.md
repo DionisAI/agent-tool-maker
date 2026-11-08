@@ -1,3 +1,24 @@
+# Unreleased — Fake-IP proxy tunnel (opt-in)
+
+- Owner setting, off by default: with a Fake-IP proxy (Shadowrocket, Clash, Surge) every name resolves into
+  198.18.0.0/15, which the resolved-address check refused before any request (OAuth login and refresh, MCP HTTP,
+  downloads on every redirect hop, web-recipe and owner-configured REST origins). When on, a DNS name may also
+  resolve to plain IPv4 198.18.0.0/15, and every other answer in the set must be plain global unicast: literals,
+  mapped/compatible/translated IPv6 forms, NAT64 forms of a non-global IPv4 address, multicast, reserved and every
+  non-global answer refuse the whole set. TLS verification and pinned hosts are unchanged. Each check reads the
+  setting, and each download redirect hop reads it again. A stored value that is not JSON reads as off. Fake-IP
+  answers carry no destination, so on this machine the proxy, not ATM, vouches for it. Behaviour with the setting
+  off is unchanged (Python's `is_global`, as before).
+- Error codes unchanged; an additive `hint: "fake_ip_tunnel"` when Fake-IP answers are the only cause
+  (errors, OAuth `last_error_hint`, job errors, `/api/jobs` `error_hint`).
+- Console only: `POST /api/settings/network`, a confirm (C6) from the D11 login error and 设置 › 高级 › 网络; no
+  CLI write path or setting file. Like every console write, a program running as the same user can start `atm ui`
+  and use its token file, so this is not same-user isolation (SECURITY.md). Each change adds an `events` row
+  (`network.fake_ip_tunnel.enabled/disabled`). Read-only in `GET /api/overview` and `atm doctor`
+  (`"write_path": "console_only"`). Nothing is retried automatically. C6 opens on 取消; after 允许 the focus
+  goes back to the login (D11's cleared ATM 主密码 field, or 重新登录 on the card and the 首页 line, which
+  offer the switch while it is off); a 409 because another tab already allowed it counts as allowed.
+
 # Unreleased — console redesign
 
 - Five sections (首页, 服务, Agent 与权限, 记录, 设置) with a needs-you inbox, one page per service listing every connection route with exact copy and terminal commands, and the Key lock in one top-bar control on every page; 退出管理台 only ends the tab.

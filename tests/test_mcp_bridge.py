@@ -202,3 +202,15 @@ def test_stdio_non_object_reply_after_tool_call_dispatch_is_uncertain(router,wor
     assert j['status']=='submission_unknown',j
     assert j['data']['error']['code']=='mcp_protocol' and j['data']['error']['outcome_uncertain'] is True
     assert j['data']['mcp_started']=='increment' and not j['data'].get('mcp_completed')
+
+
+@pytest.mark.parametrize('fail_when,status',[
+    pytest.param(lambda sent:'tools/list' in sent and 'tools/call' not in sent,'failed',id='before_first_call'),
+    pytest.param(lambda sent:sent.count('tools/call')==1,'submission_unknown',id='after_a_paid_call'),
+])
+def test_a_fake_ip_hint_from_the_token_step_survives_into_the_job_error(router,workspace,monkeypatch,fail_when,status):
+    # #32's machine-readable cause must not be lost when the MCP layer re-raises a refresh failure.
+    error=Unsent('oauth_dns_policy','Official OAuth host resolves to a private or reserved address. No OAuth request was sent.',hint='fake_ip_tunnel')
+    oauth_server(router,monkeypatch,error,fail_when)
+    j=router.run('figma.mcp_batch',{'calls':[{'name':'read','arguments':{}},{'name':'increment','arguments':{'amount':1}}]},workspace,**PAID)
+    assert j['status']==status and j['data']['error']['code']=='oauth_dns_policy' and j['data']['error']['hint']=='fake_ip_tunnel',j

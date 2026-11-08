@@ -20,7 +20,7 @@ from jsonschema import Draft202012Validator
 import httpx
 from .cli_adapter import SAFE_ENV
 from .errors import RouterError
-from .network import checked_url, public_address
+from .network import checked_url, fake_ip_tunnel, public_address
 from .storage import canonical
 
 MAX_MESSAGE=2*1024*1024
@@ -131,7 +131,7 @@ class Stdio:
 
 class HTTP:
     def __init__(self,cfg,vault,network):
-        self.cfg=cfg;self.net=network;self.session=None;self.version=None
+        self.cfg=cfg;self.net=network;self.state=vault.state;self.session=None;self.version=None
         self.oauth = None
         if cfg.get('oauth'):
             from .oauth import OAuth
@@ -140,14 +140,14 @@ class HTTP:
         if cfg.get('credential'):self.headers['Authorization']='Bearer '+vault.get(cfg['credential'])
     def exchange(self,msg,notify=False,sending=None):
         url=self.cfg['url']
-        if not self.cfg.get('allow_local'):public_address(url,self.net.resolver)
+        if not self.cfg.get('allow_local'):public_address(url,self.net.resolver,fake_ip=fake_ip_tunnel(self.state))
         headers=dict(self.headers)
         if self.oauth:
             from .oauth import Unsent
             try:token=self.oauth.access_token(self.cfg['oauth'], url)
             except RouterError as e:
                 # Whatever the refresh outcome (kept in OAuth status), THIS MCP message was never sent.
-                raise Unsent(e.code,str(e)+' This MCP message was not sent.') from None
+                raise Unsent(e.code,str(e)+' This MCP message was not sent.',hint=getattr(e,'hint',None)) from None
             headers['Authorization'] = 'Bearer ' + token
             self.headers['Authorization'] = headers['Authorization']  # Same pinned resource for session DELETE, without refresh/replay.
         if self.session:headers['Mcp-Session-Id']=self.session
@@ -246,7 +246,7 @@ def execute_mcp(router,tool,job):
         # Once a tools/call may have run, no later failure is a plain "failed" an Agent could resubmit.
         # Unsent for a later call proves only that it never left; earlier completed calls still ran.
         if dispatched and not e.uncertain:
-            raise RouterError(e.code,str(e)+' A tool call in this batch may have run; completed results are retained, do not resubmit blindly.',uncertain=True) from None
+            raise RouterError(e.code,str(e)+' A tool call in this batch may have run; completed results are retained, do not resubmit blindly.',uncertain=True,hint=getattr(e,'hint',None)) from None
         raise
     finally:
         if conn:conn.close()
