@@ -40,7 +40,8 @@
 
 ## 从源码重建并安装27项
 
-四个编译器的 ID 互不重叠：运行时20项、结果读取3项、下载2项、首页素材2项。
+四个编译器的 ID 互不重叠：运行时20项、结果读取3项、下载2项、首页素材2项
+（`tests/test_xyq_install_recipe.py` 用下列四条命令编译到临时目录，断言恰好27个不同 ID）。
 `build_xyq_web.py` 默认及其它阶段输出与运行时有18项同 ID 不同定义，安装会报
 `duplicate_tool`，不要混装。`--results-only` 只产出3个结果包，与 `--include-results`
 中的对应包逐字节相同，且不能与其它阶段选项同用。各合同引用的 `generated/xyq-*` 阶段目录
@@ -50,10 +51,11 @@
 ```sh
 OPENCLIAPP=/Applications/OpenCLIApp.app/Contents/MacOS/opencli-app  # 已审阅的 App 实际可执行文件
 DOWNLOADS="$HOME/Downloads"                                          # 浏览器固定下载目录
+CLOSURE="$HOME/.opencli/clis/xyq-download-bound/reviewed"            # 下载加载器已审阅的 reviewed/ 闭包目录
 OUT=/absolute/new/directory                                          # 尚不存在；编译器不覆盖
 python scripts/build_xyq_runtime.py --out "$OUT/runtime"             # 20
 python scripts/build_xyq_web.py --results-only --out "$OUT/results"  # 3
-python scripts/build_xyq_download.py --out "$OUT/download" --bridge "$OPENCLIAPP" --download-root "$DOWNLOADS"  # 2
+python scripts/build_xyq_download.py --out "$OUT/download" --bridge "$OPENCLIAPP" --download-root "$DOWNLOADS" --adapter-dir "$CLOSURE"  # 2
 python scripts/build_xyq_material.py --out "$OUT/material"           # 2
 for d in "$OUT"/*/*/; do atm make check-bundle "$d" && atm make validate "$d/manifest.json"; done
 # 逐包审阅 manifest.json 与上面的 sha256，再每包安装一次（共27次，四组顺序不限）：
