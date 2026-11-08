@@ -42,6 +42,7 @@
   `/private/tmp/atm-xyq-audio-edit-bound-install-plan-20261007.json`、
   `/private/tmp/atm-xyq-audio-edit-bound-install-20261007.json`（0600）。
 - 新16包 `generated/xyq-web-audio-edit-bound-stage/`，相对费率阶段只变三条定义，其它13条保持。
+  该目录是本机构建输出，未提交到仓库；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
   缺省schema/权限仍为既有合同：execute_code+external_write，即使零输入也保留该权限要求。
 - Node186、Python231（69非浏览器/162原生隔离），全部通过、零跳过；新增10Node、9非浏览器
   和21原生隔离。实际桥测模型/采样率、已有引用零输入、原生纯文本/中文/空格/多行和结构化引用，

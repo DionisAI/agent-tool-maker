@@ -40,7 +40,9 @@ artifact_rejected是已完成的条件检查负例，reason/phase明确；生成
 
 新源码src/agent_tool_maker/media.py；仅在原CLI增加media解析与无Router的本地执行分支。
 直接inspect不初始化ATM状态，不取Key；固定adapter经工具工厂/权限/job/产物回执运行。
-单独编译器scripts/build_xyq_media.py，生成generated/xyq-media-delivery-stage/artifact_inspect/；
+单独编译器scripts/build_xyq_media.py，生成generated/xyq-media-delivery-stage/artifact_inspect/
+（本机构建输出，未提交到仓库；不属于27项[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)，
+用该编译器另行编译到新的 `--out` 目录）；
 网页编译默认18个定义与各闭包保持，未加载新的浏览器注册。
 validator pin：7ea6f054a0568b17de0554e44ad35c1b2027c968dfda11218b04c5782b292efd；
 本机definition SHA：3f5d83af53a1ffcb8a50654b0b9738e995ca1f0832e259f2e08c3cacd2c629a4。

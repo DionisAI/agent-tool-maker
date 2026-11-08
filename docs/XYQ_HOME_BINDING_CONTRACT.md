@@ -39,6 +39,7 @@ mode_prepare 继续绑定完整空稿摘要；form_choices 继续验证开关菜
 - 原已安装实测快照 source pin：`c6cb485f03a7d28fb348d3c06dd620529dfe1a75a3b3202d4405ed73777e1d42`。
   `generated/xyq-web-home-bound-stage-r3/` 仍为16个既有媒体工具，四个定义显式换路由，
   其它定义/原 source pin 保持。原有阶段目录与安装源码快照均保留。
+  这些阶段目录都是本机构建输出，未提交到仓库；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
 - 当时安装在 `~/.opencli/clis/xyq-home-bound/home.js` 与 reviewed/ 导入闭包；
   当前运行代码为新五入口pin，旧完整快照保存在 `/private/tmp/atm-xyq-home-prepare-installed-before-20261007/`。
   两个原音频读取 loader 未变；没有加载上传/生成入口。生产 ATM/vault 未改动。

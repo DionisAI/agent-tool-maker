@@ -39,8 +39,9 @@ all_results=false：仅当前渲染图片，不是全部会话/账号任务，�
 
 源码 `examples/opencli/xyq-web/results.mjs/results.js`；编译器新增显式 `--include-results`。
 默认18项保持；原 --include-delivery 的20项保持；两者追加后为23包：
-`generated/xyq-web-results-stage-r1/`。结果闭包 pin：
+`generated/xyq-web-results-stage-r1/`（本机构建输出，未提交到仓库）。结果闭包 pin：
 `99e0f848f994e3f030f257d9b7894660e70f96c311a28a1ae158810f40eb3dda`。
+生产所需3包用 `--results-only` 按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
 这三个新工具已追加到生产 ATM，OpenCLI 独立加载器为 xyq-results-bound；
 旧定义和8个旧加载器保持，App/pipx/用户级 Skill/vault 未升级或重置。
 安装计划、源码快照和回执：`/private/tmp/atm-xyq-results-install-20261008-r2/`。

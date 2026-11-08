@@ -56,6 +56,7 @@ file input的DOM nodeId在原生提交前重新查询对应关系，错误/变�
 2026-10-07：新闭包8文件pin
 `5b84f42acb11b641bd025875399c79e743570cc1b820d2229f3da0dcda1bd4d5`；
 16包位于 `generated/xyq-web-audio-upload-bound-stage-r2/`，相对音频准备阶段仅上传定义变化。
+该目录是本机构建输出，未提交到仓库；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。
 `~/.opencli/clis/xyq-audio-upload-bound/upload.js`单独加载一条注册，loader SHA
 `c442572df8782caafceeca331b286f02fbb0d1c8989a6ab87dcb2b2ec1a62ff3`；
 原11条注册/所有已安装闭包、第三方App、生产ATM/vault和用户级Skill保持。
