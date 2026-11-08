@@ -257,7 +257,7 @@
         }
       ],
       "output": "json",
-      "timeout": 180
+      "timeout": 900
     },
     "completion": "Submission is not a finished model; use asset status. Export checks the completed local GLB. Pagination coverage is explicit; a quiet footer is not authoritative completeness.",
     "executable": "opencliapp",

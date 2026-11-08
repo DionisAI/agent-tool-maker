@@ -40,6 +40,13 @@ def test_extended_bundle_matches_factory_and_permissions(operation):
         assert {'output': 'model.glb'} in tool['command']['argv']
 
 
+def test_asset_resolve_timeout_covers_its_fallback_full_scan():
+    # A preview card not yet rendered makes asset_resolve run the same bounded scan as
+    # assets_all (up to 50 rounds with quiet waits); a read-only job must not end as cli_timeout.
+    resolve, scan = builder.manifest('asset_resolve'), builder.manifest('assets_all')
+    assert resolve['command']['timeout'] == scan['command']['timeout'] == 900
+
+
 @pytest.mark.parametrize('operation', ['retopo', 'rig', 'image_generate'])
 def test_paid_operations_require_separate_confirmation(router, workspace, tmp_path, operation):
     tool = builder.manifest(operation)

@@ -40,7 +40,7 @@
       }
     ],
     "output": "json",
-    "timeout": 180
+    "timeout": 900
   },
   "sources": [
     "https://studio.tripo3d.ai/"
