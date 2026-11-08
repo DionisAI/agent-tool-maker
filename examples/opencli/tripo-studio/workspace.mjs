@@ -78,6 +78,8 @@ export function readWorkspaceDOM(module) {
   if (action&&(!actions[module]||!(label===actions[module]||label.startsWith(actions[module]+' ')))) return {kind:'workspace_action_changed'};
   const price=action?label.slice(actions[module].length).trim():'';
   if (price&&!/^\d+$/.test(price)) return {kind:'workspace_price_changed'};
+  // Hidden panels can repeat the document-wide action selector: bind the paid click to this verified action.
+  const actionNth=action?[...document.querySelectorAll('div.rounded-r-5:has(h2) button.animate-button')].indexOf(action):null;
   const credit=document.querySelector('header [class~="i-tripo:bolt:search"]')?.parentElement?.querySelector('p[title]')?.getAttribute('title');
   if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(credit||'')) return {kind:'pending'};
   const match=location.pathname.match(/([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/);
@@ -92,7 +94,7 @@ export function readWorkspaceDOM(module) {
   const presets=module==='animate'?[...panel.querySelectorAll('[role="tabpanel"] button')].map(firstLine).filter(s=>s&&!['Rig','More'].includes(s)):[];
   if(presets.length>500)return{kind:'workspace_presets_changed'};
   return {kind:'ready',module,asset_id:match?.[1]||null,heading:title,credits:Number(credit.replaceAll(',','')),settings,warnings,presets,
-    action_label:label,button_enabled:!!action&&!action.disabled&&action.getAttribute('aria-disabled')!=='true',quoted_credits:price===''?null:Number(price),
+    action_label:label,action_nth:actionNth,button_enabled:!!action&&!action.disabled&&action.getAttribute('aria-disabled')!=='true',quoted_credits:price===''?null:Number(price),
     controls:buttons.map(e=>({label:e.innerText.trim().replace(/\s+/g,' '),disabled:e.disabled,selected:active(e)}))};
 }
 export function workspaceQuoteHash(data) {
@@ -128,7 +130,7 @@ async function navigate(page,module,asset) {
 }
 function result(data) {
   if(data.status==='unavailable')return data;
-  return{...data,kind:undefined,prompt_sha256:typeof data.settings.prompt==='string'?sha(data.settings.prompt):null,
+  return{...data,kind:undefined,action_nth:undefined,prompt_sha256:typeof data.settings.prompt==='string'?sha(data.settings.prompt):null,
     status:data.button_enabled?'ready':'prerequisite_missing',quote_sha256:data.quoted_credits===null?null:workspaceQuoteHash(data),
     quote_known:data.quoted_credits!==null,paid_submitted:false,secrets_returned:false,acceptance:'visible_workspace_form_not_submitted'};
 }
@@ -174,10 +176,16 @@ export function readWorkspaceSubmissionDOM(module,priorId) {
   if(location.origin!=='https://studio.tripo3d.ai')return{kind:'origin_mismatch'};
   if(!Object.hasOwn(routes,module))return{kind:'invalid_argument'};
   const match=location.pathname.match(new RegExp('^/workspace/'+routes[module]+'/.*?([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$'));
+  if(!match)return{kind:'pending'};
+  if(match[1]!==priorId)return{kind:'ready',asset_id:match[1],acceptance:'new_asset_route_not_completion'};
+  // Same source route: the HUD must be outside other cards/dialogs, and this click
+  // must have changed the verified action (enabled before the claim, now disabled or busy).
   const states=['Generating','Processing','Segmenting','Enhancing',...(module==='texture'?['Generating Texture']:[])];
-  const processing=[...document.querySelectorAll('main p')].some(e=>e.getClientRects().length&&!e.closest?.('[role="tabpanel"]')&&states.some(s=>new RegExp('^'+s+'\\.{0,3}$','i').test(e.innerText.trim())));
-  if(match&&(match[1]!==priorId||processing))return{kind:'ready',asset_id:match[1],acceptance:processing?'processing_ui_not_completion':'new_asset_route_not_completion'};
-  return{kind:'pending'};
+  const processing=[...document.querySelectorAll('main p')].some(e=>e.getClientRects().length&&!e.closest?.('[role="tabpanel"],[role="dialog"],a[href]')&&states.some(s=>new RegExp('^'+s+'\\.{0,3}$','i').test(e.innerText.trim())));
+  const panels=[...document.querySelectorAll('div.rounded-r-5:has(h2)')].filter(e=>e.getClientRects().length);
+  const actions=panels.length===1?[...panels[0].querySelectorAll('button.animate-button')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&!e.closest('[role="tabpanel"]');}):[];
+  const busy=actions.length===1&&(actions[0].disabled||actions[0].getAttribute('aria-disabled')==='true'||actions[0].getAttribute('aria-busy')==='true');
+  return processing&&busy?{kind:'ready',asset_id:match[1],acceptance:'processing_ui_not_completion'}:{kind:'pending'};
 }
 export async function submitWorkspace(page,raw) {
   const args=validateExecution(raw);moduleName(args.module);assetId(args.asset);
@@ -190,7 +198,8 @@ export async function submitWorkspace(page,raw) {
     if(data.quoted_credits===null)throw new StudioError('quote_unknown','No unambiguous visible price; prepare and inspect first.');
     if(workspaceQuoteHash(data)!==args.quote||data.quoted_credits>args.budget)throw new StudioError('quote_changed','Source, settings or price differ from the approved quote.');
     if(data.credits<data.quoted_credits)throw new StudioError('insufficient_credits','Balance is below the current quote.');
-    await claim('paid_click');await page.click(PANEL+' button.animate-button');
+    if(!Number.isSafeInteger(data.action_nth)||data.action_nth<0)throw new StudioError('workspace_action_changed','The verified priced action is not addressable; no paid click.');
+    await claim('paid_click');await page.click(PANEL+' button.animate-button',{nth:data.action_nth});
     const observed=await pollDOM({evaluate:()=>page.evaluate(readWorkspaceSubmissionDOM,args.module,args.asset)},readWorkspaceSubmissionDOM);
     return{status:'submitted',module:args.module,source_asset_id:args.asset,asset_id:observed.asset_id,settings:data.settings,quoted_credits:data.quoted_credits,
       quote_sha256:args.quote,max_credits:args.budget,paid_submitted:true,secrets_returned:false,acceptance:observed.acceptance,model_completed:false};

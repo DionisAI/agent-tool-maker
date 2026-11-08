@@ -15,13 +15,16 @@ const sha=value=>createHash('sha256').update(value).digest('hex');
 test('same-UUID Texture submission recognizes the exact observed HUD phrase, not another sidebar task',()=>{
   globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/texture/'+ID};
   const progress={innerText:'Generating Texture...',getClientRects:()=>[1],closest:()=>null};
-  globalThis.document={querySelectorAll:()=>[progress]};
+  // After the paid click the verified Generate Texture action is disabled while the HUD runs.
+  const action={disabled:true,getAttribute:()=>null,closest:()=>null,getBoundingClientRect:()=>({width:100,height:20})};
+  const panel={getClientRects:()=>[1],querySelectorAll:selector=>selector==='button.animate-button'?[action]:[]};
+  globalThis.document={querySelectorAll:selector=>selector==='div.rounded-r-5:has(h2)'?[panel]:[progress]};
   const accepted=readWorkspaceSubmissionDOM('texture',ID);assert.equal(accepted.kind,'ready');assert.equal(accepted.asset_id,ID);assert.equal(accepted.acceptance,'processing_ui_not_completion');
   progress.closest=()=>({});assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
   progress.closest=()=>null;progress.innerText='Generating an unrelated task';assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
 });
 const temp=()=>mkdtempSync(join(TMP, 'atm-tripo-workspace-'));
-const FORM={kind:'ready',module:'segment',asset_id:ID,heading:'Segmentation',quoted_credits:40,credits:100,button_enabled:true,action_label:'Start Segmenting 40',warnings:[],settings:{detail_level:'Balanced'}};
+const FORM={kind:'ready',module:'segment',asset_id:ID,heading:'Segmentation',quoted_credits:40,credits:100,button_enabled:true,action_label:'Start Segmenting 40',action_nth:0,warnings:[],settings:{detail_level:'Balanced'}};
 function fixturePage(form=FORM,{available=true,clickError=false}={}) {
   const data=structuredClone(form),calls=[];let route=MODULES[data.module][1];
   const page={data,calls,evaluate:async(fn,...values)=>{
@@ -140,7 +143,7 @@ test('shared older upload lock blocks these new paid modules unchanged',async()=
 function domFixture(module,{price='40',disabled=false}={}) {
   const visible=()=>({width:100,height:20});
   const button=(text,selected=false,action=false)=>({innerText:text,disabled,closest:()=>null,getBoundingClientRect:visible,getAttribute:name=>name==='aria-pressed'?(selected?'true':'false'):null,classList:{contains:name=>action?name==='animate-button':selected&&name==='ring-purple-1'}});
-  const labels={segment:'Start Segmenting',texture:'Generate Texture',edit:'Generate Preview',upscale:'Enhance Now',pbr:'Generate PBR',image:'Generate Image',smart_uv:'Unwrap UV',animate:'Generate'};
+  const labels={segment:'Start Segmenting',texture:'Generate Texture',edit:'Generate Preview',upscale:'Enhance Now',pbr:'Generate PBR',image:'Generate Image',smart_uv:'Unwrap UV',animate:'Generate',rig:'Auto Rig'};
   const buttons=[...(module==='segment'?[button('Simple\n3-6 parts'),button('Balanced\n6-15 parts',true),button('Detailed\n15+ parts')]:module==='upscale'?[button('4K\n4096*4096'),button('8K\n8192*8192',true)]:module==='texture'?[button('2K'),button('4K'),button('8K',true)]:[]),button(labels[module]+(price?'\n'+price:''),false,true)];
   const fields=module==='texture'?[{tagName:'TEXTAREA',value:'fixture',getAttribute:()=>null}]:module==='edit'?[{tagName:'TEXTAREA',value:'',getAttribute:()=>null},{tagName:'INPUT',value:'0.6',getAttribute:n=>n==='type'?'text':null}]:[];
   for(const field of fields)field.closest=()=>null;
@@ -168,6 +171,34 @@ test('DOM signed queries are stripped and zero-height navigation is unavailable'
   globalThis.document={querySelectorAll:()=>[link]};globalThis.getComputedStyle=()=>({visibility:'visible',display:'flex'});
   assert.equal(readWorkspaceLinkDOM('Animate').available,false);
 });
+function hiddenPanelFixture(){
+  // A hidden second panel repeats the document-wide action selector before the verified one.
+  const f=domFixture('segment'),action=f.buttons.at(-1),hiddenAction={...action,getBoundingClientRect:()=>({width:0,height:0})};
+  const hiddenPanel={...f.panel,getClientRects:()=>[],querySelectorAll:s=>s==='button'?[hiddenAction]:[]};
+  let documentActions=[hiddenAction,action];
+  globalThis.document={...globalThis.document,querySelectorAll:s=>s==='div.rounded-r-5:has(h2) button.animate-button'?documentActions:[hiddenPanel,f.panel]};
+  return{setDocumentActions:value=>{documentActions=value;}};
+}
+function domPage(){
+  const p=fixturePage(),original=p.evaluate;
+  p.evaluate=async(fn,...values)=>fn===readWorkspaceDOM?fn(...values):original(fn,...values);
+  return p;
+}
+test('paid workspace click targets the verified priced action, not a hidden panel repeating its selector',async()=>{
+  hiddenPanelFixture();const quote=workspaceQuoteHash(readWorkspaceDOM('segment'));
+  const p=domPage(),out=(await submitWorkspace(p,execution({quote})))[0];
+  assert.equal(out.status,'submitted');
+  assert.deepEqual(p.calls,[['click','div.rounded-r-5:has(h2) button.animate-button',{nth:1}]]);
+  // The positional index binds the click only; inspect output stays unchanged.
+  assert.equal((await inspectWorkspace(domPage(),{module:'segment',asset:ID}))[0].action_nth,undefined);
+});
+test('an unaddressable verified action fails before the claim, leaving no stuck paid lock',async()=>{
+  const f=hiddenPanelFixture();const quote=workspaceQuoteHash(readWorkspaceDOM('segment'));f.setDocumentActions([]);
+  const args=execution({quote}),p=domPage();
+  await assert.rejects(submitWorkspace(p,args),e=>e.code==='workspace_action_changed');assert.deepEqual(p.calls,[]);
+  const dir=join(args.ledger,'.atm/tripo-studio-paid');
+  assert.equal(existsSync(join(dir,'active.lock')),false);assert.equal(readdirSync(dir).some(n=>n.endsWith('.json')),false);
+});
 test('animation preset list is separate from primary controls, with real rig prerequisite warning',()=>{
   const f=domFixture('animate',{price:'20',disabled:true});
   const preset={innerText:'walk',disabled:false,closest:()=>({}),getBoundingClientRect:()=>({width:100,height:20})};
@@ -175,6 +206,24 @@ test('animation preset list is separate from primary controls, with real rig pre
   f.panel.querySelectorAll=selector=>selector==='button'?[...f.buttons,...Array(100).fill(preset)]:selector==='[role="tabpanel"] button'?[preset]:query(selector);
   f.panel.innerText='Animation\nRig the Model First\nRig the Model First';
   const out=readWorkspaceDOM('animate');assert.equal(out.kind,'ready');assert.equal(out.quoted_credits,20);assert.deepEqual(out.presets,['walk']);assert.deepEqual(out.warnings,['Rig the Model First']);assert.equal(out.button_enabled,false);
+});
+function ownPartFixture(module,text,{price='40',disabled=false}={}){
+  // The form's own preset tabpanel (Animate) or Animate shortcut link (rig), inside the panel.
+  const f=domFixture(module,{price,disabled}),query=f.panel.querySelectorAll;
+  const part={innerText:text,getClientRects:()=>[1],parentElement:{closest:()=>null},getAttribute:name=>name==='href'?'/workspace/animate/'+ID:null};
+  f.panel.innerText=MODULES[module][2]+'\n'+text;f.panel.contains=node=>node===part;
+  f.panel.querySelectorAll=selector=>selector.includes('[role="tabpanel"],')||selector.includes('a[href]')?[part]:query(selector);
+  return f;
+}
+test('the form\'s own preset list and shortcut link stay part of its warnings and quote',()=>{
+  // Animate shows its prerequisite in the preset list; the rig form's Animate shortcut is a link.
+  for(const [module,shown,line] of [['animate','walk','Rig the Model First'],['animate','walk','Unknown server error'],
+    ['rig','Rigged models can be used for animation','Task failed'],['rig','Rigged models can be used for animation','Use a T-pose model']]){
+    ownPartFixture(module,shown);const clean=readWorkspaceDOM(module);assert.equal(clean.kind,'ready');assert.deepEqual(clean.warnings,[]);assert.equal(clean.quoted_credits,40);
+    ownPartFixture(module,shown+'\n'+line);const out=readWorkspaceDOM(module);assert.equal(out.kind,'ready');assert.deepEqual(out.warnings,[line]);
+    // Text anywhere in the panel fails closed: it changes the approved quote hash.
+    assert.notEqual(workspaceQuoteHash(out),workspaceQuoteHash(clean));
+  }
 });
 test('rigged same-href form shortcut does not make the inspected Animate sidebar click ambiguous',async()=>{
   const href='/workspace/animate/'+ID,link=text=>({innerText:text,closest:()=>null,parentElement:null,
@@ -186,6 +235,23 @@ test('rigged same-href form shortcut does not make the inspected Animate sidebar
   const p=fixturePage({...FORM,module:'animate'}),original=p.evaluate;
   p.evaluate=async(fn,...args)=>fn===readLocation?{origin:'https://studio.tripo3d.ai',path:'/workspace/rigging/'+ID}:fn===readWorkspaceLinkDOM?observed:original(fn,...args);
   await inspectWorkspace(p,{module:'animate',asset:ID});assert.deepEqual(p.calls[0],['click','a[href="'+href+'"]',{nth:1}]);
+});
+function hudDOM(path,{progress=[],busy=false}={}){
+  const node=(text,within=[])=>({innerText:text,getClientRects:()=>[1],closest:selector=>selector.split(',').some(s=>within.includes(s.trim()))?{}:null});
+  const paragraphs=progress.map(([text,within])=>node(text,within));
+  const action={innerText:'Generate Texture\n30',disabled:busy,getAttribute:()=>null,closest:()=>null,getBoundingClientRect:()=>({width:100,height:20})};
+  const panel={getClientRects:()=>[1],querySelectorAll:selector=>selector==='button.animate-button'?[action]:[]};
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:path};
+  globalThis.document={querySelectorAll:selector=>selector==='main p'?paragraphs:selector==='div.rounded-r-5:has(h2)'?[panel]:[]};
+}
+test('same-UUID progress needs the routed HUD and a busy action; another card or an unregistered click stays pending',()=>{
+  const route='/workspace/texture/'+ID;
+  for(const within of [['[role="tabpanel"]'],['a[href]'],['[role="dialog"]']]){
+    hudDOM(route,{progress:[['Generating Texture...',within]],busy:true});assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
+  }
+  hudDOM(route,{progress:[['Generating Texture...',[]]]});assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
+  hudDOM(route,{progress:[['Generating Texture...',[]]],busy:true});
+  assert.deepEqual(readWorkspaceSubmissionDOM('texture',ID),{kind:'ready',asset_id:ID,acceptance:'processing_ui_not_completion'});
 });
 test('new source or actual processing signal is submission evidence, never completion',()=>{
   globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/texture-pbr/'+ID};globalThis.document={querySelectorAll:()=>[]};

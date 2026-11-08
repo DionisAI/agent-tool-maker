@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.rig_quote'
-DEFINITION_SHA256 = '88795c88aa8b0e69094d0a0e07c5705d88f027b9c65c90148f0fe020c5a959c3'
+DEFINITION_SHA256 = '8412caa0f0697a4baa4a7d0f855cc3dab723d28df89eefb4481f71e06f0bf23d'
 
 
 def main(argv=None):

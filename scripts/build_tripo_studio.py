@@ -306,7 +306,8 @@ def extended_manifest(operation):
     if operation == 'image_generate':
         properties['image_sha256'] = {'type': 'string', 'pattern': '^[a-f0-9]{64}$'}
         argv += ['--image-sha', {'input': 'image_sha256'}]
-    command = {'argv': argv, 'output': 'json', 'timeout': 900 if operation == 'assets_all' else 180}
+    # asset_resolve falls back to the same bounded 50-round scan as assets_all.
+    command = {'argv': argv, 'output': 'json', 'timeout': 900 if operation in ('assets_all', 'asset_resolve') else 180}
     if operation == 'export':
         argv += ['--output', {'output': 'model.glb'}]
         command['outputs'] = ['model.glb']

@@ -51,6 +51,23 @@ test('visible Workspace SPA link avoids cold route reload from assets', async ()
   assert.equal((await prepareText(p)).kind, 'ready');
   assert.deepEqual(calls, ['a[href="/workspace/generate"]']);
 });
+test('a not-yet-committed SPA route after the Workspace click is pending; a foreign origin still fails', async () => {
+  const calls = []; let reads = 0;
+  // Native click completion is not SPA route completion: the first frames still show /assets.
+  globalThis.location = { origin: 'https://studio.tripo3d.ai', pathname: '/assets' };
+  const p = { evaluate: async fn => {
+      if (fn === readLocationDOM) return { origin: 'https://studio.tripo3d.ai', path: '/assets', workspace_link: true };
+      assert.equal(fn, readWorkspaceDOM);
+      return ++reads < 3 ? fn() : { ...FORM };
+    },
+    goto: async () => assert.fail('Use observed SPA link instead of reloading'),
+    click: async selector => calls.push(selector) };
+  assert.equal((await prepareText(p)).kind, 'ready');
+  assert.equal(reads, 3);
+  assert.deepEqual(calls, ['a[href="/workspace/generate"]']);
+  globalThis.location = { origin: 'https://studio.tripo3d.ai.example', pathname: '/workspace/generate' };
+  assert.equal(readWorkspaceDOM().kind, 'origin_mismatch');
+});
 test('existing private draft preserved', async () => { const a = args(); const p = fakePage(a, { form: { prompt_value: 'Keep this draft' } }); await assert.rejects(generate(p, a), e => e.code === 'draft_present'); assert.deepEqual(p.calls, []); });
 test('claim precedes only click; success says submitted, not model completed; reuse performs no browser action', async () => { const a = args(); const p = fakePage(a); const result = (await generate(p, a))[0]; assert.equal(result.status, 'submitted'); assert.equal(result.asset_id, ASSET); assert.match(result.acceptance, /not_model_completion/); assert.deepEqual(p.calls, ['fill', 'paid_click']); p.calls.length = 0; assert.equal((await generate(p, a))[0].reused, true); assert.deepEqual(p.calls, []); await assert.rejects(generate(p, { ...a, prompt: 'Changed' }), e => e.code === 'request_conflict'); });
 test('click failure retains receipt and active lock; same or new keys do not resubmit', async () => { const a = args(); const p = fakePage(a, { failClick: true }); await assert.rejects(generate(p, a), e => e.code === 'submission_unknown'); assert.ok(existsSync(join(a.ledger, '.atm/tripo-studio-paid/active.lock'))); p.calls.length = 0; await assert.rejects(generate(p, a), e => e.code === 'submission_unknown'); await assert.rejects(generate(p, { ...a, key: 'do-not-bypass' }), e => e.code === 'workspace_busy'); assert.deepEqual(p.calls, []); });

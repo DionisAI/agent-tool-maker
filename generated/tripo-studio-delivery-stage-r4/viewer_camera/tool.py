@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.viewer_camera'
-DEFINITION_SHA256 = 'c687aa1daae4b42353bd9ae7ae48bdca8af49352880f139e5afded3412b6c62b'
+DEFINITION_SHA256 = '1eeb5191cfdf234b3079bf80ea1c8a7c1354af03f9af3ede293504c61d9d41ae'
 
 
 def main(argv=None):

@@ -37,6 +37,15 @@ Retopo Quad/10000，40积分；Texture 8K，`solid blue matte surface`，30积�
   保留锁期间不绕过导出守卫，最终GLB文件及质量/导入验收仍待。
 
 同一UUID会被后处理原位更新，source_asset_id==asset_id不是新的结果UUID。
+同一路由的提交证据须同时满足：进度文案不在侧栏 tabpanel、资产链接卡片或弹窗内，
+且点击前已校验可用的唯一操作按钮此后变为禁用/忙碌；仅有其它卡片的进度仍为等待，
+超时即 submission_unknown 并保留锁。新的结果 UUID 路由仍是独立证据。
+资产状态按身份而非位置读取进度与失败文案：文案在所有侧栏 tabpanel、弹窗和链接之外，
+或在路由资产自身卡片内（链接只含该 UUID）才算数；其它资产卡片，以及不在自身卡片内的
+侧栏 tabpanel/弹窗文案，不会让已就绪资产读成 generating 或 failed。新结果卡片的失败读成
+failed（不再永远 pending），原位更新卡片的失败读成 failed（不再沿用旧网格的 ready）。
+retopo/rig 面板的 blocked 与 Workspace 表单的 warnings 仍读整个面板文案（含 Animate
+预设 tabpanel 与 rig 表单的 Animate 快捷链接），面板内任何失败文案都拒绝或改变报价哈希。
 operation_status 保守返回 needs_output_reference；未知回执保留 submission_unknown，
 都不释放锁或推定已完成。后续需要明确的版本/完成证据合同来做自动对账。
 模型只读状态、单次提交、操作关联、最终文件与视觉质量是不同验收门槛。

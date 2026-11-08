@@ -92,8 +92,17 @@ export function readAssetDOM() {
     const count=Number(value.split('/')[0]);return Number.isSafeInteger(count)?count:null;
   };
   const faces = numberAfter('Faces'), vertices = numberAfter('Vertices');
-  const processing = paragraphs.some(el => !el.closest?.('[role="tabpanel"]') && /^(Generating(?: Texture)?\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3}|Segmenting\.{0,3}|Enhancing\.{0,3})$/i.test(el.innerText.trim()));
-  const failed = paragraphs.some(el => /^(Generation failed|Unknown server error|Task failed)/i.test(el.innerText.trim()));
+  // Identity, not position: text speaks for the routed asset outside every card and dialog,
+  // or inside its own card (a link naming this UUID and no other). Another asset's card, or
+  // the sidebar tabpanel or a dialog outside that card, is not its progress or failure.
+  const own = el => {
+    const link = el.closest?.('a[href]');
+    if (!link) return !el.closest?.('[role="tabpanel"], [role="dialog"]');
+    const ids = (link.getAttribute?.('href') || '').match(/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}/gi) || [];
+    return ids.length > 0 && ids.every(found => found.toLowerCase() === match[1]);
+  };
+  const processing = paragraphs.some(el => own(el) && /^(Generating(?: Texture)?\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3}|Segmenting\.{0,3}|Enhancing\.{0,3})$/i.test(el.innerText.trim()));
+  const failed = paragraphs.some(el => own(el) && /^(Generation failed|Unknown server error|Task failed)/i.test(el.innerText.trim()));
   const exports = Array.from(main.querySelectorAll('button')).filter(el => el.innerText.trim() === 'Export' && !el.closest('[role="dialog"]'));
   const exportEnabled = exports.length === 1 && !exports[0].disabled;
   const status = failed ? 'failed' : processing ? 'generating' : faces > 0 && vertices > 0 && exportEnabled ? 'ready' : 'pending';
@@ -335,9 +344,16 @@ export async function claimedOperation(args, fingerprint, work) {
 export function readSubmissionDOM(priorId) {
   if (location.origin !== 'https://studio.tripo3d.ai') return { kind: 'origin_mismatch' };
   const match = location.pathname.match(/^\/workspace\/(?:generate|retopology|rigging)\/.*?([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/);
-  const processing = Array.from(document.querySelectorAll('main p')).some(el => el.getClientRects().length && /^(Generating\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3})$/i.test(el.innerText.trim()));
-  if (match && (match[1] !== priorId || processing)) return { kind: 'ready', asset_id: match[1], acceptance: processing ? 'processing_ui_observed_not_model_completion' : 'new_asset_route_observed_not_model_completion' };
-  return { kind: 'pending' };
+  if (!match) return { kind: 'pending' };
+  if (match[1] !== priorId) return { kind: 'ready', asset_id: match[1], acceptance: 'new_asset_route_observed_not_model_completion' };
+  // Same source route: progress text alone may belong to another card. Count only
+  // progress outside cards/dialogs, and only with this click's own change: the
+  // panel's single action, enabled before the claim, is now disabled or busy.
+  const processing = Array.from(document.querySelectorAll('main p')).some(el => el.getClientRects().length && !el.closest('[role="tabpanel"], [role="dialog"], a[href]') && /^(Generating\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3})$/i.test(el.innerText.trim()));
+  const panels = document.querySelectorAll('div.rounded-r-5:has(h2)');
+  const actions = panels.length === 1 ? panels[0].querySelectorAll('button.animate-button') : [];
+  const busy = actions.length === 1 && (actions[0].disabled || actions[0].getAttribute('aria-disabled') === 'true' || actions[0].getAttribute('aria-busy') === 'true');
+  return processing && busy ? { kind: 'ready', asset_id: match[1], acceptance: 'processing_ui_observed_not_model_completion' } : { kind: 'pending' };
 }
 export async function executePaid(page, raw) {
   const args = validateExecution(raw);
@@ -433,6 +449,10 @@ export function readExportDOM() {
   if (dialogs.length !== 1) return { kind: 'layout_changed' };
   const dialog = dialogs[0], combos = Array.from(dialog.querySelectorAll('[role="combobox"]'));
   const button = dialog.querySelector('button.animate-button');
+  // The subscription dialog was observed unpriced. A newly shown price (credit glyph,
+  // credits text, free allowance, currency or a priced Export label) fails, never reads as 0.
+  if (/^Export\s+\d/.test(button?.innerText || '') || dialog.querySelector('[class*="i-tripo:bolt"]') ||
+      /\bcredits?\b|积分|^Free \d+\/\d+$|[$¥€£]\s?\d/im.test(dialog.innerText || '')) return { kind: 'export_price_changed' };
   if (!/^Export\s*$/.test(button?.innerText || '') || dialog.querySelectorAll('button.animate-button').length !== 1 || combos.length !== 2) return { kind: 'layout_changed' };
   const match = location.pathname.match(/([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/);
   if (!match) return { kind: 'asset_mismatch' };
@@ -618,6 +638,20 @@ export function readPreviewTargetDOM(preview) {
   }).filter(index => index !== null);
   return { count: matches.length, nth: matches[0] };
 }
+export function readPreviewDialogDOM(preview) {
+  if (location.origin !== 'https://studio.tripo3d.ai') return { kind: 'origin_mismatch' };
+  const dialogs = Array.from(document.querySelectorAll('[role="dialog"]')).filter(el => el.getClientRects().length &&
+    Array.from(el.querySelectorAll('button')).some(button => button.innerText.trim() === 'Edit in Workspace'));
+  if (!dialogs.length) return { kind: 'pending' };
+  if (dialogs.length !== 1) return { kind: 'layout_changed' };
+  // The card click is positional. Bind the opened dialog to the requested preview
+  // thumbnail before Edit in Workspace can expose another asset's UUID.
+  const previews = Array.from(dialogs[0].querySelectorAll('img[src]')).map(img => {
+    try { return new URL(img.getAttribute('src'), location.origin).pathname.match(/\/([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})\/studio_(?:mesh|mesh_gray|part|wireframe)\.webp$/)?.[1] || null; } catch { return null; }
+  }).filter(Boolean);
+  if (!previews.length) return { kind: 'pending' };
+  return previews.every(id => id === preview) ? { kind: 'ready', preview_task_id: preview } : { kind: 'asset_mismatch' };
+}
 export async function resolveAsset(page, args) {
   assetId(args.preview);
   await navigateAssets(page);
@@ -629,6 +663,7 @@ export async function resolveAsset(page, args) {
   }
   if (target.count !== 1) throw new StudioError('asset_not_found', 'Preview card is not uniquely visible in the asset scan.');
   await page.click('main div.group > a', { nth: target.nth });
+  await pollDOM({ evaluate: () => page.evaluate(readPreviewDialogDOM, args.preview) }, readPreviewDialogDOM);
   await clickText(page, '[role="dialog"] button', 'Edit in Workspace');
   const data = await pollDOM(page, readAssetDOM);
   return [{ status: data.status, asset_id: data.asset_id, preview_task_id: args.preview, paid_submitted: false }];

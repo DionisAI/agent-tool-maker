@@ -18,7 +18,9 @@ export function checkPaidPin(pin) {
 }
 
 export function readWorkspaceDOM() {
-  if (location.origin !== 'https://studio.tripo3d.ai' || location.pathname !== '/workspace/generate') return { kind: 'origin_mismatch' };
+  if (location.origin !== 'https://studio.tripo3d.ai') return { kind: 'origin_mismatch' };
+  // The SPA link click returns before its client route commits; only a foreign origin is a contract change.
+  if (location.pathname !== '/workspace/generate') return { kind: 'pending' };
   if (/Something went wrong|Please try again later/.test(document.querySelector('main')?.innerText || '')) return { kind: 'site_error' };
   const credit = document.querySelector('[class~="i-tripo:bolt:search"]')?.parentElement?.querySelector('p[title]');
   if (!credit) {

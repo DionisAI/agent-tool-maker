@@ -18,7 +18,7 @@ test('completed Quad and triangle models expose single and current/total counts 
 import { assetId, parseSettings, quoteHash, extendedDigest, checkExtendedPin, readLocation, readRouteLinkDOM, readAssetEntryLinkDOM,
   readAssetDOM, readPanelDOM, readSubmissionDOM, readExportDOM, readCollectionDOM, readVisibleErrorDOM, findTextDOM, PANEL, EXPORT_DIALOG,
   inspectAsset, operationQuote, executePaid, inspectImageFile, imageQuote, generateImage, validateGLB,
-  exportModel, exportQuote, assetsAll, claimedOperation, validateExecution,
+  exportModel, exportQuote, assetsAll, claimedOperation, validateExecution, resolveAsset, readPreviewTargetDOM, readPreviewDialogDOM,
 } from '../examples/opencli/tripo-studio/extended.mjs';
 import { readAccountDOM } from '../examples/opencli/tripo-studio/core.mjs';
 // Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
@@ -249,6 +249,20 @@ test('export watcher precedes only click; file validated and identical key reuse
   assert.deepEqual(p.calls,['fill','watch','click:'+EXPORT_DIALOG+' button.animate-button']);p.calls.length=0;
   assert.equal((await exportModel(p,a))[0].reused,true);assert.deepEqual(p.calls,[]);
 });
+test('export dialog fails on any newly shown credit price instead of reading it as free',()=>{
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/generate/'+ID};
+  const button={innerText:'Export',disabled:false,getAttribute:()=>null};
+  let text='Export\nGLB\n4k Current\nExport Skeleton\nExport',icon=null;
+  const dialog={get innerText(){return text;},querySelector:s=>s==='button.animate-button'?button:s==='input[maxlength="255"]'?{value:'fixture'}:s.includes('bolt')?icon:null,
+    querySelectorAll:s=>s==='[role="combobox"]'?[{innerText:'GLB'},{innerText:'4k\nCurrent'}]:s==='button.animate-button'?[button]:[]};
+  globalThis.document={querySelectorAll:()=>[dialog]};
+  const free=readExportDOM();assert.equal(free.kind,'ready');assert.equal(free.price,0);
+  for(const priced of ['Export\nGLB\nCosts 10 credits\nExport','Export\nGLB\n消耗 10 积分\nExport','Export\nGLB\nFree 3/10\nExport','Export\nGLB\n$1.99\nExport']){
+    text=priced;assert.equal(readExportDOM().kind,'export_price_changed');
+  }
+  text='Export\nGLB\n4k Current\nExport';icon={};assert.equal(readExportDOM().kind,'export_price_changed');
+  icon=null;button.innerText='Export\n10';assert.equal(readExportDOM().kind,'export_price_changed');
+});
 test('export format drift and pre-existing output stop before download',async()=>{
   const a=args({operation:'export',quote:quoteHash(EXPORT)});a.output=join(a.ledger,'model.glb');
   const p=fixturePage(a,{form:{...EXPORT,settings:{format:'FBX',texture_resolution:'4k Current'}}});await assert.rejects(exportModel(p,a),e=>e.code==='format_changed');assert.deepEqual(p.calls,[]);
@@ -296,6 +310,101 @@ test('known SPA heading transition is pending; unknown heading is a contract fai
   assert.equal(readPanelDOM('retopo').kind,'pending');heading='Unrecognized Panel';assert.equal(readPanelDOM('retopo').kind,'layout_changed');
   location.pathname='/workspace/generate/'+ID;assert.equal(readPanelDOM('retopo').kind,'pending');
 });
+function progressDOM(path,{progress=[],busy=false}={}){
+  // closest() honours selector lists and returns the nearest listed ancestor. Ancestors are
+  // innermost first: a selector string, or {href} for an asset link card.
+  const node=(text,within=[])=>({innerText:text,getClientRects:()=>[1],closest:selector=>{
+    const parts=selector.split(',').map(s=>s.trim());
+    for(const ancestor of within){
+      if(typeof ancestor==='string'){if(parts.includes(ancestor))return {};}
+      else if(parts.includes('a[href]'))return {getAttribute:name=>name==='href'?ancestor.href:null};
+    }
+    return null;
+  }});
+  const paragraphs=[node('Faces'),node('Vertices'),...progress.map(([text,within])=>node(text,within))];
+  paragraphs[0].nextElementSibling={innerText:'12'};paragraphs[1].nextElementSibling={innerText:'8'};
+  const action={innerText:'Retopology 40',disabled:busy,getAttribute:()=>null,closest:()=>null};
+  const panel={querySelectorAll:selector=>selector==='button.animate-button'?[action]:[]};
+  const main={innerText:'Retopology',querySelectorAll:selector=>selector==='p'?paragraphs:selector==='button'?[{innerText:'Export',disabled:false,closest:()=>null}]:[]};
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:path};
+  globalThis.document={querySelector:selector=>selector==='main'?main:null,
+    querySelectorAll:selector=>selector==='main p'?paragraphs:selector==='div.rounded-r-5:has(h2)'?[panel]:[]};
+}
+test('another card showing progress never proves this asset is processing or that the paid click registered',()=>{
+  const route='/workspace/retopology/'+ID;
+  for(const within of [['[role="tabpanel"]'],['a[href]'],['[role="dialog"]']]){
+    progressDOM(route,{progress:[['Retopologizing...',within]],busy:true});
+    assert.equal(readSubmissionDOM(ID).kind,'pending');
+    const status=readAssetDOM();assert.equal(status.status,'ready');assert.equal(status.processing,false);
+  }
+  // Routed progress without this click's own change (the action is still enabled) is not evidence.
+  progressDOM(route,{progress:[['Retopologizing...',[]]]});assert.equal(readSubmissionDOM(ID).kind,'pending');
+  assert.equal(readAssetDOM().status,'generating');
+  progressDOM(route,{progress:[['Retopologizing...',[]]],busy:true});
+  assert.deepEqual(readSubmissionDOM(ID),{kind:'ready',asset_id:ID,acceptance:'processing_ui_observed_not_model_completion'});
+  progressDOM('/workspace/retopology/'+OTHER);
+  assert.deepEqual(readSubmissionDOM(ID),{kind:'ready',asset_id:OTHER,acceptance:'new_asset_route_observed_not_model_completion'});
+});
+test('another card or a dialog showing a failure never marks the ready routed asset failed',()=>{
+  const route='/workspace/retopology/'+ID;
+  for(const text of ['Generation failed','Unknown server error','Task failed'])
+    for(const within of [['[role="tabpanel"]'],['a[href]'],['[role="dialog"]']]){
+      progressDOM(route,{progress:[[text,within]]});
+      const status=readAssetDOM();assert.equal(status.status,'ready');assert.equal(status.processing,false);assert.equal(status.export_enabled,true);
+      // Nor does another card's failure become submission evidence for this click.
+      progressDOM(route,{progress:[[text,within]],busy:true});assert.equal(readSubmissionDOM(ID).kind,'pending');
+    }
+  // Another card's failure does not hide this asset's own progress either.
+  progressDOM(route,{progress:[['Generation failed',['[role="tabpanel"]']],['Retopologizing...',[]]]});assert.equal(readAssetDOM().status,'generating');
+  // The routed asset's own failure still outranks its old mesh, Export and progress.
+  for(const text of ['Generation failed','Unknown server error','Task failed']){
+    progressDOM(route,{progress:[[text,[]]]});assert.equal(readAssetDOM().status,'failed');
+    progressDOM(route,{progress:[['Retopologizing...',[]],[text,[]]]});assert.equal(readAssetDOM().status,'failed');
+  }
+});
+test('the routed asset\'s own card speaks for it; another asset\'s card, the sidebar or a dialog never does',()=>{
+  const route='/workspace/retopology/'+ID,own={href:'/workspace/retopology/'+ID};
+  // In-place update: the old mesh and Export stay while the asset's own card reports the job.
+  for(const text of ['Generation failed','Unknown server error','Task failed'])
+    for(const within of [[own],[own,'[role="tabpanel"]'],[own,'[role="dialog"]']]){
+      progressDOM(route,{progress:[[text,within]]});
+      const status=readAssetDOM();assert.equal(status.status,'failed');assert.equal(status.asset_id,ID);assert.equal(status.export_enabled,true);
+      // Its own failure outranks its own progress and another card's progress.
+      progressDOM(route,{progress:[['Retopologizing...',within],['Retopologizing...',['[role="tabpanel"]']],[text,within]]});assert.equal(readAssetDOM().status,'failed');
+    }
+  for(const within of [[own],[own,'[role="tabpanel"]']]){
+    progressDOM(route,{progress:[['Retopologizing...',within]]});const status=readAssetDOM();assert.equal(status.status,'generating');assert.equal(status.processing,true);
+  }
+  // Another asset's card (also one that names this UUID only in its query), a link with no
+  // asset UUID, and the sidebar or a dialog outside this asset's own card stay unrelated.
+  const elsewhere=[[{href:'/workspace/retopology/'+OTHER}],[{href:'/workspace/retopology/'+OTHER},'[role="tabpanel"]'],[{href:'/workspace/rigging/'+OTHER},'[role="dialog"]'],
+    [{href:'/workspace/retopology/'+OTHER+'?source='+ID}],[{href:'/workspace/generate'}],['[role="tabpanel"]'],['[role="dialog"]']];
+  for(const within of elsewhere){
+    for(const text of ['Generation failed','Unknown server error','Task failed','Retopologizing...']){
+      progressDOM(route,{progress:[[text,within]]});const status=readAssetDOM();assert.equal(status.status,'ready');assert.equal(status.processing,false);
+    }
+    // Nor do they hide this asset's own failure.
+    progressDOM(route,{progress:[['Retopologizing...',within],['Task failed',[own,'[role="tabpanel"]']]]});assert.equal(readAssetDOM().status,'failed');
+  }
+});
+function rigPanelDOM(own,shortcut){
+  // The rig form's own Animate shortcut is a link inside the panel; what it shows is panel text.
+  const button={innerText:'Auto Rig 20',disabled:false,getAttribute:()=>null};
+  const link={innerText:shortcut,getClientRects:()=>[1],parentElement:{closest:()=>null},getAttribute:name=>name==='href'?'/workspace/animate/'+ID:null};
+  const fields={'h2':{innerText:'3D Rigging'},'button.animate-button':button,'[role="radio"][aria-checked="true"]':{innerText:'Humanoid'}};
+  const panel={innerText:['3D Rigging',...own,shortcut].join('\n'),contains:node=>node===link,querySelector:selector=>fields[selector]||null,
+    querySelectorAll:selector=>selector==='button.animate-button'?[button]:selector==='button[aria-expanded]'?[{innerText:'Mixamo'}]:selector.includes('a[href]')?[link]:[]};
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/rigging/'+ID};
+  globalThis.document={querySelectorAll:()=>[panel],querySelector:()=>({parentElement:{querySelector:()=>({getAttribute:()=> '100'})}})};
+}
+test('the whole panel, its own shortcut link included, decides blocked: a failure inside it refuses',()=>{
+  rigPanelDOM([],'Rigged models can be used for animation');const ready=readPanelDOM('rig');
+  assert.equal(ready.kind,'ready');assert.equal(ready.blocked,false);assert.equal(ready.button_enabled,true);assert.equal(ready.settings.skeleton,'Mixamo');
+  for(const text of ['Not Ready for Auto-Rigging','Unknown server error','Task failed']){
+    rigPanelDOM([],'Rigged models can be used for animation\n'+text);assert.equal(readPanelDOM('rig').blocked,true);
+    rigPanelDOM([text],'Rigged models can be used for animation');assert.equal(readPanelDOM('rig').blocked,true);
+  }
+});
 test('image quote binds distinct blob preview identities even when file input is cleared',()=>{
   globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/generate'};
   let blob='blob:https://studio.tripo3d.ai/'+ID+'?Signature=FAKE';
@@ -317,6 +426,46 @@ test('observed mesh, gray mesh, part and wireframe variants are accepted; signed
   name='undocumented';assert.equal(readCollectionDOM().kind,'thumbnail_contract_changed');
 });
 
+const PREVIEW='cccccccc-dddd-eeee-ffff-000000000000',SHIFTED='dddddddd-eeee-ffff-0000-111111111111';
+function resolvePage(dialogPreview){
+  const calls=[];
+  const thumbnail=id=>`https://tripo-data-public.rg1.data.tripo3d.com/tripo-studio/20261003/${id}/studio_mesh.webp?Signature=FAKE`;
+  return {calls,goto:()=>assert.fail('No cold navigation'),click:async(selector,options)=>{calls.push([selector,options?.nth]);},
+    evaluate:async(fn,...values)=>{
+      if(fn===readLocation)return{origin:'https://studio.tripo3d.ai',path:'/assets'};
+      if(fn===readVisibleErrorDOM)return{site_error:false};
+      if(fn===readAccountDOM)return{kind:'ready',credits:100};
+      if(fn===findTextDOM)return{count:1,nth:0};
+      if(fn===readPreviewTargetDOM)return{count:1,nth:0};
+      if(fn===readAssetDOM)return{kind:'ready',status:'ready',asset_id:dialogPreview===PREVIEW?ID:OTHER,faces:12,vertices:8,export_enabled:true};
+      // Any other reader runs against the card dialog that the positional nth click opened.
+      const opened=calls.some(([selector])=>selector==='main div.group > a');
+      const dialog={getClientRects:()=>[1],innerText:'Edit in Workspace',
+        querySelectorAll:selector=>selector==='button'?[{innerText:'Edit in Workspace'}]:selector.startsWith('img')?[{getAttribute:()=>thumbnail(dialogPreview)}]:[]};
+      globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/assets'};
+      globalThis.document={querySelectorAll:selector=>selector==='[role="dialog"]'&&opened?[dialog]:[]};
+      return fn(...values);
+    }};
+}
+test('asset resolve binds the opened card dialog to the requested preview before Edit in Workspace',async()=>{
+  // The grid re-rendered between the target read and the nth click: nth 0 now opens another card.
+  const shifted=resolvePage(SHIFTED);
+  await assert.rejects(resolveAsset(shifted,{preview:PREVIEW}),e=>e.code==='asset_mismatch');
+  assert.equal(shifted.calls.some(([selector])=>selector==='[role="dialog"] button'),false);
+  const exact=resolvePage(PREVIEW);const out=(await resolveAsset(exact,{preview:PREVIEW}))[0];
+  assert.equal(out.asset_id,ID);assert.equal(out.preview_task_id,PREVIEW);assert.equal(out.paid_submitted,false);
+  assert.deepEqual(exact.calls.slice(-2),[['main div.group > a',0],['[role="dialog"] button',0]]);
+});
+test('card dialog identity waits for its thumbnail and rejects ambiguous dialogs',()=>{
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/assets'};
+  let images=[];const dialog={getClientRects:()=>[1],querySelectorAll:s=>s==='button'?[{innerText:'Edit in Workspace'}]:images};
+  let dialogs=[];globalThis.document={querySelectorAll:()=>dialogs};
+  assert.equal(readPreviewDialogDOM(PREVIEW).kind,'pending');dialogs=[dialog];assert.equal(readPreviewDialogDOM(PREVIEW).kind,'pending');
+  images=[{getAttribute:()=>'/tripo-studio/20261003/'+PREVIEW+'/studio_part.webp'},{getAttribute:()=>'/static/icon.svg'}];
+  assert.deepEqual(readPreviewDialogDOM(PREVIEW),{kind:'ready',preview_task_id:PREVIEW});
+  images.push({getAttribute:()=>'/tripo-studio/20261003/'+SHIFTED+'/studio_mesh.webp'});assert.equal(readPreviewDialogDOM(PREVIEW).kind,'asset_mismatch');
+  dialogs=[dialog,dialog];assert.equal(readPreviewDialogDOM(PREVIEW).kind,'layout_changed');
+});
 function collectionDOMFixture(){
   globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/assets'};
   globalThis.getComputedStyle=()=>({overflowY:'scroll'});
