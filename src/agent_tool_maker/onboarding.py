@@ -52,7 +52,10 @@ def small_file(path: Path, limit: int) -> bytes | None:
 
 
 def checkout_root(candidate: Path) -> Path | None:
-    """Accept only an ATM source tree at this package's revision; missing or corrupt data is not an error."""
+    """Accept a directory that looks like this package's ATM source tree: its SKILL.md is byte-identical to the
+    packaged one, pyproject.toml names this distribution at this package's version, and scripts/ has the Tripo
+    factory. Other files are not compared, so this is not proof of the same revision. Missing or corrupt data is
+    not an error."""
     try:
         root = candidate.resolve()
         # The path is shown inside a Markdown code span: no backticks or invisible/line-breaking characters.
@@ -61,9 +64,10 @@ def checkout_root(candidate: Path) -> Path | None:
         skill = small_file(root / "SKILL.md", MAX_SKILL_BYTES)
         pyproject = small_file(root / "pyproject.toml", 64 * 1024)
         if skill is not None and skill == files("agent_tool_maker.data").joinpath("SKILL.md").read_bytes() \
-                and pyproject is not None and (root / "scripts/build_tripo_studio.py").is_file() \
-                and tomllib.loads(pyproject.decode("utf-8"))["project"]["name"] == DISTRIBUTION:
-            return root
+                and pyproject is not None and (root / "scripts/build_tripo_studio.py").is_file():
+            project = tomllib.loads(pyproject.decode("utf-8"))["project"]
+            if project["name"] == DISTRIBUTION and project.get("version") == __version__:
+                return root
     except Exception:
         pass
     return None

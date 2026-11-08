@@ -15,7 +15,8 @@ Existing changed Skills require review, then `--replace-skills` creates a backup
 Never move/reset an existing vault, clear existing credentials, or read token/profile files.
 The registered runtime block below takes precedence over PATH for daily commands.
 It also names the source checkout behind this Skill's docs/, scripts/, examples/ and deploy/
-paths when setup can verify it; the installed package does not contain them.
+paths when setup finds one whose SKILL.md, package name and version match this install (other
+files are not compared, so review them); the installed package does not contain them.
 
 ## Daily workflow — execute these steps yourself, not a checklist for the human
 
