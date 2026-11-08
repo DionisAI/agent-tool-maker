@@ -441,6 +441,10 @@ export function readExportDOM() {
   if (dialogs.length !== 1) return { kind: 'layout_changed' };
   const dialog = dialogs[0], combos = Array.from(dialog.querySelectorAll('[role="combobox"]'));
   const button = dialog.querySelector('button.animate-button');
+  // The subscription dialog was observed unpriced. A newly shown price (credit glyph,
+  // credits text, free allowance, currency or a priced Export label) fails, never reads as 0.
+  if (/^Export\s+\d/.test(button?.innerText || '') || dialog.querySelector('[class*="i-tripo:bolt"]') ||
+      /\bcredits?\b|积分|^Free \d+\/\d+$|[$¥€£]\s?\d/im.test(dialog.innerText || '')) return { kind: 'export_price_changed' };
   if (!/^Export\s*$/.test(button?.innerText || '') || dialog.querySelectorAll('button.animate-button').length !== 1 || combos.length !== 2) return { kind: 'layout_changed' };
   const match = location.pathname.match(/([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/);
   if (!match) return { kind: 'asset_mismatch' };

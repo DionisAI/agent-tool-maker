@@ -245,7 +245,8 @@ request_key、human_confirmed（必须 true）。输入里的 request_key 与 AT
   设置、图片或价格在收费点击前失败；唯一点击前 fsync claim，未知结果留锁。
 - **导出：**当前仅 GLB。quote 核对完成模型、格式和纹理；export 的输入包含
   asset_id、quote_sha256、request_key、human_confirmed=true。当前订阅弹窗观察为
-  无积分标价，出现新标价即契约失败。先建立唯一文件名的下载监听，再唯一点击，
+  无积分标价；弹窗内出现积分图标、credits/积分、Free n/m、货币金额或带数字的
+  Export 按钮即在 claim 前以 export_price_changed 失败。先建立唯一文件名的下载监听，再唯一点击，
   只接收匹配且 complete 的文件。检查 GLB v2 魔数、总长度、JSON chunk 与 mesh
   primitives，排他写入输出 model.glb，不覆盖已有文件，不返回签名下载 URL。
   相同 key 可从已验证回执复制产物到 ATM 的输出目录；几何质量与 Unreal 导入另验收。

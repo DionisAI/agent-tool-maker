@@ -48,7 +48,7 @@
       "tripo-studio",
       "viewer-camera",
       "--pin",
-      "80ff45ad15807e6751876f32966cf005425c15cddeea74f293cc3cf66afbe2b3",
+      "ca46e39c995a0e657bcb3f184eda5417bf5b857fe9387889af3764158c477da1",
       "-f",
       "json",
       "--asset",

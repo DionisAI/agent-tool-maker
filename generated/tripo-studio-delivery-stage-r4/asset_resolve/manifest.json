@@ -31,7 +31,7 @@
       "tripo-studio",
       "asset-resolve",
       "--pin",
-      "08865b337f57f35152b47dd9dd0a0ac9291272382260d57389ffab59a26830ff",
+      "5e999b7978fc43e85039839957fe7b0a47ca83a9dfcbc01b87e89a4ebb59018b",
       "-f",
       "json",
       "--preview",

@@ -249,6 +249,20 @@ test('export watcher precedes only click; file validated and identical key reuse
   assert.deepEqual(p.calls,['fill','watch','click:'+EXPORT_DIALOG+' button.animate-button']);p.calls.length=0;
   assert.equal((await exportModel(p,a))[0].reused,true);assert.deepEqual(p.calls,[]);
 });
+test('export dialog fails on any newly shown credit price instead of reading it as free',()=>{
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/generate/'+ID};
+  const button={innerText:'Export',disabled:false,getAttribute:()=>null};
+  let text='Export\nGLB\n4k Current\nExport Skeleton\nExport',icon=null;
+  const dialog={get innerText(){return text;},querySelector:s=>s==='button.animate-button'?button:s==='input[maxlength="255"]'?{value:'fixture'}:s.includes('bolt')?icon:null,
+    querySelectorAll:s=>s==='[role="combobox"]'?[{innerText:'GLB'},{innerText:'4k\nCurrent'}]:s==='button.animate-button'?[button]:[]};
+  globalThis.document={querySelectorAll:()=>[dialog]};
+  const free=readExportDOM();assert.equal(free.kind,'ready');assert.equal(free.price,0);
+  for(const priced of ['Export\nGLB\nCosts 10 credits\nExport','Export\nGLB\n消耗 10 积分\nExport','Export\nGLB\nFree 3/10\nExport','Export\nGLB\n$1.99\nExport']){
+    text=priced;assert.equal(readExportDOM().kind,'export_price_changed');
+  }
+  text='Export\nGLB\n4k Current\nExport';icon={};assert.equal(readExportDOM().kind,'export_price_changed');
+  icon=null;button.innerText='Export\n10';assert.equal(readExportDOM().kind,'export_price_changed');
+});
 test('export format drift and pre-existing output stop before download',async()=>{
   const a=args({operation:'export',quote:quoteHash(EXPORT)});a.output=join(a.ledger,'model.glb');
   const p=fixturePage(a,{form:{...EXPORT,settings:{format:'FBX',texture_resolution:'4k Current'}}});await assert.rejects(exportModel(p,a),e=>e.code==='format_changed');assert.deepEqual(p.calls,[]);

@@ -5,7 +5,7 @@ No credential, browser session, binary, account, permission or dependency is emb
 
 ```sh
 atm make validate manifest.json
-atm make install manifest.json --approve 84889ef8ffb7e261aeb590d01a83dfc3f13ad50c000baab4849da96f3b791372
+atm make install manifest.json --approve 5e0345bdbba36c826c312ddbf402a33c0105b6610d3190a0742cbfcd6a5ae7a9
 python tool.py --input inputs.example.json --workspace /your/project --dry-run
 ```
 
