@@ -123,8 +123,11 @@ settings.request_key 可沿用。已失败的 job 键只返回原 failed job，�
 当前源码的 pin（取代下文2026-10-08已安装的旧 pin）：
 - 适配器闭包 pin（download.mjs/js 及结果读取闭包）：`9e442f3ced8e674020543867259d8f16383f1c243383c86802c4d60f60eee0dc`
   （旧 `37db8c3f2221abcec61f59a9a48ea1f2c42b0716c6323414951f9a78b6c09164`）。
-- 流水线 source_digest：`fa95bcaa6ea478cf72bd185a3f307694bf883870abc7b5d50dc1919826dc0e18`
-  （旧 `d6d80f4e1219cd6622bd09cdb6be4c3065a263bebd5f9a237d602e89c0278261`；更早 `3c46e2ff…`、`e7b7f94a…`）。
+- 流水线 source_digest：`fa95bcaa6ea478cf72bd185a3f307694bf883870abc7b5d50dc1919826dc0e18`（`delivery xyq-image` 隐藏并要求
+  `--allow-write` 之后）（旧 `d6d80f4e1219cd6622bd09cdb6be4c3065a263bebd5f9a237d602e89c0278261`，main @1652509；更早
+  `3c46e2ff…`、`e7b7f94a…`）。它覆盖 `website_download.py`、`media.py` 与 `errors.py` 三个文件，其中任何一个变化都会
+  改变它：例如 #32 给 `errors.py` 加了 `hint`，所以 #34 分支上的 `3c46e2ff…` 在 main 上不成立。以所装运行时的
+  `source_digest()` 为准，见第2、4步。
 - 三个结果读取工具的闭包 pin 不变（`99e0f848…`）。
 
 新的 `xyq.web.result_download` 定义另含编译固定的 `--adapter-dir`：桥接加载器的 reviewed/ 闭包目录
@@ -145,12 +148,16 @@ settings.request_key 可沿用。已失败的 job 键只返回原 failed job，�
 1. 先安装包含新 `website_download.py` 的 ATM 运行时（含 #22 的 cli_adapter）。
 2. 用 `python scripts/build_xyq_download.py --out <新目录> --bridge <已审阅桥接> --download-root <已审阅下载目录> --adapter-dir <加载器>/reviewed`
    重新编译两个包（`--adapter-dir` 须是已存在、无链接的规范绝对目录）；回执中的
-   adapter_sha256 / pipeline_sha256 必须等于上面的新 pin。
+   adapter_sha256 必须等于上面的新闭包 pin，pipeline_sha256 必须等于第1步所装运行时的
+   `source_digest()`。后者可只读核对：
+   `<运行时的 python> -I -c "from agent_tool_maker.website_download import source_digest; print(source_digest())"`
+   （pipx 安装时运行时 python 在 `~/.local/pipx/venvs/agent-tool-maker-local/bin/python`）。
 3. 把新的下载闭包重装到该加载器的 reviewed/，同时用
    `atm make update <包>/manifest.json --approve <新定义SHA> --expected <已安装定义SHA>`
    更新两个定义（首次安装用 `atm make install`）。
-4. `atm describe xyq.web.result_download` 必须显示 `--pin fa95bcaa…`、`--adapter-pin 9e442f3c…`
-   与第2步的 `--adapter-dir`；`atm describe xyq.web.result_download_status` 必须显示 `--pin fa95bcaa…`。
+4. `atm describe xyq.web.result_download` 必须显示与运行时 `source_digest()` 相同的 `--pin`（当前为
+   `fa95bcaa…`）、`--adapter-pin 9e442f3c…` 与第2步的 `--adapter-dir`；
+   `atm describe xyq.web.result_download_status` 必须显示同一个 `--pin`。
 5. 第一次下载前运行只读的加载器摘要检查（默认加载器位置；其它位置换成同一 `--adapter-dir`）：
 
    ```sh
