@@ -1,5 +1,9 @@
 # ATM repository instructions
 
+ATM also makes reviewed website CLIs, not only credential injection. Keep observed
+DOM adapters, compiler output and live-provider acceptance distinct; never treat
+a website subscription as developer-API credits. Contracts live in feature docs.
+
 Read README.md and SKILL.md first. The default experience is **Agent prepares;
 human unlocks in one local window; Agent continues**. Do not hand the user a long
 list of installation, grant, profile and execution commands.
