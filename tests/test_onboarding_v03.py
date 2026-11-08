@@ -196,7 +196,8 @@ def test_verify_preview_and_unsupported_read_nothing(router, monkeypatch):
 
 @pytest.mark.parametrize("provider,url,header,prefix,payload", [
     ("elevenlabs", "https://api.elevenlabs.io/v1/user", "xi-api-key", "", {"user_id": "private-user", "first_name": "DO_NOT_PUBLISH"}),
-    ("tripo", "https://openapi.tripo3d.ai/v3/account/balance", "Authorization", "Bearer ", {"code": 0, "data": {"balance": 9999, "frozen": 0}}),
+    # The minus sign keeps the balance sentinel out of hex digests and timestamps.
+    ("tripo", "https://openapi.tripo3d.ai/v3/account/balance", "Authorization", "Bearer ", {"code": 0, "data": {"balance": -9999, "frozen": 0}}),
     ("cloudflare", "https://api.cloudflare.com/client/v4/user/tokens/verify", "Authorization", "Bearer ", {"success": True, "result": {"status": "active"}}),
     ("github", "https://api.github.com/user", "Authorization", "Bearer ", {"login": "private-user"}),
 ])
@@ -214,7 +215,7 @@ def test_probes_use_independent_exact_protocol_and_keep_no_body(router, provider
     result = verify(router, provider, allow_network=True)
     assert result["status"] == "probe_passed" and len(seen) == 1
     serialized = json.dumps(result) + json.dumps(router.state.setting("verification:" + provider))
-    for value in ["fixture-secret", "private-user", "DO_NOT_PUBLISH", "9999"]:
+    for value in ["fixture-secret", "private-user", "DO_NOT_PUBLISH", "-9999"]:
         assert value not in serialized
 
 
