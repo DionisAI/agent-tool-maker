@@ -37,18 +37,30 @@ class ApprovalWindow(Console):
         return {'plan': self.plan, 'approved_sha256': fingerprint(self.plan),
                 'connections': credential_rows(router.state, scope=self.plan['credentials']),
                 'initialized': bool(cfg), 'backend': cfg.get('backend') if cfg else 'passphrase',
+                'passkeys': self.passkeys.status(),
                 'session': current, 'status': self.record['status'], 'attempts_left': max(0, 5 - self.failures)}
+
+    def check_pending(self, body):
+        if self.terminal or self.record['status'] == 'ready':
+            raise RouterError('request_finished', 'This request was already completed or declined.')
+        if time.time() - self.record['created_at'] >= PENDING_SECONDS or self.failures >= 5:
+            self.passkeys.clear()
+            raise RouterError('request_expired', 'This window expired. Ask the Agent to open a new request.')
+        if not flag(body, 'consent') or text(body, 'approved_sha256') != fingerprint(self.plan):
+            self.passkeys.clear()
+            raise RouterError('approval_required', 'Approve the exact project and credential list shown here.')
+
+    def passkey_intent(self):
+        return 'desktop:' + self.request_id + ':' + fingerprint(self.plan)
 
     def approve(self, router, body):
         from .session import status, SecretSession, run_service, owner_call, shared_put
         from .extensions import declare_credential
-        fields(body, ('approved_sha256', 'consent'), ('passphrase', 'confirm_password', 'credentials'))
-        if self.terminal or self.record['status'] == 'ready':
-            raise RouterError('request_finished', 'This request was already completed or declined.')
-        if time.time() - self.record['created_at'] >= PENDING_SECONDS or self.failures >= 5:
-            raise RouterError('request_expired', 'This window expired. Ask the Agent to open a new request.')
-        if not flag(body, 'consent') or text(body, 'approved_sha256') != fingerprint(self.plan):
-            raise RouterError('approval_required', 'Approve the exact project and credential list shown here.')
+        fields(body, ('approved_sha256', 'consent'), ('passphrase', 'confirm_password', 'credentials', 'passkey'))
+        self.check_pending(body)
+        if 'passkey' in body and ('passphrase' in body or 'confirm_password' in body):
+            self.passkeys.clear()
+            raise RouterError('invalid_request', 'Select one local unlock method.')
         supplied = body.get('credentials', {})
         if not isinstance(supplied, dict) or set(supplied) - set(self.plan['credentials']):
             raise RouterError('invalid_scope', 'Only missing credentials listed in this request can be saved.')
@@ -70,14 +82,17 @@ class ApprovalWindow(Console):
                     raise RouterError('password_confirmation', 'First use: confirm the new master password.')
                 router.vault.init('passphrase')
             try:
+                if 'passkey' in body:
+                    self.passkeys.auth_finish(router.vault, body['passkey'], self.passkey_intent())
                 service = SecretSession(self.home, seconds=1800, vault=router.vault)
             except RouterError as e:
-                if e.code == 'vault_locked':
+                if e.code in {'vault_locked', 'passkey_verification', 'passkey_unwrap_failed', 'passkey_binding'}:
                     self.failures += 1
                 raise
             self.secret_session = service
             self.secret_session_thread = threading.Thread(target=run_service, args=(service,), daemon=True)
             self.secret_session_thread.start()
+        self.passkeys.clear()
         for name, value in supplied.items():
             declare_credential(router, name, apply=True)
             shared_put(self.home, name, value, replace=False)
@@ -93,6 +108,7 @@ class ApprovalHandler(Handler):
         # Retain the exact Host/Origin/bearer checks. Only the static empty shell is public.
         names = {'/': ('quickstart.html', 'text/html; charset=utf-8'),
                  '/assets/quickstart.js': ('quickstart.js', 'text/javascript; charset=utf-8'),
+                 '/assets/passkeys.js': ('passkeys.js', 'text/javascript; charset=utf-8'),
                  '/assets/quickstart.css': ('quickstart.css', 'text/css; charset=utf-8')}
         if self.path == '/api/desktop':
             return self.handle_request(False)
@@ -112,6 +128,17 @@ class ApprovalHandler(Handler):
         raise RouterError('not_found', 'This window only handles this local project request.')
 
     def mutate(self, router, body):
+        if self.path == '/api/desktop/passkey/begin':
+            fields(body, ('approved_sha256', 'consent', 'credential_id'))
+            self.server.check_pending(body)
+            from .session import status
+            if status(self.server.home)['unlocked']:
+                raise RouterError('session_already_unlocked', 'Existing lease was preserved; approve its exact scope without unlocking again.')
+            return self.server.passkeys.auth_begin(text(body, 'credential_id'), self.server.passkey_intent())
+        if self.path == '/api/desktop/passkey/cancel':
+            fields(body)
+            self.server.passkeys.clear()
+            return {'status': 'cancelled'}
         if self.path == '/api/desktop/approve':
             return self.server.approve(router, body)
         if self.path == '/api/desktop/cancel':
@@ -119,9 +146,11 @@ class ApprovalHandler(Handler):
             if self.server.record['status'] == 'ready':
                 raise RouterError('request_finished', 'Use lock to end an already approved session.')
             self.server.update_record(status='denied'); self.server.terminal = True
+            self.server.passkeys.clear()
             return {'status': 'denied'}
         if self.path == '/api/desktop/lock':
             fields(body)
+            self.server.passkeys.clear()
             from .session import owner_call
             result = owner_call(self.server.home, 'session.lock')
             self.server.update_record(status='locked'); self.server.terminal = True
@@ -133,7 +162,7 @@ def serve_request(home, identifier):
     """Finite local process started by the Agent, not a boot service or public listener."""
     server = None
     try:
-        server = ApprovalWindow(home, identifier)
+        server = ApprovalWindow(home, identifier, localhost=True)
         import signal
         def stop(signum, frame):
             server.terminal = True

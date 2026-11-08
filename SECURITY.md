@@ -6,6 +6,19 @@ that project; it is not the older exact-command permit and is not a malicious-co
 See [one-window threat model](docs/QUICK_START_SECURITY.md). Strict grants remain strict.
 No raw-secret read endpoint, password-in-chat flow, or public Web listener is added.
 
+Local Passkey unlock uses verified WebAuthn signatures with required user presence/
+verification and PRF-derived HKDF/AES-GCM wrapping of the existing vault master key.
+The original password/keyring recovery route and ciphertexts stay intact. See
+[Passkey contract](docs/PASSKEY.md). The RP is localhost, which is shared with other
+local applications, not a unique public ATM domain. Exact per-window Origin/Host,
+private bearer, single-use challenge and scope-bound intent remain mandatory.
+This is loopback HTTP, not network TLS or hostile-same-user isolation. PRF material
+is transient in the browser/server request and never persisted or returned by ATM;
+dropping references is not memory zeroization. Enrollment requires recovery auth,
+not an ambient lease. Provider-private keys stay with the authenticator; local
+bindings and wrapped master keys stay out of ATM sync. No remote RP, unconditional
+browser-policy exception or unattended Passkey refresh is introduced.
+
 # v0.7 security review scope
 
 Read [the current self-review](docs/SECURITY_REVIEW_V07.md) before using the new `exec` interface.

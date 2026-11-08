@@ -16,6 +16,9 @@ list of installation, grant, profile and execution commands.
 - `atm start` creates a bounded local consent window; `atm use` injects selected
   credentials into ordinary programs. Neither requires a tool manifest.
 - Keep secrets in the existing vault. Never reset or move it for an upgrade.
+- Local Passkeys require WebAuthn + PRF wrapping of the existing master key, with
+  password/keyring recovery intact. Enrollment and provider prompts stay human;
+  bindings do not sync or extend leases. See docs/PASSKEY.md for acceptance.
 - Human password/Key input is only in the local window or explicit private terminal,
   never chat. The Agent must not read session/profile files or approve its own popup.
 - Default convenience mode trusts same-user code in an explicitly approved project;

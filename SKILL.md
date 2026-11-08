@@ -199,6 +199,21 @@ binding, exact tool approval and remaining real-provider acceptance.
 
 ## Only repair the actual blocker
 
+### Local 1Password / Passkey unlock
+
+Read docs/PASSKEY.md when the human requests Passkeys. Use the reviewed optional
+`passkey` extra and the localhost window opened by `atm ui`; never install unknown
+tooling or read 1Password/session files. Human binds from Connections with the
+existing recovery password/native keyring, then confirms both WebAuthn prompts.
+PRF support is required: missing PRF is a distinct failure, not fake success.
+`atm start` remains the same; human can use its Passkey button for the exact shown
+project and Keys. No Agent-operated enrollment, authenticator consent or HTTP approval.
+The original vault/ciphertexts, password/keyring recovery and fixed 30-minute lease
+remain intact. ATM sync excludes local bindings, master keys and authentication
+state; a remote/headless server uses its own recovery login. 1Password's own Passkey
+sync is separate and does not provision a remote ATM vault. Virtual-authenticator
+tests are not real 1Password acceptance. No unattended Service Account is added.
+
 Missing Key: request its exact slot with `start --key`; the human fills it in the same
 local form. First vault: the form asks the human to set and confirm a new master password.
 Locked: request unlock; existing Keys are not missing. Expired supplier Key or sync

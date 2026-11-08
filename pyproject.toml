@@ -17,6 +17,7 @@ test = ["pytest>=8", "pytest-cov>=5"]
 browser-test = ["playwright>=1.51"]
 web = ["playwright>=1.51"]
 server = ["playwright>=1.63,<2"]
+passkey = ["webauthn>=3.0.1,<4"]
 
 [project.scripts]
 atm = "agent_tool_maker.cli:main"
