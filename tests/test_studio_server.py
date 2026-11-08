@@ -214,6 +214,72 @@ def test_runtime_busy_wrong_bundle_and_state_project_overlap(tmp_path):
     assert concurrent.value.code == "runtime_busy"
 
 
+def stalled_runner(tmp_path):
+    """A real child process standing in for node runner.mjs: records its pid, then hangs."""
+    node = tmp_path / "stalled-node"
+    node.write_text('#!/bin/sh\necho $$ > "$PWD/runner.pid"\nexec sleep 120\n')
+    node.chmod(0o700)
+    return str(node)
+
+
+def account_run(project):
+    argv = compile_command(None, runtime.index()["account"], {}, project, project)["argv"][3:]
+    return {"method": "run", "operation": "account", "argv": argv, "workspace": str(project), "bundle": runtime.bundle_digest()}
+
+
+def gone(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    return False
+
+
+def test_server_adapter_stops_before_atm_kills_its_client(tmp_path, monkeypatch):
+    home, project = tmp_path / "state", tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    atm_timeout = 20  # What ATM gives the client process before it SIGKILLs it.
+    definitions = runtime.index()
+    definitions["account"]["command"]["timeout"] = atm_timeout
+    monkeypatch.setattr(runtime, "index", lambda: definitions)
+    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[SimpleNamespace(url="about:blank")]), stalled_runner(tmp_path))
+    async def client():
+        return await asyncio.wait_for(browser.run(account_run(project)), atm_timeout - 2)
+    with pytest.raises(RouterError) as interrupted:
+        asyncio.run(client())  # The server reports first; the client is never left to be killed.
+    assert interrupted.value.code == "adapter_interrupted" and interrupted.value.uncertain
+    assert gone(int((project / "runner.pid").read_text())) and not browser.lock.locked()
+
+
+def test_client_hangup_kills_the_server_adapter_and_frees_the_runtime(tmp_path):
+    home, project = tmp_path / "state", tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[SimpleNamespace(url="about:blank")]), stalled_runner(tmp_path))
+    pid_file = project / "runner.pid"
+    async def scenario():
+        server = await asyncio.start_unix_server(browser.handle, path=str(tmp_path / "s"))
+        async with server:
+            reader, writer = await asyncio.open_unix_connection(str(tmp_path / "s"))
+            writer.write(canonical(account_run(project)).encode() + b"\n")
+            await writer.drain()
+            for _ in range(200):
+                if pid_file.exists() and pid_file.read_text().strip():
+                    break
+                await asyncio.sleep(0.05)
+            assert browser.lock.locked()
+            writer.close()  # As when ATM's timeout SIGKILLs the atm studio adapter client.
+            await writer.wait_closed()
+            for _ in range(100):
+                if not browser.lock.locked():
+                    break
+                await asyncio.sleep(0.05)
+            return not browser.lock.locked(), int(pid_file.read_text())
+    released, pid = asyncio.run(scenario())
+    assert released and gone(pid) and browser.active is None
+
+
 def test_login_viewer_fixed_ttl_loopback_and_preserved_browser(tmp_path, monkeypatch):
     commands = []
     class Process:

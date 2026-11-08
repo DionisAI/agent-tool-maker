@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import fcntl
 import hashlib
 import hmac
@@ -28,6 +29,8 @@ CDP_METHODS = {"DOM.getDocument", "DOM.querySelector", "DOM.setFileInputFiles",
                "Input.dispatchKeyEvent", "Input.dispatchMouseEvent"}
 TICKET_ENV = "ATM_STUDIO_TICKET"
 TICKET_TTL = 60
+# The server adapter stops this long before ATM's own timeout SIGKILLs its client.
+SERVER_MARGIN = 15
 
 
 def private_path(path: Path, *, directory=False):
@@ -185,6 +188,12 @@ def same_user(writer):
         uid = user.value
     if uid != os.getuid():
         raise RouterError("unauthorized", "Server bridge accepts only the owning OS user.")
+
+
+async def hung_up(reader):
+    """Resolve once a bridge client closes its connection or sends past its one request line."""
+    with contextlib.suppress(OSError):
+        await reader.read(1)
 
 
 async def request(home, packet, timeout=960):
@@ -388,7 +397,7 @@ class BrowserRuntime:
                     stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
                     start_new_session=True, limit=LIMIT)
                 payload = canonical({"socket": self.bridge, "token": token, "operation": operation, "argv": argv})
-                stdout, _ = await asyncio.wait_for(proc.communicate(payload.encode()), spec["command"]["timeout"])
+                stdout, _ = await asyncio.wait_for(proc.communicate(payload.encode()), spec["command"]["timeout"] - SERVER_MARGIN)
                 if len(stdout) > LIMIT:
                     raise RouterError("result_limit", "Server result exceeded its bound.", uncertain=True)
                 result = json.loads(stdout)
@@ -414,7 +423,19 @@ class BrowserRuntime:
             packet = json.loads(line)
             method = packet["method"]
             if method == "run":
-                result = await self.run(packet)
+                # ATM SIGKILLs its client at the tool timeout; that hang-up stops the adapter too.
+                run, hangup = asyncio.ensure_future(self.run(packet)), asyncio.ensure_future(hung_up(reader))
+                try:
+                    await asyncio.wait({run, hangup}, return_when=asyncio.FIRST_COMPLETED)
+                finally:
+                    hangup.cancel()
+                    if not run.done():
+                        run.cancel()  # run() kills the runner process group and frees the lock.
+                        await asyncio.wait({run})
+                if run.cancelled():
+                    raise RouterError("client_disconnected", "Bridge client hung up; the server adapter was stopped. "
+                                      "Reconcile receipts before retry.", uncertain=True)
+                result = run.result()
             elif method == "status":
                 result = {"status": "running", "browser_connected": self.context.browser.is_connected(),
                           "busy": self.lock.locked(), "login_viewer_active": bool(self.vnc and self.vnc.returncode is None),
@@ -440,9 +461,12 @@ class BrowserRuntime:
         try:
             writer.write(canonical(response).encode() + b"\n")
             await writer.drain()
+        except ConnectionError:
+            pass  # The client already hung up; there is nobody to answer.
         finally:
             writer.close()
-            await writer.wait_closed()
+            with contextlib.suppress(ConnectionError):
+                await writer.wait_closed()
 
 
 async def serve(home, *, node, executable=None, headed=False, virtual_display=None, browser_factory=None):

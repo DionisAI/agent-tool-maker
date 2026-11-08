@@ -78,7 +78,10 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
   或读取本用户进程环境的恶意程序。Router 与 `studio serve` 须使用同一 `--home`。
 - 每次操作绑定包含 Python 驱动、Node dispatcher 和 20 个原适配源文件的 bundle 摘要
   （含随源码闭包打包、但不分派的 2 份 delivery 源）。
-  一次只运行一个操作；并发报 busy，不排队或重试副作用。
+  一次只运行一个操作；并发报 busy，不排队或重试副作用。服务器 runner 比原工具超时
+  早 15 秒停止并报 `adapter_interrupted`，先于 ATM 超时杀掉客户端；客户端断开（如被 ATM
+  超时 SIGKILL）时立即杀掉 runner 进程组并释放 busy，不在无人等待时继续点击。两者都是
+  `outcome_uncertain`，先核对回执再重试。
 - 原 paid lock、pre-click receipt、request-key、报价/Private/预算检查不变。
   导出与上传限制在确切项目，不触碰浏览器认证文件。RPC 的 CDP 仅 DOM 上传及原生输入。
 - 临时 VNC 只监听 127.0.0.1，通过 SSH 使用；专属 Xvfb 配置私有 Xauthority。
