@@ -1,6 +1,6 @@
 # ATM — Agent Tool Maker
 
-**让 Agent 制作和调用工具；登录、Key 与付费确认留在本地。**
+**让 Agent 制作和调用工具；Key 与网页登录留在本机，付费调用须你先在对话中批准。**
 
 ATM 在本机加密保存 Key，供 **Claude Code / Codex** 使用。Agent 需要 Key 时打开一个本地窗口；
 你输入一次主密码，接下来 **30 分钟**内，它能在允许的项目和 Key 范围内继续工作，不逐条批准命令，也不写 `.env`。
@@ -73,7 +73,7 @@ pipx install '.[secure]'
 atm setup --apply
 ```
 
-升级由 Agent 离线准备独立环境、验收后保留旧安装并切换，再审阅更新 Skill；vault 保持原位。
+手动升级：在审阅后的源码目录执行 `pipx install --force '.[secure]'`，再审阅更新 Skill。Agent 升级则离线准备独立环境、验收后保留旧安装并切换；两种方式 vault 都保持原位。
 Skill 冲突须审阅后用 `--replace-skills` 备份替换。包未发布到 PyPI，避免来源不明的同名 `atm` 包。
 </details>
 
