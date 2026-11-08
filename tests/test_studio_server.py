@@ -741,7 +741,9 @@ def test_real_driver_dom_upload_and_download_primitives(tmp_path):
                         await route.fulfill(body=b"synthetic downloaded bytes", content_type="model/gltf-binary",
                             headers={"Content-Disposition": 'attachment; filename="atm-fixture.glb"'})
                     elif route.request.url.startswith(runtime.ORIGIN + "/"):
-                        await route.fulfill(body=html, content_type="text/html")
+                        # Inline handlers allowed, eval not: like a strict production CSP.
+                        await route.fulfill(body=html, content_type="text/html",
+                                            headers={"Content-Security-Policy": "script-src 'unsafe-inline'"})
                     else:
                         await route.abort()
                 await context.route("**/*", route_handler)
@@ -749,6 +751,10 @@ def test_real_driver_dom_upload_and_download_primitives(tmp_path):
                 await browser.start()
                 browser.active = {"workspace": project}
                 await browser.rpc("goto", [runtime.ORIGIN + "/fixture"])
+                page_eval = "() => new Promise(r => setTimeout(() => { try { eval('1'); r('allowed') } catch (e) { r(e.name) } }))"
+                assert await browser.page.evaluate(page_eval) == "EvalError"  # The page's own eval is blocked.
+                reader = "async function readFixture(a, b) { await null; return [a + b, document.title]; }"
+                assert await browser.rpc("evaluate", [reader, [1, 2]]) == [3, "Driver fixture"]  # Reviewed reads are not.
                 with pytest.raises(RouterError) as ambiguous:
                     await browser.rpc("click", [".choice"])
                 assert ambiguous.value.code == "selector_ambiguous"
