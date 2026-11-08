@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.hierarchy_prepare'
-DEFINITION_SHA256 = '3751ab77b199097ad57b950ad2cec25ebd44f511afd64d34fa4c4cae252c4390'
+DEFINITION_SHA256 = 'fbaf8b513955ec6351eee16fc5181e6fa98ff309f6fec57e5b5ddf1965f00c1b'
 
 
 def main(argv=None):

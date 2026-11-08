@@ -337,6 +337,51 @@ test('another card showing progress never proves this asset is processing or tha
   progressDOM('/workspace/retopology/'+OTHER);
   assert.deepEqual(readSubmissionDOM(ID),{kind:'ready',asset_id:OTHER,acceptance:'new_asset_route_observed_not_model_completion'});
 });
+test('another card or a dialog showing a failure never marks the ready routed asset failed',()=>{
+  const route='/workspace/retopology/'+ID;
+  for(const text of ['Generation failed','Unknown server error','Task failed'])
+    for(const within of [['[role="tabpanel"]'],['a[href]'],['[role="dialog"]']]){
+      progressDOM(route,{progress:[[text,within]]});
+      const status=readAssetDOM();assert.equal(status.status,'ready');assert.equal(status.processing,false);assert.equal(status.export_enabled,true);
+      // Nor does another card's failure become submission evidence for this click.
+      progressDOM(route,{progress:[[text,within]],busy:true});assert.equal(readSubmissionDOM(ID).kind,'pending');
+    }
+  // Another card's failure does not hide this asset's own progress either.
+  progressDOM(route,{progress:[['Generation failed',['[role="tabpanel"]']],['Retopologizing...',[]]]});assert.equal(readAssetDOM().status,'generating');
+  // The routed asset's own failure still outranks its old mesh, Export and progress.
+  for(const text of ['Generation failed','Unknown server error','Task failed']){
+    progressDOM(route,{progress:[[text,[]]]});assert.equal(readAssetDOM().status,'failed');
+    progressDOM(route,{progress:[['Retopologizing...',[]],[text,[]]]});assert.equal(readAssetDOM().status,'failed');
+  }
+});
+const ELSEWHERE=selector=>['[role="tabpanel"]','[role="dialog"]','a[href]'].every(part=>selector.includes(part));
+function retopoPanelDOM(own,cards=[]){
+  // A card is {text, hidden, parent}: parent is an enclosing card inside the same panel.
+  const nodes=cards.map(card=>({innerText:card.text,getClientRects:()=>card.hidden?[]:[1]}));
+  nodes.forEach((node,i)=>{node.parentElement={closest:selector=>ELSEWHERE(selector)&&cards[i].parent!==undefined?nodes[cards[i].parent]:null};});
+  // The panel text holds each rendered top-level card once; a nested card's text is in its parent's.
+  const rendered=cards.filter(card=>!card.hidden&&card.parent===undefined).map(card=>card.text);
+  const button={innerText:'Retopology 40',disabled:false,getAttribute:()=>null};
+  const fields={'h2':{innerText:'Retopology'},'button.animate-button':button,'button[aria-pressed="true"]':{innerText:'Quad'},'input[type="text"]':{value:'10000'},
+    '[role="switch"]':{getAttribute:()=> 'true'},'[role="slider"]':{getAttribute:name=>name==='aria-valuemin'?'500':'10000'}};
+  const panel={innerText:[...own,...rendered].join('\n'),contains:node=>nodes.includes(node),querySelector:selector=>fields[selector]||null,
+    querySelectorAll:selector=>selector==='button.animate-button'?[button]:ELSEWHERE(selector)?nodes:[]};
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/retopology/'+ID};
+  globalThis.document={querySelectorAll:()=>[panel],querySelector:()=>({parentElement:{querySelector:()=>({getAttribute:()=> '100'})}})};
+}
+test('a failure shown by a card or dialog inside the panel never blocks this ready form',()=>{
+  retopoPanelDOM(['Retopology']);const ready=readPanelDOM('retopo');assert.equal(ready.kind,'ready');assert.equal(ready.blocked,false);assert.equal(ready.button_enabled,true);
+  for(const text of ['Generation failed','Unknown server error','Task failed','Not Ready for Auto-Rigging']){
+    // Sidebar tabpanel, asset link and dialog cards, also an asset link nested in the sidebar.
+    retopoPanelDOM(['Retopology'],[{text},{text:'Asset\n'+text},{text:text+'\nRetry'}]);assert.equal(readPanelDOM('retopo').blocked,false);
+    retopoPanelDOM(['Retopology'],[{text:'Sidebar\n'+text},{text,parent:0}]);
+    assert.equal(readPanelDOM('retopo').blocked,false);
+  }
+  // The panel's own failure still blocks, also when a card repeats it or a hidden card holds the same text.
+  retopoPanelDOM(['Retopology','Task failed']);assert.equal(readPanelDOM('retopo').blocked,true);
+  retopoPanelDOM(['Retopology','Task failed'],[{text:'Sidebar\nTask failed'},{text:'Task failed',parent:0}]);assert.equal(readPanelDOM('retopo').blocked,true);
+  retopoPanelDOM(['Retopology','Unknown server error'],[{text:'Unknown server error',hidden:true}]);assert.equal(readPanelDOM('retopo').blocked,true);
+});
 test('image quote binds distinct blob preview identities even when file input is cleared',()=>{
   globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/generate'};
   let blob='blob:https://studio.tripo3d.ai/'+ID+'?Signature=FAKE';

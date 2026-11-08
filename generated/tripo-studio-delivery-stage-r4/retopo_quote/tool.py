@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.retopo_quote'
-DEFINITION_SHA256 = 'cae4e5734f305d3e02abc6424d29edc66c55e18adb06504b69566fbc4c98a8da'
+DEFINITION_SHA256 = '9f00f7b8b5d9a69b14e173d9c3ba4dc07f510554948dac1b6b5d574169468b32'
 
 
 def main(argv=None):

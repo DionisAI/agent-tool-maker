@@ -80,7 +80,7 @@
       "tripo-studio",
       "workspace-prepare",
       "--pin",
-      "059ef9e699c78f1859c4cd487451732c7a9fb550680e1fd00a35869826c95c4b",
+      "69e6d40ecb31d035a4c27d9da10d443bd03d861a9f01e0ed0fb7462a90dc5e2d",
       "-f",
       "json",
       "--module",

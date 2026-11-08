@@ -207,6 +207,32 @@ test('animation preset list is separate from primary controls, with real rig pre
   f.panel.innerText='Animation\nRig the Model First\nRig the Model First';
   const out=readWorkspaceDOM('animate');assert.equal(out.kind,'ready');assert.equal(out.quoted_credits,20);assert.deepEqual(out.presets,['walk']);assert.deepEqual(out.warnings,['Rig the Model First']);assert.equal(out.button_enabled,false);
 });
+function cardsFixture(module,own,cards=[]){
+  // A card is {text, hidden, parent}: parent is an enclosing card inside the same panel.
+  const f=domFixture(module),query=f.panel.querySelectorAll;
+  const elsewhere=selector=>['[role="tabpanel"]','[role="dialog"]','a[href]'].every(part=>selector.includes(part));
+  const nodes=cards.map(card=>({innerText:card.text,getClientRects:()=>card.hidden?[]:[1]}));
+  nodes.forEach((node,i)=>{node.parentElement={closest:selector=>elsewhere(selector)&&cards[i].parent!==undefined?nodes[cards[i].parent]:null};});
+  // The panel text holds each rendered top-level card once; a nested card's text is in its parent's.
+  f.panel.innerText=[MODULES[module][2],...own,...cards.filter(card=>!card.hidden&&card.parent===undefined).map(card=>card.text)].join('\n');
+  f.panel.contains=node=>nodes.includes(node);
+  f.panel.querySelectorAll=selector=>elsewhere(selector)?nodes:query(selector);
+  return f;
+}
+test('a failure shown by a card or dialog inside the panel is never this ready form\'s warning',()=>{
+  cardsFixture('texture',[]);const ready=readWorkspaceDOM('texture');assert.equal(ready.kind,'ready');assert.deepEqual(ready.warnings,[]);assert.equal(ready.button_enabled,true);
+  for(const text of ['Generation failed','Unknown server error','Task failed']){
+    // Sidebar tabpanel, asset link and dialog cards, also an asset link nested in the sidebar.
+    cardsFixture('texture',[],[{text},{text:'Asset\n'+text},{text:text+'\nRetry'}]);let out=readWorkspaceDOM('texture');
+    assert.deepEqual(out.warnings,[]);assert.equal(workspaceQuoteHash(out),workspaceQuoteHash(ready));
+    cardsFixture('texture',[],[{text:'Sidebar\n'+text},{text,parent:0}]);out=readWorkspaceDOM('texture');
+    assert.deepEqual(out.warnings,[]);assert.equal(workspaceQuoteHash(out),workspaceQuoteHash(ready));
+  }
+  // The panel's own warnings stay, in order, also when a card repeats one or a hidden card holds the same text.
+  cardsFixture('texture',['Unknown server error','Task failed'],[{text:'Sidebar\nGeneration failed'}]);assert.deepEqual(readWorkspaceDOM('texture').warnings,['Unknown server error','Task failed']);
+  cardsFixture('texture',['Task failed'],[{text:'Sidebar\nTask failed'},{text:'Task failed',parent:0}]);assert.deepEqual(readWorkspaceDOM('texture').warnings,['Task failed']);
+  cardsFixture('texture',['Unknown server error'],[{text:'Unknown server error',hidden:true}]);assert.deepEqual(readWorkspaceDOM('texture').warnings,['Unknown server error']);
+});
 test('rigged same-href form shortcut does not make the inspected Animate sidebar click ambiguous',async()=>{
   const href='/workspace/animate/'+ID,link=text=>({innerText:text,closest:()=>null,parentElement:null,
     getBoundingClientRect:()=>({width:40,height:20}),getAttribute:n=>n==='href'?href:null});

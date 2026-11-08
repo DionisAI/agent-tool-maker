@@ -36,6 +36,19 @@ test('observed Generating Texture label outranks old ready mesh while unrelated 
   paragraphs.push(progress);assert.equal(readAssetDOM().status,'generating');assert.equal(readAssetDOM().processing,true);
   progress.closest=()=>({});assert.equal(readAssetDOM().status,'ready');
 });
+test('a failed sidebar, link or dialog card never reports the ready output as failed',async()=>{
+  for(const within of ['[role="tabpanel"]','a[href]','[role="dialog"]']){
+    const failure={innerText:'Generation failed',getClientRects:()=>[1],closest:selector=>selector.split(',').some(s=>s.trim()===within)?{}:null};
+    const paragraphs=[{innerText:'Faces',nextElementSibling:{innerText:'8468'},getClientRects:()=>[1]},{innerText:'Vertices',nextElementSibling:{innerText:'8399'},getClientRects:()=>[1]},failure];
+    const main={innerText:'',querySelectorAll:s=>s==='p'?paragraphs:[{innerText:'Export',disabled:false,closest:()=>null}]};
+    globalThis.document={querySelector:()=>main};globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/texture/'+OUTPUT};
+    // The real reader runs against this DOM, with no navigation.
+    const page={evaluate:async fn=>fn===readLocation||fn===readAssetDOM?fn():assert.fail('reader'),click:()=>assert.fail('navigation'),goto:()=>assert.fail('navigation')};
+    let r=(await operationStatus(page,fixture()))[0];assert.equal(r.status,'completed');assert.equal(r.provider_status,'ready');assert.equal(r.model_completed,true);
+    // The routed output's own failure is still failed.
+    failure.closest=()=>null;r=(await operationStatus(page,fixture()))[0];assert.equal(r.status,'failed');assert.equal(r.model_completed,false);
+  }
+});
 test('unknown receipt and source-only acknowledgement never report completed or use the provider',async()=>{
   for(const extra of [{status:'submission_unknown'},{status:'dispatch_claimed'},{asset_id:SOURCE}]){
     const args=fixture(extra);const r=(await operationStatus({evaluate:()=>assert.fail('provider')},args))[0];assert.equal(r.model_completed,false);assert.equal(r.provider_checked,false);assert.equal(r.lock_changed,false);assert.equal(r.submission_repeated,false);}
