@@ -154,7 +154,9 @@ IPv4 的 NAT64 地址（`64:ff9b::/96`），只要出现一个，整组应答就
   #77 已关闭（2026-10-21 查看）；其中没有提到 `authorization_invalid`。
 - 结论只到这里：可能的原因有两种，没有确定是哪一种。一是 Higgsfield 只允许部分 OAuth 客户端；二是这个账户的套餐
   不含 MCP。ATM 本机没有坏，也不会绕过这项拒绝。实际可用的做法是“higgsfield 程序”这条连接方式：官方 CLI
-  （`higgsfield auth login`），ATM 已经封装了它。
+  （`higgsfield auth login`）。用订阅额度生成内容要直接用官方 CLI；ATM 通过它只提供四个只读查询
+  （`higgsfield.subscription.account/models/model/cost`，见 docs/HIGGSFIELD_SUBSCRIPTION.md）。
+  开发者 API（`higgsfield.generate`）另外计费，不用订阅额度。
 - ATM 的处理：登录等待中，D11（点“打开官方登录页面”之后）、ATM 登录卡片和首页提示都说明这段 JSON 的含义、两种可能的
   原因，并指向“higgsfield 程序”。所有者可以点 **取消登录** 立即结束这次等待，不必等 5 分钟的期限：
   `POST /api/oauth/cancel {"provider":"higgsfield"}`，与管理台其他写入一样需要 bearer 和精确的 Origin/Host，

@@ -160,8 +160,10 @@
   const allowedNext = label => '已允许。再点“' + label + '”。';
   // A pending ATM login. Higgsfield's authorize step can refuse ATM's own OAuth client (Clerk `authorization_invalid`,
   // first seen 2026-10-21, docs/OAUTH_REFRESH.md). Two causes are possible, so the copy names both and claims neither.
+  // The fallback route is described as it is: ATM wraps four read-only queries of the official CLI
+  // (docs/HIGGSFIELD_SUBSCRIPTION.md); generating with subscription credits runs in that CLI itself.
   const OAUTH = Object.freeze({
-    refused: '如果浏览器里是 Higgsfield（Clerk）返回的 JSON，含 authorization_invalid 或 “Unauthorized request”，说明 Higgsfield 拒绝了 ATM 客户端的这次登录：可能它只允许部分 OAuth 客户端，也可能你的套餐不含 MCP。可以改用“higgsfield 程序”（官方命令行，用 higgsfield auth login 登录），它提供同样的 Higgsfield 工具。',
+    refused: '如果浏览器里是 Higgsfield（Clerk）返回的 JSON，含 authorization_invalid 或 “Unauthorized request”，说明 Higgsfield 拒绝了 ATM 客户端的这次登录：可能它只允许部分 OAuth 客户端，也可能你的套餐不含 MCP。可以改用“higgsfield 程序”（官方命令行，用 higgsfield auth login 登录）：用订阅额度生成内容要直接用这个命令行，ATM 通过它只提供四个只读查询（账户、模型列表、模型详情、费用估算）。开发者 API 另外计费，不用订阅额度。',
     opened: '已在系统浏览器里打开 Higgsfield 官方页面。请在那里登录并授权，完成后点“刷新状态”。',
     notOpened: '登录窗口没有打开，或者已有一个登录在进行。',
     cancel: '取消登录',

@@ -5,7 +5,8 @@
   和“取消登录”。
 - 这一行说明：浏览器里如果是 Higgsfield（Clerk）返回的、含 `authorization_invalid`（“Unauthorized request”）的 JSON，
   就是 Higgsfield 拒绝了 ATM 客户端的这次登录；可能它只允许部分 OAuth 客户端，也可能套餐不含 MCP。两种原因都写出，
-  不断定是哪一种。可以改用“higgsfield 程序”（官方 CLI，`higgsfield auth login`）。
+  不断定是哪一种。可以改用“higgsfield 程序”（官方 CLI，`higgsfield auth login`）：用订阅额度生成内容要直接用官方 CLI，
+  ATM 通过它只提供四个只读查询（账户、模型列表、模型详情、费用估算）；开发者 API 另外计费，不用订阅额度。
 - “取消登录”只发 `POST /api/oauth/cancel {"provider": "higgsfield"}`（bearer 与精确 Origin/Host，只写连接元数据，
   不要 ATM 主密码，不联网），不必等 5 分钟的登录期限。之后焦点在“重新登录”上，可以马上重新登录。没有 CLI 命令，
   授权窗口也没有这个接口。详见 docs/OAUTH_REFRESH.md 的 2026-10-21 记录。
