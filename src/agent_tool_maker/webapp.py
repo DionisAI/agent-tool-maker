@@ -7,6 +7,8 @@ proof of the token) and the exact-Origin exchange of a one-time launch code.
 No arbitrary file read, shell, generation, deployment or job-refresh endpoint.
 The one owner-triggered tool run is the subscription credits refresh: fixed,
 reviewed, unpaid read-only account tools, outside the console-wide lock.
+The owner's OAuth login also runs outside it: its pinned discovery and client
+registration wait on the provider, and its pending claim is its lease.
 """
 from __future__ import annotations
 
@@ -362,8 +364,10 @@ class Handler(BaseHTTPRequestHandler):
                 fields(body, ("code",))
                 self.respond(200, {"token": self.server.redeem(text(body, "code", limit=64))})
                 return
-            # A credits refresh waits on an account tool; it must not block the console.
-            unlocked = write and self.path == "/api/credits/refresh"
+            # A credits refresh waits on an account tool, an OAuth login on the provider's discovery and client
+            # registration (~60 s timeouts per request); neither may block the console, its lock or 取消登录.
+            # Each has its own lease: the provider's refresh file lock; the login's pending claim in the state database.
+            unlocked = write and self.path in {"/api/credits/refresh", "/api/oauth/login"}
             with contextlib.nullcontext() if unlocked else self.server.lock:
                 router = self.server.open_router(text(body, "passphrase"))
                 result = self.mutate(router, body) if write else self.read(router)

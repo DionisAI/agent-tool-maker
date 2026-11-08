@@ -17,7 +17,7 @@ from agent_tool_maker.demo import fixture_resolver
 from agent_tool_maker.engine import Router
 from agent_tool_maker.errors import RouterError
 from agent_tool_maker.network import Network
-from agent_tool_maker.oauth import ENDPOINTS, ISSUER, NAME, RESOURCE, OAuth
+from agent_tool_maker.oauth import ENDPOINTS, ISSUER, NAME, PROTECTED_METADATA, RESOURCE, OAuth
 from agent_tool_maker.storage import State, canonical
 from agent_tool_maker.vault import Vault
 from agent_tool_maker.webapp import Console, WebVault
@@ -204,6 +204,50 @@ def test_cancel_endpoint_is_owner_only_and_validated(console):
     assert client.get(path, headers={'Authorization': 'Bearer ' + server.token}).status_code == 404
     assert call(console, '/api/connections').json()['oauth'][0]['status'] == 'pending'  # None of these cancelled it.
     assert call(console, path, {'provider': NAME}).json()['action'] == 'cancelled'
+
+
+class SlowDiscovery(Provider):
+    """A provider whose protected-resource metadata answers only when released (real timeouts allow ~60 s per request)."""
+    def __init__(self):
+        super().__init__()
+        self.gate, self.waiting = threading.Event(), threading.Event()
+
+    def __call__(self, request):
+        if str(request.url) == PROTECTED_METADATA:
+            self.waiting.set()
+            assert self.gate.wait(30)
+        return super().__call__(request)
+
+
+def test_a_slow_provider_does_not_block_the_console(console, monkeypatch):
+    server, client, fixture = console
+    slow = SlowDiscovery()
+    monkeypatch.setattr(oauth_web, 'Router', lambda home: Router(home, network=Network(httpx.MockTransport(slow), fixture_resolver)))
+    results = []
+    worker = threading.Thread(target=lambda: results.append(login(console)))
+    worker.start()
+    try:
+        assert slow.waiting.wait(10)  # The login request is in discovery and holds the pending claim.
+        headers = {'Authorization': 'Bearer ' + server.token, 'Origin': server.origin}
+        started = time.monotonic()
+        with httpx.Client(base_url=server.origin, timeout=5, trust_env=False) as quick:
+            assert quick.get('/api/connections', headers=headers).json()['oauth'][0]['status'] == 'pending'
+            # The claim is the login's lease: a second login opens nothing while the first is in flight.
+            again = quick.post('/api/oauth/login', json={'provider': NAME, 'passphrase': 'fake-console-password'}, headers=headers)
+            assert again.status_code == 200 and again.json()['action'] == 'preserved' and again.json()['browser_opened'] is False
+            assert quick.post('/api/session/lock', json={}, headers=headers).status_code == 200
+            cancelled = quick.post('/api/oauth/cancel', json={'provider': NAME}, headers=headers)
+        assert cancelled.status_code == 200 and cancelled.json()['action'] == 'cancelled'
+        assert time.monotonic() - started < 5 and worker.is_alive()
+    finally:
+        slow.gate.set()
+        worker.join(30)
+    # The cancelled login found its claim gone: it records nothing over the owner's cancel and opens no browser.
+    assert results[0].status_code == 400 and results[0].json()['error']['code'] == 'oauth_conflict'
+    oauth = call(console, '/api/connections').json()['oauth'][0]
+    assert oauth['status'] == 'needs_login' and oauth['last_error'] == 'oauth_cancelled'
+    assert fixture.opened == [] and not workers()  # The browser opener of every console login records here.
+    assert not [r for r in slow.requests if str(r.url) == ENDPOINTS['token_endpoint']]
 
 
 def test_console_cancel_frees_the_login_at_once(console):
