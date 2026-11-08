@@ -22,7 +22,7 @@ def test_upload_bound_pin_matches_node_and_reviewed_transitive_sources():
     assert out.stdout.strip()==b.bundle_digest(b.AUDIO_UPLOAD_BOUND_FILES) and len(b.AUDIO_UPLOAD_BOUND_FILES)==8
     # MP3 intake changes the shared audio closure; installed WAV snapshots stay separate.
     assert b.bundle_digest(b.HOME_BOUND_FILES)=='8f5f2abbb2610665312d4380ccdeeb995f8336cd6aef1cbbd5f647e785ac8d55'
-    assert b.bundle_digest(b.AUDIO_EDIT_BOUND_FILES)=='141ec0fbad543511aaefd0816d82b39a89566c595d78be6c24caf99ca0ea12a1'
+    assert b.bundle_digest(b.AUDIO_EDIT_BOUND_FILES)=='27483663e646768a2e45a04bd696249aee49c13f646c7636d0b337a30eac8568'
     assert b.bundle_digest(b.AUDIO_QUOTE_BOUND_FILES)=='08d259ea0a951cb9af61de506d2ed8927c418a00911b1b2dd7a1c653a83c13dc'
 
 @pytest.mark.parametrize('combo',[False,True])

@@ -120,7 +120,9 @@ audio 原始源码 pin 保持 `b90b0a150403016741e29f8034723ea4fa58db2aa64eff227
 
 `xyq.web.audio_choices` 只打开/收起自己的模型和采样率菜单；
 `xyq.web.audio_prepare` 绑定 `expected_form_sha256`，接受实际 `model_id` 与整数 `sample_rate_hz`。
-两者在 ATM 都要求 execute_code/external_write，因为发现操作也会打开菜单。
+两者在 ATM 都要求 execute_code/external_write，因为发现操作也会打开菜单；
+OpenCLI 注册（`audio-choices` 与 `audio-choices-bound`）同样声明 `access:'write'`，
+与表单/模式 choices 及 `xyq-media` 一致（`tests/xyq_web_access.test.mjs`）。
 准备至少需一个动作字段；JSON 数组、数字模型 ID 和字符串采样率在浏览器访问前明确报错。
 
 - 模型语义来自 `select-audio-model-*` 及 model-picker-item-title；当前真实测试面板

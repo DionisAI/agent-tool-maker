@@ -253,9 +253,33 @@ def test_pack_write_failure_is_specific_and_partial_bundle_is_never_reused(tmp_p
         ex.validate_bundle(dest)
     assert invalid.value.code == 'invalid_bundle'
     monkeypatch.setattr(ex, 'atomic_write', real_write)
+    before = {p.name: p.read_bytes() for p in dest.iterdir()}
     with pytest.raises(RouterError) as again:
         ex.pack(tool, dest)
-    assert again.value.code == 'file_exists'
+    # The retry names the retained partial bundle and asks for a new --out; nothing is reused or deleted.
+    assert again.value.code == 'partial_bundle_retained' and not again.value.uncertain
+    assert str(dest) in str(again.value) and '--out' in str(again.value)
+    assert {p.name: p.read_bytes() for p in dest.iterdir()} == before
+
+
+def test_pack_refuses_existing_destinations_without_reuse_or_deletion(tmp_path):
+    tool = ex.new_template('acme.echo', 'cli', executable='acmecli')
+    empty = tmp_path / 'empty'; empty.mkdir()  # mkdir succeeded, the first write failed
+    with pytest.raises(RouterError) as e:
+        ex.pack(tool, empty)
+    assert e.value.code == 'partial_bundle_retained' and str(empty) in str(e.value) and not list(empty.iterdir())
+    done = tmp_path / 'done'; ex.pack(tool, done)  # a complete bundle has its lock
+    with pytest.raises(RouterError) as e:
+        ex.pack(tool, done)
+    assert e.value.code == 'file_exists' and ex.validate_bundle(done)['valid']
+    other = tmp_path / 'project'; other.mkdir(); (other / 'notes.txt').write_text('owner work\n')
+    with pytest.raises(RouterError) as e:  # content pack never writes is not called a partial bundle
+        ex.pack(tool, other)
+    assert e.value.code == 'file_exists' and (other / 'notes.txt').read_text() == 'owner work\n'
+    plain = tmp_path / 'plain-file'; plain.write_text('x')
+    with pytest.raises(RouterError) as e:
+        ex.pack(tool, plain)
+    assert e.value.code == 'file_exists' and plain.read_text() == 'x'
 
 
 def test_pack_cli_write_failure_is_not_generic_local_failure(tmp_path, monkeypatch, capsys):

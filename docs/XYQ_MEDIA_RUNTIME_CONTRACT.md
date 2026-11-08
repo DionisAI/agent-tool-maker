@@ -11,7 +11,7 @@
 - 新原生命名空间：`xyq-media`；唯一用户安装命令仍为 `atm`。
 - 加载器：`~/.opencli/clis/xyq-media-runtime/media.js`；32份字节一致的审阅源码位于
   `reviewed/`。根加载器只转换两个相对导入路径；闭包含声明和分派代码。
-- 完整源码 pin：`06d6591e8239ed0efa216b242dac86a0900bc6d40df2392fc70809837111fd23`。
+- 完整源码 pin：`58471330ad310bd9d0040bc63f1ca2037081fee3b04ecf98776d7277d7c3b381`。
 - 保留旧 `xyq-web` 等加载器及注册，没有静默替换旧浏览器入口。
   首页读取/参数/报价/提交使用既有 `site:xyq-home`；音频/项目历史使用
   `site:xyq-web`，继承公开 profile 路由。没有自动导航、bind/unbind 或错误后换页。
@@ -40,7 +40,8 @@
 
 ## 从源码重建并安装27项
 
-四个编译器的 ID 互不重叠：运行时20项、结果读取3项、下载2项、首页素材2项。
+四个编译器的 ID 互不重叠：运行时20项、结果读取3项、下载2项、首页素材2项
+（`tests/test_xyq_install_recipe.py` 用下列四条命令编译到临时目录，断言恰好27个不同 ID）。
 `build_xyq_web.py` 默认及其它阶段输出与运行时有18项同 ID 不同定义，安装会报
 `duplicate_tool`，不要混装。`--results-only` 只产出3个结果包，与 `--include-results`
 中的对应包逐字节相同，且不能与其它阶段选项同用。各合同引用的 `generated/xyq-*` 阶段目录
@@ -50,10 +51,11 @@
 ```sh
 OPENCLIAPP=/Applications/OpenCLIApp.app/Contents/MacOS/opencli-app  # 已审阅的 App 实际可执行文件
 DOWNLOADS="$HOME/Downloads"                                          # 浏览器固定下载目录
+CLOSURE="$HOME/.opencli/clis/xyq-download-bound/reviewed"            # 下载加载器已审阅的 reviewed/ 闭包目录
 OUT=/absolute/new/directory                                          # 尚不存在；编译器不覆盖
 python scripts/build_xyq_runtime.py --out "$OUT/runtime"             # 20
 python scripts/build_xyq_web.py --results-only --out "$OUT/results"  # 3
-python scripts/build_xyq_download.py --out "$OUT/download" --bridge "$OPENCLIAPP" --download-root "$DOWNLOADS"  # 2
+python scripts/build_xyq_download.py --out "$OUT/download" --bridge "$OPENCLIAPP" --download-root "$DOWNLOADS" --adapter-dir "$CLOSURE"  # 2
 python scripts/build_xyq_material.py --out "$OUT/material"           # 2
 for d in "$OUT"/*/*/; do atm make check-bundle "$d" && atm make validate "$d/manifest.json"; done
 # 逐包审阅 manifest.json 与上面的 sha256，再每包安装一次（共27次，四组顺序不限）：

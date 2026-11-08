@@ -23,7 +23,7 @@ def test_python_node_source_pin_and_prior_media_runtime_pins():
     import build_xyq_runtime as runtime
     output=subprocess.run(['node','--input-type=module','-e',"import{HOME_MATERIAL_FILES,homeMaterialDigest}from'./examples/opencli/xyq-web/material-home.mjs';console.log(JSON.stringify([HOME_MATERIAL_FILES,homeMaterialDigest()]));"],cwd=ROOT,capture_output=True,text=True,check=True)
     files,pin=json.loads(output.stdout);assert files==list(b.FILES) and pin==b.bundle_digest(b.FILES) and len(files)==12
-    assert runtime.bundle_digest(runtime.MEDIA_RUNTIME_FILES)=='06d6591e8239ed0efa216b242dac86a0900bc6d40df2392fc70809837111fd23'
+    assert runtime.bundle_digest(runtime.MEDIA_RUNTIME_FILES)=='58471330ad310bd9d0040bc63f1ca2037081fee3b04ecf98776d7277d7c3b381'
 
 @pytest.mark.parametrize('operation',b.OPERATIONS)
 def test_router_real_fake_subprocess_and_same_key_same_job(router,workspace,tmp_path,operation):

@@ -15,6 +15,9 @@ LOCAL 调度修复与分层验收见[媒体运行时合同](XYQ_MEDIA_RUNTIME_CO
 `generate` 只提交已准备的完整草稿；没有自动填词、上传或重建项目。
 调用绑定 expected_draft_sha256、quote_sha256、稳定 request_key，以及明确的
 human_confirmed / estimated_cost_confirmed。ATM 和适配器各自检查付费/写入/代码许可。
+这三项由 Agent 填写，所以 Agent 须先在对话中向用户展示确切的页面估算、模式和将传入的
+max_credits，等用户明确批准后才设置 human_confirmed、estimated_cost_confirmed、max_credits
+并传 `--allow-paid`；此前的批准、报价或费率读取都不能代替这次批准。
 报价应为当前单次估算、按钮可用、金额在预算内；每秒单价音频返回
 total_quote_required，待取得总价合同。网页估算不承诺最终扣费上限：
 spend_ceiling_verified / final_billing_verified 均为 false。

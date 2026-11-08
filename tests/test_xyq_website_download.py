@@ -306,10 +306,25 @@ def test_definition_compiled_without_a_loader_closure_reaches_the_pin_check_firs
     # Older definitions lack --adapter-dir: their stale --pin is still definition_changed, and a
     # current pin without the closure is a definite argument error; neither creates a ledger.
     x=setup;base=[sys.executable,'-m','agent_tool_maker','--home',str(tmp_path/'unused-home'),'delivery','xyq-image','--workspace',str(workspace),'--settings',json.dumps(args()),
-        '--bridge',str(x['bridge']),'--bridge-sha256',sha(x['bridge']),'--adapter-pin',PIN,'--download-root',str(x['root']),'--pin']
+        '--bridge',str(x['bridge']),'--bridge-sha256',sha(x['bridge']),'--adapter-pin',PIN,'--download-root',str(x['root']),'--allow-write','--pin']
     for pin,code in [('0'*64,'definition_changed'),(d.source_digest(),'invalid_argument')]:
         p=subprocess.run(base+[pin],cwd=ROOT,capture_output=True,text=True);error=json.loads(p.stdout)['error']
         assert p.returncode==2 and error['code']==code and error['outcome_uncertain'] is False and not (workspace/'.atm').exists()
+def test_direct_download_is_hidden_and_refused_without_the_compiled_write_flag(workspace,tmp_path,setup):
+    # The compiled xyq.web.result_download passes --allow-write only after Router.run checked the
+    # execute_code/external_write grants; a bare manual invocation never reaches the browser.
+    x=setup;calls=tmp_path/'bridge-calls';x['bridge'].write_text(f'#!/bin/sh\necho x >> {calls}\nexit 0\n')
+    home=tmp_path/'unused-home';base=[sys.executable,'-m','agent_tool_maker','--home',str(home),'delivery']
+    argv=[*base,'xyq-image','--pin',d.source_digest(),'--workspace',str(workspace),'--settings',json.dumps(args()),'--bridge',str(x['bridge']),
+          '--bridge-sha256',sha(x['bridge']),'--adapter-pin',PIN,'--adapter-dir',str(ADAPTER),'--download-root',str(x['root'])]
+    p=subprocess.run(argv,cwd=ROOT,capture_output=True,text=True);error=json.loads(p.stdout)['error']
+    assert p.returncode==2 and error['code']=='permission_required' and error['outcome_uncertain'] is False and 'external_write' in error['message']
+    assert not calls.exists() and not (workspace/'.atm').exists() and not home.exists()
+    shown=subprocess.run([*base,'--help'],cwd=ROOT,capture_output=True,text=True,check=True).stdout
+    assert 'xyq-image' not in shown and 'SUPPRESS' not in shown and 'status' in shown and 'record-unknown' in shown
+    t=b.manifest('result_download',str(x['bridge']),str(x['root']),str(ADAPTER))
+    assert t['command']['argv'][:2]==['delivery','xyq-image'] and t['command']['argv'].count('--allow-write')==1
+    assert '--allow-write' not in b.manifest('result_download_status')['command']['argv']
 def test_factory_requires_the_exact_existing_loader_closure_directory(setup,tmp_path):
     x=setup;linked=tmp_path/'linked-reviewed';linked.symlink_to(ADAPTER)
     for adapter in [None,'relative/reviewed','/',str(ADAPTER)+'/../xyq-web',str(tmp_path/'missing'),str(linked)]:
