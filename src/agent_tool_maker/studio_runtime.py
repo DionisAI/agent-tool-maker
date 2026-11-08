@@ -303,7 +303,8 @@ class BrowserRuntime:
         return target
 
     async def rpc(self, method, args):
-        if self.page.url != "about:blank" and not self.page.url.startswith(ORIGIN + "/"):
+        # goto is checked on its destination instead, so an off-origin page cannot wedge the runtime.
+        if method != "goto" and self.page.url != "about:blank" and not self.page.url.startswith(ORIGIN + "/"):
             raise RouterError("origin_mismatch", "Tool actions require the Tripo Studio origin; finish human login first.")
         if method == "goto":
             if not args[0].startswith(ORIGIN + "/"):

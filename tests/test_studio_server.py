@@ -139,6 +139,25 @@ def test_file_upload_and_cdp_are_scoped(tmp_path):
     assert wrong_origin.value.code == "origin_mismatch"
 
 
+def test_off_origin_page_can_only_navigate_back_to_tripo(tmp_path):
+    class Page:
+        url = "https://accounts.example.com/sign-in"
+        visited = []
+        async def goto(self, url, **kwargs):
+            self.visited.append(url)
+            self.url = url
+    page = Page()
+    browser = runtime.BrowserRuntime(tmp_path, SimpleNamespace(pages=[page]), "node")
+    for method, arguments in [("evaluate", ["function reader(){return document.cookie}", []]), ("click", ["button"]),
+                              ("goto", ["https://accounts.example.com/next"])]:
+        with pytest.raises(RouterError) as refused:
+            asyncio.run(browser.rpc(method, arguments))
+        assert refused.value.code == "origin_mismatch"
+    assert page.visited == []
+    asyncio.run(browser.rpc("goto", [runtime.ORIGIN + "/assets"]))  # Not wedged after an off-origin navigation.
+    assert page.visited == [runtime.ORIGIN + "/assets"] and page.url.startswith(runtime.ORIGIN + "/")
+
+
 def test_dotdot_cannot_leave_the_project_or_reach_browser_state(tmp_path):
     home, project = tmp_path / "state", tmp_path / "project"
     home.mkdir()
