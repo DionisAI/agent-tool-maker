@@ -29,7 +29,7 @@ def login(router, *, provider, keep_login, replace, executable):
     def run():
         try:
             final = server.run()
-            if final["status"] == "ready" and final.get("refreshable") and keep_login:
+            if final["action"] == "connected" and final.get("refreshable") and keep_login:
                 from .oauth_service import install_service
                 from .errors import RouterError
                 try:

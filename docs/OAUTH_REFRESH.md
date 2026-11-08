@@ -13,8 +13,9 @@ Agent 打开本机管理页；在「连接与凭证 → Higgsfield 订阅 · ATM
 
 ## 持久性与范围
 
-- access/refresh token、客户端信息、短期 PKCE 状态使用现有 vault 主密钥 AES-256-GCM
+- access/refresh token、客户端信息使用现有 vault 主密钥 AES-256-GCM
   加密，放在独立 `oauth_connections` 表；不进入 Key 列表、Key 同步、`.env` 或项目默认授权。
+  短期 PKCE state/verifier 只保存在持有本机回调端口的登录进程内存中，不落盘。
 - **系统 keyring 模式**：明确选择保持登录后，在 macOS 安装本用户 launchd 服务，
   每 60 秒检查，到期前 90 秒尝试一次真正的 refresh-token 换新。机器休眠时不运行；
   登录 macOS 后启动，错过到期的连接可在供应商仍接受 refresh token 时续期。
@@ -25,6 +26,8 @@ Agent 打开本机管理页；在「连接与凭证 → Higgsfield 订阅 · ATM
   不等于注销供应商登录或停止已明确批准的 OAuth 后台续期。
 - 「停止自动续期」关闭新刷新准入，不删除连接、供应商授权或服务文件；
   已在途的一次刷新可能完成。重新登录需要明确勾选替换既有 ATM OAuth 连接。
+  替换完成前旧令牌保持不变；替换在发现、注册、授权、换取 token 任一步失败、被拒绝、
+  超时或进程中途退出时，原连接恢复为可用状态，`last_error` 记录替换未完成的原因。
 - 供应商撤销授权、不给 refresh token、要求验证码或登录、keyring 被锁定时，状态会说明原因。
   保存状态不构成永久有效保证。
 
@@ -36,7 +39,9 @@ Agent 打开本机管理页；在「连接与凭证 → Higgsfield 订阅 · ATM
 `atm oauth refresh higgsfield` 在内部续期，不输出令牌。
 `atm oauth keep-login higgsfield --apply` / `--disable --apply` 管理后台续期开关。
 `atm oauth watch --once` 是服务的有限单次检查；`watch` 是前台监督进程。
-pending/refreshing CLI 返回 3，需要登录/未知结果返回 2，成功返回 0。
+pending/refreshing CLI 返回 3；需要登录（`missing`、`needs_login`、`expired`、`denied`）、
+未知结果（`refresh_unknown`）、登录/替换未完成（`action` 为 `login_failed` 或 `denied`）
+和刷新暂停返回 2；成功返回 0。
 
 MCP HTTP 绑定可使用：
 
@@ -47,6 +52,11 @@ MCP HTTP 绑定可使用：
 先发现工具，再批准确切工具名和实际调用权限/费用。空 allowlist 不允许业务调用。
 令牌只在 HTTP 适配器内部作为 Bearer 发给确切资源；不导出给 CLI，不代替 API Key。
 每次请求前检查有效期，401 不重放 `tools/call`；付费或有副作用任务沿用原有不确定结果合同。
+取令牌/续期失败发生在该条 MCP 消息发出前：此消息本身未发送；首个 `tools/call` 之前，
+作业为 `failed`（`outcome_uncertain: false`），只读工具发现也一样，且不记录 `mcp_started`。
+续期本身的未知结果只记入 OAuth 状态（如 `refresh_unknown`），不代表 MCP 消息已发出。
+例外：批次中一旦有 `tools/call` 可能已发出，其后任何失败（包括下一条调用前的续期失败）都为
+`submission_unknown`（`outcome_uncertain: true`），保留 `mcp_completed`；先核对已完成调用，不要整批重提。
 严格 broker 的既有 MCP 限制不变；OAuth 管理不是项目 `atm use` 的新增权限。
 
 ## 故障与追溯
@@ -55,6 +65,9 @@ MCP HTTP 绑定可使用：
 并发请求不重复消费同一 refresh token。刷新响应省略新 refresh token 时保留旧值（RFC 6749）。
 `invalid_grant` → `needs_login`；传输中断、未知服务端失败、成功响应形状异常或保存中断 →
 `refresh_unknown`（活动 claim 过期后也归此状态），不盲重试旧 refresh token。
+请求发出前的失败（DNS 解析失败、`oauth_dns_policy`、TCP/TLS 连接无法建立）没有消耗
+refresh token：释放 claim，连接保持 `ready`/`expired`，下次检查可再次续期，`last_error` 记录原因。
+发送后才中断（写入/读取超时、连接被重置）仍为 `refresh_unknown`，不自动重试。
 同一登录 authorization code 只换一次；state/issuer 不匹配、Host/path 不匹配、重复查询字段不换 token。
 回调日志、provider body/error_description、授权 URL、令牌均不显示给 Agent。
 事件仅记录 `oauth.connected/refreshed/needs_login/refresh_unknown`，不记录身份或秘密。

@@ -1,7 +1,9 @@
 """Owner-managed, pinned Higgsfield PKCE connection; tokens never leave adapters.
 
 Separate from Key slots, synchronization and bounded project authorization. Refresh
-claims commit before dispatch: a crashed/uncertain rotation is never blindly retried.
+claims commit before dispatch: a crashed/uncertain rotation is never blindly retried,
+while a failure that provably sent nothing releases the claim. A replacement login
+keeps the stored tokens until it completes; PKCE state lives only in the login process.
 """
 from __future__ import annotations
 
@@ -65,15 +67,24 @@ def secret_string(value):
     return value
 
 
+class Unsent(RouterError):
+    """Failed before any request byte could reach the provider; no token or code was spent."""
+
+
 class OAuth:
     def __init__(self, state, vault, network, *, clock=time.time):
         self.state, self.vault, self.net, self.clock = state, vault, network, clock
+        self._logins = {}  # claim -> PKCE state/verifier/client; only the listening process can use them.
 
     def _row(self, db):
         row = db.execute("SELECT * FROM oauth_connections WHERE name=?", (NAME,)).fetchone()
         if not row:
             return None, None
-        return dict(row), json.loads(row["metadata"])
+        meta = json.loads(row["metadata"])
+        if meta["status"] == "pending" and "previous" in meta and meta["login_deadline"] <= self.clock():
+            # An abandoned replacement never touched the stored tokens; the previous connection resumes.
+            meta = {**meta["previous"], "last_error": "oauth_login_timeout"}
+        return dict(row), meta
 
     def _seal(self, payload):
         nonce = os.urandom(12)
@@ -126,13 +137,11 @@ class OAuth:
             public_address(url, self.net.resolver)
         except RouterError as error:
             if error.code == "unsafe_download":
-                raise RouterError("oauth_dns_policy", "Official OAuth host resolves to a private or reserved address. No OAuth request was sent; review the local DNS/proxy route.") from None
-            raise
+                raise Unsent("oauth_dns_policy", "Official OAuth host resolves to a private or reserved address. No OAuth request was sent; review the local DNS/proxy route.") from None
+            raise Unsent(error.code, "Could not resolve the official OAuth host. No OAuth request was sent.") from None
         self.net.client.cookies.clear()
         kwargs = {} if body is None else ({"data": body} if form else {"json": body})
-        dispatched = False
         try:
-            dispatched = True
             with self.net.client.stream(method, url, headers={"Accept": "application/json"}, follow_redirects=False, **kwargs) as response:
                 raw = bytearray()
                 for chunk in response.iter_bytes():
@@ -153,8 +162,11 @@ class OAuth:
                     raise RouterError(code, f"OAuth returned HTTP {response.status_code}; provider body suppressed.",
                                       uncertain=method == "POST" and (response.status_code >= 500 or not isinstance(err, str) or err not in known))
                 return data
+        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout):
+            # httpx connects and writes inside stream(); these are raised only before any request byte is written.
+            raise Unsent("oauth_network", "OAuth connection could not be opened. No OAuth request was sent.") from None
         except (httpx.HTTPError, OSError):
-            raise RouterError("oauth_network", "OAuth transport interrupted; no automatic token-exchange retry.", uncertain=dispatched and method == "POST") from None
+            raise RouterError("oauth_network", "OAuth transport interrupted; no automatic token-exchange retry.", uncertain=method == "POST") from None
         finally:
             self.net.client.cookies.clear()
 
@@ -201,7 +213,7 @@ class OAuth:
                 raise RouterError("oauth_conflict", "Connection changed while OAuth was in flight; no automatic retry.", uncertain=True)
             meta.update(status="ready", expires_at=payload["expires_at"], refreshable=bool(payload.get("refresh_token")),
                         last_error=None if payload.get("refresh_token") else "oauth_refresh_token_missing")
-            for key in ("claim", "claim_deadline", "phase", "login_deadline"):
+            for key in ("claim", "claim_deadline", "phase", "login_deadline", "previous"):
                 meta.pop(key, None)
             if refresh:
                 meta["last_refresh_at"] = self.clock()
@@ -209,10 +221,22 @@ class OAuth:
             db.execute("INSERT INTO events(job_id,kind,at) VALUES (NULL,?,?)", ("oauth.refreshed" if refresh else "oauth.connected", self.clock()))
 
     def _failed(self, claim, error):
+        self._logins.pop(claim, None)
         with self.state.db() as db:
             db.execute("BEGIN IMMEDIATE")
             _, meta = self._row(db)
-            if meta and meta.get("claim") == claim:
+            if not meta or meta.get("claim") != claim:
+                return
+            if "previous" in meta:
+                # A failed replacement never touched the stored tokens; the previous connection resumes.
+                self._write(db, {**meta["previous"], "last_error": error.code})
+            elif meta["status"] == "refreshing" and isinstance(error, Unsent):
+                # Nothing reached the provider, so the refresh token is unspent: release the claim.
+                meta.update(status="ready", last_error=error.code)
+                meta.pop("claim")
+                meta.pop("claim_deadline")
+                self._write(db, meta)
+            else:
                 meta.update(status="refresh_unknown" if error.uncertain else "needs_login", last_error=error.code)
                 self._write(db, meta)
                 db.execute("INSERT INTO events(job_id,kind,at) VALUES (NULL,?,?)", ("oauth." + meta["status"], self.clock()))
@@ -227,6 +251,8 @@ class OAuth:
             if not meta:
                 raise RouterError("oauth_missing", "Complete the local OAuth login first.")
             meta["keep_login"] = enabled
+            if "previous" in meta:
+                meta["previous"]["keep_login"] = enabled  # Still applies if the replacement fails.
             self._write(db, meta)
         return self.status()
 
@@ -294,6 +320,7 @@ class OAuth:
         server = LoginServer(self, timeout=timeout)
         claim = secrets.token_hex(16)
         payload = {"state": secrets.token_urlsafe(32), "verifier": secrets.token_urlsafe(48), "redirect_uri": server.redirect_uri}
+        self.vault._used_secrets.extend((payload["state"], payload["verifier"]))
         try:
             with self.state.db() as db:
                 db.execute("BEGIN IMMEDIATE")
@@ -304,7 +331,11 @@ class OAuth:
                     raise RouterError("oauth_busy", "A pending OAuth request already owns this connection.")
                 meta = {"status": "pending", "claim": claim, "phase": "registering", "login_deadline": self.clock() + timeout,
                         "keep_login": keep_login, "last_error": None}
-                self._write(db, meta, payload)
+                if old and old["status"] == "ready":
+                    # Metadata-only write: the working tokens stay sealed until the replacement finishes.
+                    self._write(db, {**meta, "previous": old})
+                else:
+                    self._write(db, meta, {})
             discovered = self.discovery()
             client = self._request("POST", ENDPOINTS["registration_endpoint"], body={"client_name": "ATM local OAuth",
                                    "redirect_uris": [server.redirect_uri], "token_endpoint_auth_method": "none",
@@ -318,7 +349,8 @@ class OAuth:
                 if meta.get("claim") != claim:
                     raise RouterError("oauth_conflict", "OAuth login ownership changed.")
                 meta["phase"] = "waiting"
-                self._write(db, meta, payload)
+                self._write(db, meta)
+            self._logins[claim] = payload
             challenge = base64.urlsafe_b64encode(hashlib.sha256(payload["verifier"].encode()).digest()).rstrip(b"=").decode()
             url = ENDPOINTS["authorization_endpoint"] + "?" + urlencode({"response_type": "code", "client_id": payload["client_id"],
                      "redirect_uri": server.redirect_uri, "scope": " ".join(sorted(SCOPES)), "state": payload["state"],
@@ -344,21 +376,30 @@ class OAuth:
             row, meta = self._row(db)
             if not meta or meta.get("claim") != claim or meta["status"] != "pending" or meta.get("phase") != "waiting" or meta["login_deadline"] <= self.clock():
                 raise RouterError("oauth_callback", "This local login request is no longer accepting callbacks.")
-            pending = self._open(row)
+            pending = self._logins.get(claim)
+            if pending is None:
+                raise RouterError("oauth_callback", "This process does not own the local login request.")
             state = query.get("state", "")
             if not isinstance(state, str) or not state.isascii() or not hmac.compare_digest(state, pending["state"]):
                 raise RouterError("oauth_state", "OAuth callback state did not match.")
             if (pending["require_iss"] or "iss" in query) and query.get("iss") != ISSUER:
                 raise RouterError("oauth_issuer", "OAuth callback issuer did not match.")
             if "error" in query:
-                meta.update(status="denied", last_error="oauth_access_denied")
+                code = None
+                if "previous" in meta:
+                    self._write(db, {**meta["previous"], "last_error": "oauth_access_denied"})
+                else:
+                    meta.update(status="denied", last_error="oauth_access_denied")
+                    self._write(db, meta)
+            else:
+                code = query.get("code", "")
+                if not isinstance(code, str) or not 1 <= len(code) <= 4096 or any(ord(c) < 33 or ord(c) > 126 for c in code):
+                    raise RouterError("oauth_callback", "OAuth callback has no valid code.")
+                meta.update(phase="exchanging")
                 self._write(db, meta)
-                return {**self.status(), "status": "denied", "last_error": "oauth_access_denied"}
-            code = query.get("code", "")
-            if not isinstance(code, str) or not 1 <= len(code) <= 4096 or any(ord(c) < 33 or ord(c) > 126 for c in code):
-                raise RouterError("oauth_callback", "OAuth callback has no valid code.")
-            meta.update(phase="exchanging")
-            self._write(db, meta)
+            del self._logins[claim]
+        if code is None:
+            return {**self.status(), "action": "denied"}
         try:
             result = self._request("POST", ENDPOINTS["token_endpoint"], form=True, body={"grant_type": "authorization_code",
                      "client_id": pending["client_id"], "code": code, "redirect_uri": pending["redirect_uri"],
@@ -368,7 +409,7 @@ class OAuth:
         except RouterError as error:
             self._failed(claim, error)
             raise
-        return self.status()
+        return {**self.status(), "action": "connected"}
 
 
 class LoginServer(HTTPServer):
@@ -394,7 +435,8 @@ class LoginServer(HTTPServer):
                 self.handle_request()
             if not self.done.is_set():
                 self.oauth._failed(self.claim, RouterError("oauth_login_timeout", "Local OAuth login timed out."))
-            return self.oauth.status()
+            # A failed replacement still reports the preserved connection, so the outcome is explicit.
+            return {**self.oauth.status(), "action": (self.result or {}).get("action", "login_failed")}
         finally:
             self.server_close()
 
