@@ -123,8 +123,8 @@ settings.request_key 可沿用。已失败的 job 键只返回原 failed job，�
 当前源码的 pin（取代下文2026-10-08已安装的旧 pin）：
 - 适配器闭包 pin（download.mjs/js 及结果读取闭包）：`9e442f3ced8e674020543867259d8f16383f1c243383c86802c4d60f60eee0dc`
   （旧 `37db8c3f2221abcec61f59a9a48ea1f2c42b0716c6323414951f9a78b6c09164`）。
-- 流水线 source_digest：`3c46e2ff89d76c0f8a9bec4cd8e7f62a5c239a3705c6f6dc07bd1c1d2c6d138e`
-  （旧 `e7b7f94a624272a855202773b707edab4b1e4cceb580c92788d355b43d4a416e`）。
+- 流水线 source_digest：`fa95bcaa6ea478cf72bd185a3f307694bf883870abc7b5d50dc1919826dc0e18`
+  （旧 `d6d80f4e1219cd6622bd09cdb6be4c3065a263bebd5f9a237d602e89c0278261`；更早 `3c46e2ff…`、`e7b7f94a…`）。
 - 三个结果读取工具的闭包 pin 不变（`99e0f848…`）。
 
 新的 `xyq.web.result_download` 定义另含编译固定的 `--adapter-dir`：桥接加载器的 reviewed/ 闭包目录
@@ -135,6 +135,12 @@ settings.request_key 可沿用。已失败的 job 键只返回原 failed job，�
 这只是提前拒绝，从不清除任何锁：桥接实际加载的仍是 OpenCLI 按注册找到的入口，其自身 pin 校验仍是
 最终依据；检查之后、桥接之前闭包若又被替换，结果仍是 delivery_unknown 并保留锁。
 
+`atm delivery xyq-image` 是 Router 专用入口，不出现在 `atm delivery --help`：它会在已登录浏览器里
+点击下载，所以只经已安装的 `xyq.web.result_download`（`atm run … --allow-code --allow-write`，
+由 Router.run 检查 execute_code/external_write）执行。编译定义固定传入 `--allow-write`；
+直接手动调用若缺少该标志，在 pin 检查后返回 `permission_required`（outcome_uncertain=false），
+不建账本、不认领、不启动桥接。status 与 record-unknown 仍是可见的本地命令。
+
 三者必须一起升级，并按此顺序：
 1. 先安装包含新 `website_download.py` 的 ATM 运行时（含 #22 的 cli_adapter）。
 2. 用 `python scripts/build_xyq_download.py --out <新目录> --bridge <已审阅桥接> --download-root <已审阅下载目录> --adapter-dir <加载器>/reviewed`
@@ -143,8 +149,8 @@ settings.request_key 可沿用。已失败的 job 键只返回原 failed job，�
 3. 把新的下载闭包重装到该加载器的 reviewed/，同时用
    `atm make update <包>/manifest.json --approve <新定义SHA> --expected <已安装定义SHA>`
    更新两个定义（首次安装用 `atm make install`）。
-4. `atm describe xyq.web.result_download` 必须显示 `--pin 3c46e2ff…`、`--adapter-pin 9e442f3c…`
-   与第2步的 `--adapter-dir`；`atm describe xyq.web.result_download_status` 必须显示 `--pin 3c46e2ff…`。
+4. `atm describe xyq.web.result_download` 必须显示 `--pin fa95bcaa…`、`--adapter-pin 9e442f3c…`
+   与第2步的 `--adapter-dir`；`atm describe xyq.web.result_download_status` 必须显示 `--pin fa95bcaa…`。
 5. 第一次下载前运行只读的加载器摘要检查（默认加载器位置；其它位置换成同一 `--adapter-dir`）：
 
    ```sh
