@@ -29,8 +29,13 @@ CDP_METHODS = {"DOM.getDocument", "DOM.querySelector", "DOM.setFileInputFiles",
                "Input.dispatchKeyEvent", "Input.dispatchMouseEvent"}
 TICKET_ENV = "ATM_STUDIO_TICKET"
 TICKET_TTL = 60
-# The server adapter stops this long before ATM's own timeout SIGKILLs its client.
-SERVER_MARGIN = 15
+# Playwright's default action and navigation timeout on the server page, in seconds.
+ACTION_TIMEOUT = 15
+# Browser calls a stopped runner already sent settle within Playwright's timeout; wait at most this.
+RPC_SETTLE = ACTION_TIMEOUT + 5
+# The server adapter stops this long before ATM's own timeout SIGKILLs its client, so its
+# browser calls can settle and the server still reports first.
+SERVER_MARGIN = RPC_SETTLE + 5
 
 
 def private_path(path: Path, *, directory=False):
@@ -196,6 +201,20 @@ async def hung_up(reader):
         await reader.read(1)
 
 
+async def uncancelled(awaitable):
+    """Await to the end even when cancelled meanwhile, then pass the cancellation on."""
+    task = asyncio.ensure_future(awaitable)
+    cancelled = False
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            cancelled = True
+    if cancelled:
+        raise asyncio.CancelledError
+    return task.result()
+
+
 async def request(home, packet, timeout=960):
     path = private_path(studio_dir(home) / "runtime.json")
     try:
@@ -244,7 +263,7 @@ class BrowserRuntime:
     async def start(self):
         if self.page is None:
             self.page = await self.context.new_page()
-        self.page.set_default_timeout(15000)
+        self.page.set_default_timeout(ACTION_TIMEOUT * 1000)
         self.page.on("download", self._download)
         self.cdp = await self.context.new_cdp_session(self.page)
 
@@ -402,7 +421,7 @@ class BrowserRuntime:
             if router_only(spec):
                 consume_ticket(self.home, packet.get("ticket"), spec, operation, argv, workspace, packet["bundle"])
             token = uuid.uuid4().hex
-            self.active = {"token": token, "workspace": workspace}
+            self.active = {"token": token, "workspace": workspace, "calls": set(), "stopping": False}
             env = {k: os.environ[k] for k in ("PATH", "HOME", "LANG", "TMPDIR") if k in os.environ}
             proc = None
             try:
@@ -421,11 +440,21 @@ class BrowserRuntime:
             except (ValueError, OSError, asyncio.TimeoutError):
                 raise RouterError("adapter_interrupted", "Server adapter was interrupted; reconcile receipts before retry.", uncertain=True) from None
             finally:
-                if proc and proc.returncode is None:
-                    os.killpg(proc.pid, signal.SIGKILL)
-                    await proc.wait()
-                self.active = None
-                self.download_arms.clear()
+                self.active["stopping"] = True  # Its token takes no new browser call from here on.
+                try:
+                    await uncancelled(self.stop(proc, self.active["calls"]))
+                finally:
+                    self.active = None
+                    self.download_arms.clear()
+
+    async def stop(self, proc, calls):
+        """Kill the runner, then let browser calls it already sent settle before the lock is freed:
+        neither the kill nor cancelling them stops a click Playwright is still auto-waiting on."""
+        if proc and proc.returncode is None:
+            os.killpg(proc.pid, signal.SIGKILL)
+            await proc.wait()
+        if calls:
+            await asyncio.wait(set(calls), timeout=RPC_SETTLE)
 
     async def handle(self, reader, writer):
         try:
@@ -461,9 +490,14 @@ class BrowserRuntime:
                     result = (await self.login(packet.get("ttl", 600), packet.get("port", 5900), packet.get("password"))
                               if method == "login" else await self.close_login())
             elif method == "rpc":
-                if not self.active or packet.get("token") != self.active["token"]:
+                active = self.active
+                if not active or active["stopping"] or packet.get("token") != active["token"]:
                     raise RouterError("unauthorized", "Browser RPC requires an active reviewed adapter invocation.")
-                result = await self.rpc(packet["name"], packet["args"])
+                # run() waits for every call its runner sent before it frees the runtime.
+                call = asyncio.ensure_future(self.rpc(packet["name"], packet["args"]))
+                active["calls"].add(call)
+                call.add_done_callback(active["calls"].discard)
+                result = await asyncio.shield(call)
             else:
                 raise RouterError("unsupported_method", "Unknown runtime request.")
             response = {"result": result}

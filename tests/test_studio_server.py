@@ -239,7 +239,7 @@ def test_server_adapter_stops_before_atm_kills_its_client(tmp_path, monkeypatch)
     home, project = tmp_path / "state", tmp_path / "project"
     home.mkdir()
     project.mkdir()
-    atm_timeout = 20  # What ATM gives the client process before it SIGKILLs it.
+    atm_timeout = runtime.SERVER_MARGIN + 5  # What ATM gives the client process before it SIGKILLs it.
     definitions = runtime.index()
     definitions["account"]["command"]["timeout"] = atm_timeout
     monkeypatch.setattr(runtime, "index", lambda: definitions)
@@ -278,6 +278,110 @@ def test_client_hangup_kills_the_server_adapter_and_frees_the_runtime(tmp_path):
             return not browser.lock.locked(), int(pid_file.read_text())
     released, pid = asyncio.run(scenario())
     assert released and gone(pid) and browser.active is None
+
+
+def rpc_runner(tmp_path, name, args, *, stall=False):
+    """A real child process standing in for node runner.mjs: makes one browser call over the
+    bridge and prints its answer as the result, or with stall=True hangs once it is sent."""
+    node = tmp_path / "rpc-node"
+    node.write_text(f"#!{sys.executable}\n" + f"""import json, os, socket, sys, time
+packet = json.loads(sys.stdin.read())
+with open("runner.pid", "w") as pid:
+    pid.write(str(os.getpid()))
+bridge = socket.socket(socket.AF_UNIX)
+bridge.connect(packet["socket"])
+bridge.sendall(json.dumps({{"method": "rpc", "token": packet["token"], "name": {name!r}, "args": {args!r}}}).encode() + b"\\n")
+if {stall!r}:
+    time.sleep(120)
+answer = json.loads(bridge.makefile().readline())
+print(json.dumps(answer.get("result", answer)))
+""")
+    node.chmod(0o700)
+    return str(node)
+
+
+class StalledClick:
+    """A page whose click Playwright is still auto-waiting on (up to its timeout) when the runner dies."""
+    url = runtime.ORIGIN + "/workspace/generate"
+    def __init__(self):
+        self.sent, self.release, self.landed = asyncio.Event(), asyncio.Event(), []
+    def is_closed(self): return False
+    def locator(self, selector): return self
+    async def count(self): return 1
+    async def click(self):
+        self.sent.set()
+        await self.release.wait()
+        self.landed.append((self.browser.lock.locked(), self.browser.active is not None))
+
+
+def stalled_click_runtime(tmp_path):
+    home, project = tmp_path / "state", tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    page = StalledClick()
+    page.browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[page]),
+                                          rpc_runner(tmp_path, "click", ["button.animate-button"], stall=True))
+    page.browser.bridge = str(tmp_path / "s")
+    return page, page.browser, project
+
+
+def test_click_already_sent_settles_before_the_runtime_is_released(tmp_path):
+    page, browser, project = stalled_click_runtime(tmp_path)
+    async def scenario():
+        server = await asyncio.start_unix_server(browser.handle, path=browser.bridge)
+        async with server:
+            reader, writer = await asyncio.open_unix_connection(browser.bridge)
+            writer.write(canonical(account_run(project)).encode() + b"\n")
+            await writer.drain()
+            await asyncio.wait_for(page.sent.wait(), 10)
+            token, pid = browser.active["token"], int((project / "runner.pid").read_text())
+            writer.close()  # ATM gives up on the run while the (possibly paid) click is pending.
+            await writer.wait_closed()
+            for _ in range(100):
+                if gone(pid):
+                    break
+                await asyncio.sleep(0.05)
+            await asyncio.sleep(0.3)
+            held = browser.lock.locked() and browser.active is not None
+            late_reader, late_writer = await asyncio.open_unix_connection(browser.bridge)
+            late_writer.write(canonical({"method": "rpc", "token": token, "name": "click", "args": ["button"]}).encode() + b"\n")
+            await late_writer.drain()
+            late = json.loads(await late_reader.readline())
+            late_writer.close()
+            page.release.set()  # Playwright's click lands.
+            for _ in range(100):
+                if not browser.lock.locked():
+                    break
+                await asyncio.sleep(0.05)
+            return gone(pid), held, late, not browser.lock.locked()
+    killed, held, late, released = asyncio.run(scenario())
+    assert killed and held  # The runner is gone, yet the runtime stays busy under its pending click.
+    assert late["error"]["code"] == "unauthorized"  # The stopping run takes no new browser call.
+    assert page.landed == [(True, True)] and released and browser.active is None
+
+
+def test_wait_for_sent_calls_is_bounded_and_outlasts_a_second_cancel(tmp_path, monkeypatch):
+    monkeypatch.setattr(runtime, "RPC_SETTLE", 1)
+    page, browser, project = stalled_click_runtime(tmp_path)
+    async def scenario():
+        loop = asyncio.get_running_loop()
+        server = await asyncio.start_unix_server(browser.handle, path=browser.bridge)
+        async with server:
+            run = asyncio.ensure_future(browser.run(account_run(project)))
+            await asyncio.wait_for(page.sent.wait(), 10)
+            started = loop.time()
+            run.cancel()  # As handle() does when the client hangs up.
+            await asyncio.sleep(0.3)
+            run.cancel()  # A second cancellation does not cut the wait short.
+            await asyncio.sleep(0.3)
+            held = browser.lock.locked()
+            await asyncio.wait({run}, timeout=10)
+            waited = loop.time() - started
+            released = not browser.lock.locked()
+            page.release.set()  # A click that never settled no longer holds the runtime; let it end.
+            return held, run.cancelled(), waited, released
+    held, cancelled, waited, released = asyncio.run(scenario())
+    assert held and cancelled and released and 1 <= waited < 5 and browser.active is None
 
 
 def test_login_viewer_fixed_ttl_loopback_and_preserved_browser(tmp_path, monkeypatch):
