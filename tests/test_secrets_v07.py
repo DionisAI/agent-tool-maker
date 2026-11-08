@@ -463,9 +463,11 @@ def test_python_venv_invocation_preserved_with_installed_dependency(env):
 def test_executable_symlink_retarget_invalidates_permit(env):
     from agent_tool_maker.secrets_provider import normalized_argv
     r,w,s,root=env
-    link=w/'runner';link.symlink_to('/bin/echo')
+    original=shutil.which('echo');replacement=shutil.which('false')
+    assert original and replacement, 'Symlink retarget test requires echo and false'
+    link=w/'runner';link.symlink_to(original)
     options=dict(mappings=['FAL_KEY=atm://fal'],argv=[str(link),'ok'],workspace=w,output=root/'link.json')
     plan=permit_exec(r,'claude',**options);permit_exec(r,'claude',**options,apply=True,approve=plan['sha256'])
-    link.unlink();link.symlink_to('/bin/false')
+    link.unlink();link.symlink_to(replacement)
     with pytest.raises(RouterError) as error:call(root/'link.json','exec',request(w,argv=normalized_argv([str(link),'ok'])))
     assert error.value.code=='grant_stale'

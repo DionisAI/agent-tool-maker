@@ -123,7 +123,7 @@ def test_login_needs_human_tty(router,monkeypatch):
     assert e.value.code=='interactive_required'
 
 
-def synthetic_context(chromium, html=HTML, received=None):
+def synthetic_context(chromium, html=HTML, received=None, clicks=None):
     # This environment forbids browser navigation. We do not alter that policy.
     # Only in tests, replace goto with set_content and label the intended URL.
     class MemoryPage:
@@ -143,7 +143,10 @@ def synthetic_context(chromium, html=HTML, received=None):
         if received is not None:received.append(storage)
         ctx=chromium.new_context(storage_state=storage,accept_downloads=True,service_workers='block')
         try:yield MemoryContext(ctx)
-        finally:ctx.close()
+        finally:
+            # HTML counts real button clicks in the page; read it before the page is gone.
+            if clicks is not None:clicks.extend(p.evaluate('count') for p in ctx.pages)
+            ctx.close()
     return context
 
 
@@ -165,12 +168,21 @@ def test_real_browser_dom_recipe_download_no_retry(router,workspace,chromium,mon
 @pytest.mark.integration
 def test_missing_locator_after_side_effect_is_unknown_not_resubmitted(router,workspace,chromium,monkeypatch):
     import agent_tool_maker.web_recipe as wr
-    t=recipe_tool();t['recipe']['steps'][2]['target']={'css':'#does-not-exist'};t['recipe']['timeout_ms']=100
-    router.catalog.tools[t['id']]=t;monkeypatch.setattr(wr,'open_context',synthetic_context(chromium))
+    # Keep the recipe's normal per-step budget: it also bounds navigation and the pre-click
+    # fill/click, so the 100 ms minimum let those time out under load ('failed', no click).
+    # Only the missing post-click target exhausts it.
+    t=recipe_tool();t['recipe']['steps'][2]['target']={'css':'#does-not-exist'}
+    opened,clicks=[],[]
+    router.catalog.tools[t['id']]=t;monkeypatch.setattr(wr,'open_context',synthetic_context(chromium,received=opened,clicks=clicks))
     job=router.run(t['id'],{'text':'one click'},workspace,request_key='uncertain',grants=['external_write'])
     assert job['status']=='submission_unknown'
+    error=job['data']['error']
+    assert error['code']=='browser_execution_failed' and error['outcome_uncertain'] is True
+    assert error['message'].startswith('Browser step 3 failed.')  # fill and click finished; expect_text did not
+    assert clicks==[1]
     assert 'does-not-exist' not in canonical(job['data'].get('error'))
     assert router.run(t['id'],{'text':'one click'},workspace,request_key='uncertain',grants=['external_write'])['id']==job['id']
+    assert opened==[None] and len(router.state.jobs())==1
 
 
 @pytest.mark.browser

@@ -395,6 +395,9 @@ def call(profile: Path, operation: str, args: dict, *, timeout=300):
                 response = stream.readline(MAX_MESSAGE + 1)
     except OSError:
         raise RouterError("broker_unavailable", "Broker is stopped, locked or unreachable. Reconcile the stable request key; no direct-vault fallback occurred.", uncertain=operation in {"run", "exec"}) from None
+    if response == b"":
+        # EOF during lock/shutdown is a transport failure, not malformed sync JSON.
+        raise RouterError("broker_unavailable", "Broker closed the connection before a response. Reconcile the stable request key; no direct-vault fallback occurred.", uncertain=operation in {"run", "exec"})
     value = strict_json(response, limit=MAX_MESSAGE)
     if "error" in value:
         error = value["error"]
