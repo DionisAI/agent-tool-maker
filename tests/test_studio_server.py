@@ -314,11 +314,11 @@ class StalledClick:
         self.landed.append((self.browser.lock.locked(), self.browser.active is not None))
 
 
-def stalled_click_runtime(tmp_path):
+def stalled_click_runtime(tmp_path, page=None):
     home, project = tmp_path / "state", tmp_path / "project"
     home.mkdir()
     project.mkdir()
-    page = StalledClick()
+    page = page or StalledClick()
     page.browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[page]),
                                           rpc_runner(tmp_path, "click", ["button.animate-button"], stall=True))
     page.browser.bridge = str(tmp_path / "s")
@@ -346,9 +346,11 @@ def test_click_already_sent_settles_before_the_runtime_is_released(tmp_path):
             late_reader, late_writer = await asyncio.open_unix_connection(browser.bridge)
             late_writer.write(canonical({"method": "rpc", "token": token, "name": "click", "args": ["button"]}).encode() + b"\n")
             await late_writer.drain()
-            late = json.loads(await late_reader.readline())
-            late_writer.close()
-            page.release.set()  # Playwright's click lands.
+            try:  # A late click taken by mistake would stall too: fail, do not hang.
+                late = json.loads(await asyncio.wait_for(late_reader.readline(), 10))
+            finally:
+                late_writer.close()
+                page.release.set()  # Playwright's click lands.
             for _ in range(100):
                 if not browser.lock.locked():
                     break
@@ -384,28 +386,34 @@ def test_wait_for_sent_calls_is_bounded_and_outlasts_a_second_cancel(tmp_path, m
     assert held and cancelled and released and 1 <= waited < 5 and browser.active is None
 
 
+class ReaderPage:
+    """Readers start with evaluate; this page answers with the URL it read on."""
+    def __init__(self, url, closed=False):
+        self.url, self.closed, self.visited = url, closed, []
+    def is_closed(self): return self.closed
+    def set_default_timeout(self, ms): pass
+    def on(self, event, handler): pass
+    async def goto(self, url, **kwargs):
+        assert not self.closed
+        self.visited.append(url)
+        self.url = url
+    async def evaluate(self, expression, arg):
+        assert not self.closed
+        return [{"read_on": self.url}]
+
+
+class ReaderContext:
+    """Reopens a closed page as a fresh about:blank ReaderPage with its own CDP session."""
+    def __init__(self, page):
+        self.pages, self.opened = [page], []
+    async def new_page(self):
+        self.opened.append(ReaderPage("about:blank"))
+        return self.opened[-1]
+    async def new_cdp_session(self, page): return SimpleNamespace(page=page)
+
+
 def test_run_returns_a_closed_or_off_origin_page_to_tripo_first(tmp_path):
-    class Page:
-        """Readers start with evaluate; this page answers with the URL it read on."""
-        def __init__(self, url, closed=False):
-            self.url, self.closed, self.visited = url, closed, []
-        def is_closed(self): return self.closed
-        def set_default_timeout(self, ms): pass
-        def on(self, event, handler): pass
-        async def goto(self, url, **kwargs):
-            assert not self.closed
-            self.visited.append(url)
-            self.url = url
-        async def evaluate(self, expression, arg):
-            assert not self.closed
-            return [{"read_on": self.url}]
-    class Context:
-        def __init__(self, page):
-            self.pages, self.opened = [page], []
-        async def new_page(self):
-            self.opened.append(Page("about:blank"))
-            return self.opened[-1]
-        async def new_cdp_session(self, page): return SimpleNamespace(page=page)
+    Page, Context = ReaderPage, ReaderContext
     home, project = tmp_path / "state", tmp_path / "project"
     home.mkdir()
     project.mkdir()
@@ -428,6 +436,94 @@ def test_run_returns_a_closed_or_off_origin_page_to_tripo_first(tmp_path):
     browser = runtime.BrowserRuntime(home, context, reader)
     assert asyncio.run(run(browser)) == [{"read_on": "about:blank"}]
     assert browser.page is context.opened[0] and browser.cdp.page is context.opened[0]
+
+
+def scaled_budget(monkeypatch, timeout, *, settle, margin):
+    """The real timing scaled down: an account tool timeout, the settle wait and the server margin."""
+    monkeypatch.setattr(runtime, "RPC_SETTLE", settle)
+    monkeypatch.setattr(runtime, "SERVER_MARGIN", margin)
+    definitions = runtime.index()
+    definitions["account"]["command"]["timeout"] = timeout
+    monkeypatch.setattr(runtime, "index", lambda: definitions)
+
+
+async def bridge_run(browser, packet, client_timeout):
+    """ATM's client over the real bridge: one run packet, then wait no longer than ATM lets it live."""
+    server = await asyncio.start_unix_server(browser.handle, path=browser.bridge)
+    reader, writer = await asyncio.open_unix_connection(browser.bridge)
+    try:
+        writer.write(canonical(packet).encode() + b"\n")
+        await writer.drain()
+        return json.loads(await asyncio.wait_for(reader.readline(), client_timeout))
+    finally:
+        writer.close()
+        await writer.wait_closed()
+        server.close()  # Not wait_closed(): a browser call still pending ends with the test's event loop.
+
+
+def recorded_spawns(monkeypatch):
+    spawned, spawn = [], asyncio.create_subprocess_exec
+    async def recording(*command, **kwargs):
+        spawned.append(command)
+        return await spawn(*command, **kwargs)
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", recording)
+    return spawned
+
+
+class SlowWayBack(StalledClick):
+    """A sign-in redirect left the page off Tripo Studio, and navigating back takes a while."""
+    url = "https://accounts.example.com/sign-in"
+    async def goto(self, url, **kwargs):
+        await asyncio.sleep(3)
+        self.url = url
+
+
+def test_slow_return_to_tripo_counts_against_the_adapter_budget(tmp_path, monkeypatch):
+    atm_timeout = 9
+    # The budget is 5 s from the bridge accepting the run; a click the runner sent then gets 1 s to settle.
+    scaled_budget(monkeypatch, atm_timeout, settle=1, margin=4)
+    page, browser, project = stalled_click_runtime(tmp_path, SlowWayBack())
+    async def scenario():
+        try:  # Back on Tripo Studio after 3 s, the runner sends a click that never settles, then stalls.
+            return await bridge_run(browser, account_run(project), atm_timeout - 2)
+        finally:
+            page.release.set()
+    answer = asyncio.run(scenario())  # The server reports first; the client is never left to be killed.
+    assert answer["error"]["code"] == "adapter_interrupted" and answer["error"]["outcome_uncertain"]
+    assert page.url == runtime.ORIGIN + "/assets" and page.sent.is_set()  # Returned first, then the runner ran.
+    assert gone(int((project / "runner.pid").read_text())) and not browser.lock.locked() and browser.active is None
+
+
+class NoTimeBack:
+    """An off-origin page whose way back to Tripo Studio outlasts the budget: the budget cuts it
+    off, or (lands=True) the navigation lands just as the budget runs out."""
+    def __init__(self, lands):
+        self.url, self.lands = "https://accounts.example.com/sign-in", lands
+    def is_closed(self): return False
+    async def goto(self, url, **kwargs):
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            if not self.lands:
+                raise
+            self.url = url  # Its answer arrives together with the budget's end.
+
+
+@pytest.mark.parametrize("lands", [False, True], ids=["cut_off", "lands_at_deadline"])
+def test_runner_never_starts_once_the_budget_is_spent(tmp_path, monkeypatch, lands):
+    atm_timeout = 5
+    scaled_budget(monkeypatch, atm_timeout, settle=1, margin=3)  # A 2 s budget.
+    spawned = recorded_spawns(monkeypatch)
+    home, project = tmp_path / "state", tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[NoTimeBack(lands)]), stalled_runner(tmp_path))
+    browser.bridge = str(tmp_path / "s")
+    answer = asyncio.run(bridge_run(browser, account_run(project), atm_timeout - 2))
+    # No adapter ran, so nothing can have been submitted: a certain failure, not an unknown outcome.
+    assert answer["error"]["code"] == "adapter_interrupted" and not answer["error"]["outcome_uncertain"]
+    assert spawned == [] and not (project / "runner.pid").exists()
+    assert not browser.lock.locked() and browser.active is None
 
 
 def test_login_viewer_fixed_ttl_loopback_and_preserved_browser(tmp_path, monkeypatch):
@@ -987,3 +1083,50 @@ def test_real_run_returns_a_closed_or_off_origin_page_to_tripo(tmp_path):
     assert reset == [runtime.ORIGIN + "/assets", "Tripo fixture"]
     assert reopened == ["about:blank", ""] and old_closed and not new_closed
     assert document["root"]["nodeId"]  # The reopened page has its own CDP session.
+
+
+@pytest.mark.browser
+@pytest.mark.integration
+def test_real_way_back_cut_by_the_budget_leaves_the_next_run_working(tmp_path, monkeypatch):
+    pytest.importorskip("playwright")
+    from playwright.async_api import async_playwright
+    chromium = os.environ.get("ATM_CHROMIUM")
+    if not chromium:
+        pytest.skip("Isolated Chromium required")
+    atm_timeout = 6
+    scaled_budget(monkeypatch, atm_timeout, settle=1, margin=3)  # A 3 s budget.
+    spawned = recorded_spawns(monkeypatch)
+    home, project = tmp_path / "state", tmp_path / "project"
+    project.mkdir()
+    node = rpc_runner(tmp_path, "evaluate", ["function readLocation(){return [location.href, document.title]}", []])
+    held, stalled = [], [True]
+    async def probe():
+        async with async_playwright() as manager:
+            context = await manager.chromium.launch_persistent_context(tmp_path / "profile", executable_path=chromium,
+                headless=True, chromium_sandbox=True, artifacts_dir=tmp_path / "artifacts")
+            try:
+                async def route_handler(route):
+                    if route.request.url.startswith(runtime.ORIGIN + "/") and stalled[0]:
+                        held.append(route)  # Never answered: this way back outlasts the budget.
+                    elif route.request.url.startswith((runtime.ORIGIN + "/", "https://accounts.example.com/")):
+                        title = "Tripo fixture" if route.request.url.startswith(runtime.ORIGIN) else "Foreign sign-in"
+                        await route.fulfill(body=f"<!doctype html><title>{title}</title>", content_type="text/html")
+                    else:
+                        await route.abort()
+                await context.route("**/*", route_handler)
+                browser = runtime.BrowserRuntime(home, context, node)
+                await browser.start()
+                browser.bridge = str(tmp_path / "s")
+                await browser.page.goto("https://accounts.example.com/sign-in")  # As a sign-in redirect leaves it.
+                cut = await bridge_run(browser, account_run(project), atm_timeout - 2)
+                ran_after_cut = [c for c in spawned if c[0] == node]
+                stalled[0] = False
+                again = await bridge_run(browser, account_run(project), atm_timeout - 2)
+                return cut, ran_after_cut, again, len(held)
+            finally:
+                await context.close()
+    cut, ran_after_cut, again, held_count = asyncio.run(probe())
+    # Playwright's own navigation, cut off by the budget: no adapter ran, nothing was submitted.
+    assert cut["error"]["code"] == "adapter_interrupted" and not cut["error"]["outcome_uncertain"]
+    assert held_count == 1 and ran_after_cut == []
+    assert again == {"result": [runtime.ORIGIN + "/assets", "Tripo fixture"]}  # The runtime is not wedged.

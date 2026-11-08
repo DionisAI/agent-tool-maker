@@ -83,8 +83,9 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
   或读取本用户进程环境的恶意程序。Router 与 `studio serve` 须使用同一 `--home`。
 - 每次操作绑定包含 Python 驱动、Node dispatcher 和 20 个原适配源文件的 bundle 摘要
   （含随源码闭包打包、但不分派的 2 份 delivery 源）。
-  一次只运行一个操作；并发报 busy，不排队或重试副作用。服务器 runner 比原工具超时
-  早 25 秒停止并报 `adapter_interrupted`，先于 ATM 超时杀掉客户端；客户端断开（如被 ATM
+  一次只运行一个操作；并发报 busy，不排队或重试副作用。从服务器接受该次请求起算，
+  回到 Tripo Studio（见下）与 runner 共用“原工具超时减 25 秒”的预算，runner 到点停止并报
+  `adapter_interrupted`，先于 ATM 超时杀掉客户端；客户端断开（如被 ATM
   超时 SIGKILL）时立即杀掉 runner 进程组。杀掉 runner 不会撤回它已发出的浏览器调用
   （Playwright 对点击、填写、导航最多自动等待 15 秒），所以该次调用令牌不再接受新调用，
   服务器等已发出的调用结束（最多 20 秒）后才释放 busy：释放时已发出的点击已经落下或超时。
@@ -94,7 +95,9 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
 - 除 `goto`（只能去 Tripo Studio）外，RPC 只在 about:blank 或 Tripo Studio 页面上执行，
   读取脚本绝不在第三方页面运行。每次操作启动 runner 前，若页面已关闭则重开，若停在其它来源
   （登录跳转、错误页）则先回到 Tripo Studio `/assets`，不会因一次离站而卡住之后以读取开头的操作；
-  回不去时报 `navigation_failed`，未启动 adapter。
+  回不去时报 `navigation_failed`，未启动 adapter。重开或导航也受上面的预算限制：预算在
+  runner 启动前用尽时报 `adapter_interrupted`（`outcome_uncertain: false`），未启动 adapter、
+  没有提交。
 - 临时 VNC 只监听 127.0.0.1，通过 SSH 使用；专属 Xvfb 配置私有 Xauthority。
   无公网端口、公开调试端点或网页密码表单。同机其他用户和进程也能连到该端口，所以 x11vnc
   从 0700 状态目录中的 0600 文件读取本次密码并随即删除（`-passwdfile rm:`，不在进程参数中），

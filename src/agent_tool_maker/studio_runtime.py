@@ -33,8 +33,8 @@ TICKET_TTL = 60
 ACTION_TIMEOUT = 15
 # Browser calls a stopped runner already sent settle within Playwright's timeout; wait at most this.
 RPC_SETTLE = ACTION_TIMEOUT + 5
-# The server adapter stops this long before ATM's own timeout SIGKILLs its client, so its
-# browser calls can settle and the server still reports first.
+# Counted from the bridge accepting a run, the server adapter stops this long before ATM's own
+# timeout SIGKILLs its client, so its browser calls can settle and the server still reports first.
 SERVER_MARGIN = RPC_SETTLE + 5
 
 
@@ -416,7 +416,10 @@ class BrowserRuntime:
             raise RouterError("unsupported_method", "Unknown server browser method.")
         return None
 
-    async def run(self, packet):
+    async def run(self, packet, accepted=None):
+        """accepted: the loop time at which the bridge took the run packet (default: now)."""
+        loop = asyncio.get_running_loop()
+        accepted = loop.time() if accepted is None else accepted
         operation, argv = packet["operation"], packet["argv"]
         workspace = Path(packet["workspace"])
         if not workspace.is_absolute():
@@ -427,6 +430,11 @@ class BrowserRuntime:
         spec = validate_request(operation, argv, workspace)
         if packet.get("bundle") != bundle_digest():
             raise RouterError("definition_changed", "Review and reinstall the changed server runtime bundle.")
+        # One budget from accepting the run: the page's way back to Tripo Studio and the runner
+        # share it, and stop() spends SERVER_MARGIN after it, so the server still reports first.
+        deadline = accepted + spec["command"]["timeout"] - SERVER_MARGIN
+        def left():
+            return max(0, deadline - loop.time())
         if self.lock.locked():
             raise RouterError("runtime_busy", "One browser operation is already active; no request was queued or replayed.")
         async with self.lock:
@@ -434,7 +442,13 @@ class BrowserRuntime:
                 raise RouterError("human_login_active", "Close the temporary login viewer before Agent execution.")
             if router_only(spec):
                 consume_ticket(self.home, packet.get("ticket"), spec, operation, argv, workspace, packet["bundle"])
-            await self.reset_page()
+            try:
+                await asyncio.wait_for(self.reset_page(), left())
+                in_time = left() > 0
+            except asyncio.TimeoutError:
+                in_time = False
+            if not in_time:
+                raise RouterError("adapter_interrupted", "Server time ran out before the adapter started; nothing was submitted.")
             token = uuid.uuid4().hex
             self.active = {"token": token, "workspace": workspace, "calls": set(), "stopping": False}
             env = {k: os.environ[k] for k in ("PATH", "HOME", "LANG", "TMPDIR") if k in os.environ}
@@ -444,7 +458,7 @@ class BrowserRuntime:
                     stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
                     start_new_session=True, limit=LIMIT)
                 payload = canonical({"socket": self.bridge, "token": token, "operation": operation, "argv": argv})
-                stdout, _ = await asyncio.wait_for(proc.communicate(payload.encode()), spec["command"]["timeout"] - SERVER_MARGIN)
+                stdout, _ = await asyncio.wait_for(proc.communicate(payload.encode()), left())
                 if len(stdout) > LIMIT:
                     raise RouterError("result_limit", "Server result exceeded its bound.", uncertain=True)
                 result = json.loads(stdout)
@@ -481,7 +495,9 @@ class BrowserRuntime:
             method = packet["method"]
             if method == "run":
                 # ATM SIGKILLs its client at the tool timeout; that hang-up stops the adapter too.
-                run, hangup = asyncio.ensure_future(self.run(packet)), asyncio.ensure_future(hung_up(reader))
+                # The adapter's budget runs from here, as ATM's clock already runs on its client.
+                accepted = asyncio.get_running_loop().time()
+                run, hangup = asyncio.ensure_future(self.run(packet, accepted)), asyncio.ensure_future(hung_up(reader))
                 try:
                     await asyncio.wait({run, hangup}, return_when=asyncio.FIRST_COMPLETED)
                 finally:
