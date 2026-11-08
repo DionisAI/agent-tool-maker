@@ -296,6 +296,33 @@ test('known SPA heading transition is pending; unknown heading is a contract fai
   assert.equal(readPanelDOM('retopo').kind,'pending');heading='Unrecognized Panel';assert.equal(readPanelDOM('retopo').kind,'layout_changed');
   location.pathname='/workspace/generate/'+ID;assert.equal(readPanelDOM('retopo').kind,'pending');
 });
+function progressDOM(path,{progress=[],busy=false}={}){
+  // closest() honours selector lists: a node matches when any listed ancestor encloses it.
+  const node=(text,within=[])=>({innerText:text,getClientRects:()=>[1],closest:selector=>selector.split(',').some(s=>within.includes(s.trim()))?{}:null});
+  const paragraphs=[node('Faces'),node('Vertices'),...progress.map(([text,within])=>node(text,within))];
+  paragraphs[0].nextElementSibling={innerText:'12'};paragraphs[1].nextElementSibling={innerText:'8'};
+  const action={innerText:'Retopology 40',disabled:busy,getAttribute:()=>null,closest:()=>null};
+  const panel={querySelectorAll:selector=>selector==='button.animate-button'?[action]:[]};
+  const main={innerText:'Retopology',querySelectorAll:selector=>selector==='p'?paragraphs:selector==='button'?[{innerText:'Export',disabled:false,closest:()=>null}]:[]};
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:path};
+  globalThis.document={querySelector:selector=>selector==='main'?main:null,
+    querySelectorAll:selector=>selector==='main p'?paragraphs:selector==='div.rounded-r-5:has(h2)'?[panel]:[]};
+}
+test('another card showing progress never proves this asset is processing or that the paid click registered',()=>{
+  const route='/workspace/retopology/'+ID;
+  for(const within of [['[role="tabpanel"]'],['a[href]'],['[role="dialog"]']]){
+    progressDOM(route,{progress:[['Retopologizing...',within]],busy:true});
+    assert.equal(readSubmissionDOM(ID).kind,'pending');
+    const status=readAssetDOM();assert.equal(status.status,'ready');assert.equal(status.processing,false);
+  }
+  // Routed progress without this click's own change (the action is still enabled) is not evidence.
+  progressDOM(route,{progress:[['Retopologizing...',[]]]});assert.equal(readSubmissionDOM(ID).kind,'pending');
+  assert.equal(readAssetDOM().status,'generating');
+  progressDOM(route,{progress:[['Retopologizing...',[]]],busy:true});
+  assert.deepEqual(readSubmissionDOM(ID),{kind:'ready',asset_id:ID,acceptance:'processing_ui_observed_not_model_completion'});
+  progressDOM('/workspace/retopology/'+OTHER);
+  assert.deepEqual(readSubmissionDOM(ID),{kind:'ready',asset_id:OTHER,acceptance:'new_asset_route_observed_not_model_completion'});
+});
 test('image quote binds distinct blob preview identities even when file input is cleared',()=>{
   globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/generate'};
   let blob='blob:https://studio.tripo3d.ai/'+ID+'?Signature=FAKE';

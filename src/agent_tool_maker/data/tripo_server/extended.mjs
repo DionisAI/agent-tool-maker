@@ -92,7 +92,8 @@ export function readAssetDOM() {
     const count=Number(value.split('/')[0]);return Number.isSafeInteger(count)?count:null;
   };
   const faces = numberAfter('Faces'), vertices = numberAfter('Vertices');
-  const processing = paragraphs.some(el => !el.closest?.('[role="tabpanel"]') && /^(Generating(?: Texture)?\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3}|Segmenting\.{0,3}|Enhancing\.{0,3})$/i.test(el.innerText.trim()));
+  // Another card (sidebar tabpanel, asset link) or a dialog is not this routed asset's progress.
+  const processing = paragraphs.some(el => !el.closest?.('[role="tabpanel"], [role="dialog"], a[href]') && /^(Generating(?: Texture)?\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3}|Segmenting\.{0,3}|Enhancing\.{0,3})$/i.test(el.innerText.trim()));
   const failed = paragraphs.some(el => /^(Generation failed|Unknown server error|Task failed)/i.test(el.innerText.trim()));
   const exports = Array.from(main.querySelectorAll('button')).filter(el => el.innerText.trim() === 'Export' && !el.closest('[role="dialog"]'));
   const exportEnabled = exports.length === 1 && !exports[0].disabled;
@@ -335,9 +336,16 @@ export async function claimedOperation(args, fingerprint, work) {
 export function readSubmissionDOM(priorId) {
   if (location.origin !== 'https://studio.tripo3d.ai') return { kind: 'origin_mismatch' };
   const match = location.pathname.match(/^\/workspace\/(?:generate|retopology|rigging)\/.*?([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/);
-  const processing = Array.from(document.querySelectorAll('main p')).some(el => el.getClientRects().length && /^(Generating\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3})$/i.test(el.innerText.trim()));
-  if (match && (match[1] !== priorId || processing)) return { kind: 'ready', asset_id: match[1], acceptance: processing ? 'processing_ui_observed_not_model_completion' : 'new_asset_route_observed_not_model_completion' };
-  return { kind: 'pending' };
+  if (!match) return { kind: 'pending' };
+  if (match[1] !== priorId) return { kind: 'ready', asset_id: match[1], acceptance: 'new_asset_route_observed_not_model_completion' };
+  // Same source route: progress text alone may belong to another card. Count only
+  // progress outside cards/dialogs, and only with this click's own change: the
+  // panel's single action, enabled before the claim, is now disabled or busy.
+  const processing = Array.from(document.querySelectorAll('main p')).some(el => el.getClientRects().length && !el.closest('[role="tabpanel"], [role="dialog"], a[href]') && /^(Generating\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3})$/i.test(el.innerText.trim()));
+  const panels = document.querySelectorAll('div.rounded-r-5:has(h2)');
+  const actions = panels.length === 1 ? panels[0].querySelectorAll('button.animate-button') : [];
+  const busy = actions.length === 1 && (actions[0].disabled || actions[0].getAttribute('aria-disabled') === 'true' || actions[0].getAttribute('aria-busy') === 'true');
+  return processing && busy ? { kind: 'ready', asset_id: match[1], acceptance: 'processing_ui_observed_not_model_completion' } : { kind: 'pending' };
 }
 export async function executePaid(page, raw) {
   const args = validateExecution(raw);

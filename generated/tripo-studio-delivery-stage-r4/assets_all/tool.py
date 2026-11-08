@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.assets_all'
-DEFINITION_SHA256 = 'b52fe836718a164a1c4ad9d5d5c567d8ba681d8ae76b0c3c392e8eb6682976a7'
+DEFINITION_SHA256 = 'd2e589f4f6b2ca040e81158bfdf76e9ac6742710a0338bd6e2cc5555ea7fb00c'
 
 
 def main(argv=None):

@@ -174,10 +174,16 @@ export function readWorkspaceSubmissionDOM(module,priorId) {
   if(location.origin!=='https://studio.tripo3d.ai')return{kind:'origin_mismatch'};
   if(!Object.hasOwn(routes,module))return{kind:'invalid_argument'};
   const match=location.pathname.match(new RegExp('^/workspace/'+routes[module]+'/.*?([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$'));
+  if(!match)return{kind:'pending'};
+  if(match[1]!==priorId)return{kind:'ready',asset_id:match[1],acceptance:'new_asset_route_not_completion'};
+  // Same source route: the HUD must be outside other cards/dialogs, and this click
+  // must have changed the verified action (enabled before the claim, now disabled or busy).
   const states=['Generating','Processing','Segmenting','Enhancing',...(module==='texture'?['Generating Texture']:[])];
-  const processing=[...document.querySelectorAll('main p')].some(e=>e.getClientRects().length&&!e.closest?.('[role="tabpanel"]')&&states.some(s=>new RegExp('^'+s+'\\.{0,3}$','i').test(e.innerText.trim())));
-  if(match&&(match[1]!==priorId||processing))return{kind:'ready',asset_id:match[1],acceptance:processing?'processing_ui_not_completion':'new_asset_route_not_completion'};
-  return{kind:'pending'};
+  const processing=[...document.querySelectorAll('main p')].some(e=>e.getClientRects().length&&!e.closest?.('[role="tabpanel"],[role="dialog"],a[href]')&&states.some(s=>new RegExp('^'+s+'\\.{0,3}$','i').test(e.innerText.trim())));
+  const panels=[...document.querySelectorAll('div.rounded-r-5:has(h2)')].filter(e=>e.getClientRects().length);
+  const actions=panels.length===1?[...panels[0].querySelectorAll('button.animate-button')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&!e.closest('[role="tabpanel"]');}):[];
+  const busy=actions.length===1&&(actions[0].disabled||actions[0].getAttribute('aria-disabled')==='true'||actions[0].getAttribute('aria-busy')==='true');
+  return processing&&busy?{kind:'ready',asset_id:match[1],acceptance:'processing_ui_not_completion'}:{kind:'pending'};
 }
 export async function submitWorkspace(page,raw) {
   const args=validateExecution(raw);moduleName(args.module);assetId(args.asset);

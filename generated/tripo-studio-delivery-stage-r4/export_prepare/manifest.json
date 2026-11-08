@@ -71,7 +71,7 @@
       "tripo-studio",
       "export-prepare",
       "--pin",
-      "c5a624fd7556fb43694cdfa35f87b4a69f4396e119626bf0cf47be04e66b7558",
+      "10376fe28872d0a1a87c12ab6c81d00ec143ef3519d1f909729aa302da371b13",
       "-f",
       "json",
       "--asset",

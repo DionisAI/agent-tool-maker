@@ -37,6 +37,9 @@ Retopo Quad/10000，40积分；Texture 8K，`solid blue matte surface`，30积�
   保留锁期间不绕过导出守卫，最终GLB文件及质量/导入验收仍待。
 
 同一UUID会被后处理原位更新，source_asset_id==asset_id不是新的结果UUID。
+同一路由的提交证据须同时满足：进度文案不在侧栏 tabpanel、资产链接卡片或弹窗内，
+且点击前已校验可用的唯一操作按钮此后变为禁用/忙碌；仅有其它卡片的进度仍为等待，
+超时即 submission_unknown 并保留锁。新的结果 UUID 路由仍是独立证据。
 operation_status 保守返回 needs_output_reference；未知回执保留 submission_unknown，
 都不释放锁或推定已完成。后续需要明确的版本/完成证据合同来做自动对账。
 模型只读状态、单次提交、操作关联、最终文件与视觉质量是不同验收门槛。

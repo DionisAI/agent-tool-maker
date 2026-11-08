@@ -15,7 +15,10 @@ const sha=value=>createHash('sha256').update(value).digest('hex');
 test('same-UUID Texture submission recognizes the exact observed HUD phrase, not another sidebar task',()=>{
   globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/texture/'+ID};
   const progress={innerText:'Generating Texture...',getClientRects:()=>[1],closest:()=>null};
-  globalThis.document={querySelectorAll:()=>[progress]};
+  // After the paid click the verified Generate Texture action is disabled while the HUD runs.
+  const action={disabled:true,getAttribute:()=>null,closest:()=>null,getBoundingClientRect:()=>({width:100,height:20})};
+  const panel={getClientRects:()=>[1],querySelectorAll:selector=>selector==='button.animate-button'?[action]:[]};
+  globalThis.document={querySelectorAll:selector=>selector==='div.rounded-r-5:has(h2)'?[panel]:[progress]};
   const accepted=readWorkspaceSubmissionDOM('texture',ID);assert.equal(accepted.kind,'ready');assert.equal(accepted.asset_id,ID);assert.equal(accepted.acceptance,'processing_ui_not_completion');
   progress.closest=()=>({});assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
   progress.closest=()=>null;progress.innerText='Generating an unrelated task';assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
@@ -186,6 +189,23 @@ test('rigged same-href form shortcut does not make the inspected Animate sidebar
   const p=fixturePage({...FORM,module:'animate'}),original=p.evaluate;
   p.evaluate=async(fn,...args)=>fn===readLocation?{origin:'https://studio.tripo3d.ai',path:'/workspace/rigging/'+ID}:fn===readWorkspaceLinkDOM?observed:original(fn,...args);
   await inspectWorkspace(p,{module:'animate',asset:ID});assert.deepEqual(p.calls[0],['click','a[href="'+href+'"]',{nth:1}]);
+});
+function hudDOM(path,{progress=[],busy=false}={}){
+  const node=(text,within=[])=>({innerText:text,getClientRects:()=>[1],closest:selector=>selector.split(',').some(s=>within.includes(s.trim()))?{}:null});
+  const paragraphs=progress.map(([text,within])=>node(text,within));
+  const action={innerText:'Generate Texture\n30',disabled:busy,getAttribute:()=>null,closest:()=>null,getBoundingClientRect:()=>({width:100,height:20})};
+  const panel={getClientRects:()=>[1],querySelectorAll:selector=>selector==='button.animate-button'?[action]:[]};
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:path};
+  globalThis.document={querySelectorAll:selector=>selector==='main p'?paragraphs:selector==='div.rounded-r-5:has(h2)'?[panel]:[]};
+}
+test('same-UUID progress needs the routed HUD and a busy action; another card or an unregistered click stays pending',()=>{
+  const route='/workspace/texture/'+ID;
+  for(const within of [['[role="tabpanel"]'],['a[href]'],['[role="dialog"]']]){
+    hudDOM(route,{progress:[['Generating Texture...',within]],busy:true});assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
+  }
+  hudDOM(route,{progress:[['Generating Texture...',[]]]});assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
+  hudDOM(route,{progress:[['Generating Texture...',[]]],busy:true});
+  assert.deepEqual(readWorkspaceSubmissionDOM('texture',ID),{kind:'ready',asset_id:ID,acceptance:'processing_ui_not_completion'});
 });
 test('new source or actual processing signal is submission evidence, never completion',()=>{
   globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/texture-pbr/'+ID};globalThis.document={querySelectorAll:()=>[]};
