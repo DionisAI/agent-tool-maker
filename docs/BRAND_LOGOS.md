@@ -2,8 +2,8 @@
 
 ## 显示合同
 
-- 总览“你的工具箱”从当前工具目录分组，展示前 12 个提供方；点击进入已过滤的工具目录，查看全部入口保留。
-- 工具目录、供应商连接、Higgsfield OAuth、Agent 客户端和 CLI 列表复用相同图标组件。目录保留精确工具 ID；连接保留精确凭证槽位。
+- 首页“我在用的服务”与“服务”页的服务行、服务索引都带图标；点击进入该服务的页面（v0.8 起取代原“你的工具箱”）。
+- 服务页、按工具视图、Key 保管、订阅额度、Agent 与权限和本机程序列表复用相同图标组件。目录保留精确工具 ID；连接保留精确凭证槽位。
 - 当前打包 **55 个品牌图标**。别名复用同一图标，覆盖内置目录 **73 个 provider 中的 59 个**；其余使用明确的名称缩写，不借用其他品牌图标。
 - 缩写项：Firecrawl、小云雀、Spline、OpenCLI、Apify、DataForSEO、ImageMagick、Remotion、Playwright、itch.io、Printful、Marvelous Designer、CLO、Tally。新增自定义提供方也使用缩写。
 - `studio` / `local` 只有精确 `tripo.studio.*` / `tripo.server.*` 工具命名空间显示 Tripo3D；其他扩展保留自己的标识。

@@ -3,7 +3,7 @@
 ## 使用体验
 
 Agent 从已审阅源码准备可选 `passkey` 依赖和 `atm ui`，由启动终端打开带私有
-会话的 **localhost** 网页。在“连接与凭证”点“绑定 1Password / Passkey”：
+会话的 **localhost** 网页。在“设置 › Key 保管 › Passkey”点“绑定 Passkey”：
 
 1. 先初始化或验证现有密码/keyring；主密码只填本地表单。
 2. 在浏览器的保存提示中选 1Password，由本人确认。

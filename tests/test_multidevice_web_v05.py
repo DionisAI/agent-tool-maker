@@ -96,3 +96,26 @@ def test_access_preview_binds_tool_configuration_not_only_names(web,tmp_path):
     response=client.post('/api/access/grant',json={**body,'apply':True,'approved_sha256':preview['approval_sha256']})
     assert response.status_code==400 and response.json()['error']['code']=='plan_changed'
     assert client.get('/api/access').json()['grants']==[]
+
+
+def test_access_lists_pending_window_requests_and_the_console_cannot_answer_them(web,tmp_path):
+    import time
+    from test_quickstart_v08 import seed_requests
+    server,client=web;root=tmp_path.resolve()
+    assert client.get('/api/access').json()['requests']==[]
+    made=seed_requests(State(server.home),root,time.time())
+    access=client.get('/api/access')
+    assert access.status_code==200
+    rows=access.json()['requests']
+    # The malformed records seeded alongside are skipped; /api/access still answers 200.
+    assert [row['id'] for row in rows]==[made['stale'][0],made['fresh'][0],made['odd-beat'][0]]
+    assert [row['live'] for row in rows]==[False,True,False]
+    assert all(set(row)=={'id','workspace','credentials','status','created_at','expires_at','live'} for row in rows)
+    for leak in ('FAKE-LAUNCH','FAKE-WINDOW-TOKEN','localhost:1','approval_sha256'):
+        assert leak not in access.text
+    # No console endpoint takes a request id: the approval window's API is not served on the console port.
+    for path in ['/api/desktop','/api/desktop/approve','/api/desktop/cancel','/api/desktop/lock','/api/desktop/passkey/begin']:
+        body={'id':made['fresh'][0],'approved_sha256':'0'*64,'consent':True}
+        assert client.post(path,json=body).status_code==404
+    assert client.get('/api/desktop').status_code==404
+    assert State(server.home).setting('desktop-request:'+made['fresh'][0])['status']=='needs_unlock'
