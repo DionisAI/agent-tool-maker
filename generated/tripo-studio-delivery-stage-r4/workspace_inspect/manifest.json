@@ -52,7 +52,7 @@
       "tripo-studio",
       "workspace-inspect",
       "--pin",
-      "166ba4aec822fe73eea5656122151e1268079c833337a9a40f5c591dafff1c30",
+      "c9acff01e02af7c686ace6e8028af4dbc5e32c34b16c32e045e8addb6b369bf0",
       "-f",
       "json",
       "--module",

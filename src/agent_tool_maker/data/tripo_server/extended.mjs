@@ -626,6 +626,20 @@ export function readPreviewTargetDOM(preview) {
   }).filter(index => index !== null);
   return { count: matches.length, nth: matches[0] };
 }
+export function readPreviewDialogDOM(preview) {
+  if (location.origin !== 'https://studio.tripo3d.ai') return { kind: 'origin_mismatch' };
+  const dialogs = Array.from(document.querySelectorAll('[role="dialog"]')).filter(el => el.getClientRects().length &&
+    Array.from(el.querySelectorAll('button')).some(button => button.innerText.trim() === 'Edit in Workspace'));
+  if (!dialogs.length) return { kind: 'pending' };
+  if (dialogs.length !== 1) return { kind: 'layout_changed' };
+  // The card click is positional. Bind the opened dialog to the requested preview
+  // thumbnail before Edit in Workspace can expose another asset's UUID.
+  const previews = Array.from(dialogs[0].querySelectorAll('img[src]')).map(img => {
+    try { return new URL(img.getAttribute('src'), location.origin).pathname.match(/\/([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})\/studio_(?:mesh|mesh_gray|part|wireframe)\.webp$/)?.[1] || null; } catch { return null; }
+  }).filter(Boolean);
+  if (!previews.length) return { kind: 'pending' };
+  return previews.every(id => id === preview) ? { kind: 'ready', preview_task_id: preview } : { kind: 'asset_mismatch' };
+}
 export async function resolveAsset(page, args) {
   assetId(args.preview);
   await navigateAssets(page);
@@ -637,6 +651,7 @@ export async function resolveAsset(page, args) {
   }
   if (target.count !== 1) throw new StudioError('asset_not_found', 'Preview card is not uniquely visible in the asset scan.');
   await page.click('main div.group > a', { nth: target.nth });
+  await pollDOM({ evaluate: () => page.evaluate(readPreviewDialogDOM, args.preview) }, readPreviewDialogDOM);
   await clickText(page, '[role="dialog"] button', 'Edit in Workspace');
   const data = await pollDOM(page, readAssetDOM);
   return [{ status: data.status, asset_id: data.asset_id, preview_task_id: args.preview, paid_submitted: false }];

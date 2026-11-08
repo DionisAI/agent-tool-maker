@@ -20,8 +20,8 @@ def test_image_form_definition_source_and_permissions(op):
     assert set(tool['permissions'])==({'execute_code'} if op.endswith('inspect') else {'execute_code','external_write'})
     assert b.image_form_digest() in tool['command']['argv']
     assert 'outputs' not in tool['command'] and 'credential_env' not in tool['command']
-    assert b.viewer_digest()=='ebdb6f99a2a718ff4f4de6c26d2931bad5e66b914ab28ab3f4ec171f38ad5960'
-    assert b.workspace_digest()=='166ba4aec822fe73eea5656122151e1268079c833337a9a40f5c591dafff1c30'
+    assert b.viewer_digest()=='80ff45ad15807e6751876f32966cf005425c15cddeea74f293cc3cf66afbe2b3'
+    assert b.workspace_digest()=='c9acff01e02af7c686ace6e8028af4dbc5e32c34b16c32e045e8addb6b369bf0'
     if op.endswith('prepare'):
         schema=tool['schema']['properties']['settings']
         assert schema['required']==['expected_draft_sha256']

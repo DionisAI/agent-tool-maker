@@ -24,7 +24,7 @@ def test_ui_options_bundle_is_bound_to_reviewed_source_and_permissions(operation
     assert 'credential_env' not in tool['command']
     assert 'outputs' not in tool['command']
     # Reviewed sidebar/SPA-source waits; preserve the exact dependency assertion.
-    assert builder.workspace_digest() == '166ba4aec822fe73eea5656122151e1268079c833337a9a40f5c591dafff1c30'
+    assert builder.workspace_digest() == 'c9acff01e02af7c686ace6e8028af4dbc5e32c34b16c32e045e8addb6b369bf0'
     assert builder.query_digest() == '13c05dc89662502d4209d7b613418b3b54ffa00a973352984206e38801b43b59'
 
 

@@ -18,7 +18,7 @@ test('completed Quad and triangle models expose single and current/total counts 
 import { assetId, parseSettings, quoteHash, extendedDigest, checkExtendedPin, readLocation, readRouteLinkDOM, readAssetEntryLinkDOM,
   readAssetDOM, readPanelDOM, readSubmissionDOM, readExportDOM, readCollectionDOM, readVisibleErrorDOM, findTextDOM, PANEL, EXPORT_DIALOG,
   inspectAsset, operationQuote, executePaid, inspectImageFile, imageQuote, generateImage, validateGLB,
-  exportModel, exportQuote, assetsAll, claimedOperation, validateExecution,
+  exportModel, exportQuote, assetsAll, claimedOperation, validateExecution, resolveAsset, readPreviewTargetDOM, readPreviewDialogDOM,
 } from '../examples/opencli/tripo-studio/extended.mjs';
 import { readAccountDOM } from '../examples/opencli/tripo-studio/core.mjs';
 // Canonical temp root: macOS tmpdir() sits below the /var symlink, which path guards reject.
@@ -344,6 +344,46 @@ test('observed mesh, gray mesh, part and wireframe variants are accepted; signed
   name='undocumented';assert.equal(readCollectionDOM().kind,'thumbnail_contract_changed');
 });
 
+const PREVIEW='cccccccc-dddd-eeee-ffff-000000000000',SHIFTED='dddddddd-eeee-ffff-0000-111111111111';
+function resolvePage(dialogPreview){
+  const calls=[];
+  const thumbnail=id=>`https://tripo-data-public.rg1.data.tripo3d.com/tripo-studio/20261003/${id}/studio_mesh.webp?Signature=FAKE`;
+  return {calls,goto:()=>assert.fail('No cold navigation'),click:async(selector,options)=>{calls.push([selector,options?.nth]);},
+    evaluate:async(fn,...values)=>{
+      if(fn===readLocation)return{origin:'https://studio.tripo3d.ai',path:'/assets'};
+      if(fn===readVisibleErrorDOM)return{site_error:false};
+      if(fn===readAccountDOM)return{kind:'ready',credits:100};
+      if(fn===findTextDOM)return{count:1,nth:0};
+      if(fn===readPreviewTargetDOM)return{count:1,nth:0};
+      if(fn===readAssetDOM)return{kind:'ready',status:'ready',asset_id:dialogPreview===PREVIEW?ID:OTHER,faces:12,vertices:8,export_enabled:true};
+      // Any other reader runs against the card dialog that the positional nth click opened.
+      const opened=calls.some(([selector])=>selector==='main div.group > a');
+      const dialog={getClientRects:()=>[1],innerText:'Edit in Workspace',
+        querySelectorAll:selector=>selector==='button'?[{innerText:'Edit in Workspace'}]:selector.startsWith('img')?[{getAttribute:()=>thumbnail(dialogPreview)}]:[]};
+      globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/assets'};
+      globalThis.document={querySelectorAll:selector=>selector==='[role="dialog"]'&&opened?[dialog]:[]};
+      return fn(...values);
+    }};
+}
+test('asset resolve binds the opened card dialog to the requested preview before Edit in Workspace',async()=>{
+  // The grid re-rendered between the target read and the nth click: nth 0 now opens another card.
+  const shifted=resolvePage(SHIFTED);
+  await assert.rejects(resolveAsset(shifted,{preview:PREVIEW}),e=>e.code==='asset_mismatch');
+  assert.equal(shifted.calls.some(([selector])=>selector==='[role="dialog"] button'),false);
+  const exact=resolvePage(PREVIEW);const out=(await resolveAsset(exact,{preview:PREVIEW}))[0];
+  assert.equal(out.asset_id,ID);assert.equal(out.preview_task_id,PREVIEW);assert.equal(out.paid_submitted,false);
+  assert.deepEqual(exact.calls.slice(-2),[['main div.group > a',0],['[role="dialog"] button',0]]);
+});
+test('card dialog identity waits for its thumbnail and rejects ambiguous dialogs',()=>{
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/assets'};
+  let images=[];const dialog={getClientRects:()=>[1],querySelectorAll:s=>s==='button'?[{innerText:'Edit in Workspace'}]:images};
+  let dialogs=[];globalThis.document={querySelectorAll:()=>dialogs};
+  assert.equal(readPreviewDialogDOM(PREVIEW).kind,'pending');dialogs=[dialog];assert.equal(readPreviewDialogDOM(PREVIEW).kind,'pending');
+  images=[{getAttribute:()=>'/tripo-studio/20261003/'+PREVIEW+'/studio_part.webp'},{getAttribute:()=>'/static/icon.svg'}];
+  assert.deepEqual(readPreviewDialogDOM(PREVIEW),{kind:'ready',preview_task_id:PREVIEW});
+  images.push({getAttribute:()=>'/tripo-studio/20261003/'+SHIFTED+'/studio_mesh.webp'});assert.equal(readPreviewDialogDOM(PREVIEW).kind,'asset_mismatch');
+  dialogs=[dialog,dialog];assert.equal(readPreviewDialogDOM(PREVIEW).kind,'layout_changed');
+});
 function collectionDOMFixture(){
   globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/assets'};
   globalThis.getComputedStyle=()=>({overflowY:'scroll'});
