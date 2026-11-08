@@ -99,6 +99,14 @@ def test_200_application_errors_are_not_success(router,workspace,payload):
     assert j['status']=='submission_unknown'
     assert 'secret leak' not in canonical(j)
 
+@pytest.mark.parametrize('body',[b'{not json',b'['*200000],ids=['invalid','nested'])
+def test_rest_nested_json_is_unknown_like_invalid_json(router,workspace,body):
+    row=router.catalog.get('slack.send');prepare(router,workspace,row);seen=[]
+    router.net.client.close();router.net.client=httpx.Client(transport=httpx.MockTransport(lambda req:seen.append(req) or httpx.Response(200,content=body)),trust_env=False)
+    j=router.run(row['id'],row['example'],workspace,request_key='deep',grants=ALL_GRANTS)
+    assert j['status']=='submission_unknown' and j['data']['error']['code']=='upstream_schema' and j['data']['error']['outcome_uncertain'] is True
+    assert router.run(row['id'],row['example'],workspace,request_key='deep',grants=ALL_GRANTS)['id']==j['id'] and len(seen)==1
+
 def test_stripe_live_key_rejected_before_request(router,workspace):
     row=router.catalog.get('stripe.checkout_test');prepare(router,workspace,row);router.vault.put('stripe','sk_live_NEVER_CHARGE')
     def fail(req):pytest.fail('must not call Stripe')
