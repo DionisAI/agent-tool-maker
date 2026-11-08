@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.viewer_inspect'
-DEFINITION_SHA256 = '741e663426a4a04a27734d43dc8a3fcbc8fb09841a81f5ac7878a1c00dd6608c'
+DEFINITION_SHA256 = '09c6b8580f3bdc8697ee97cef32e1649c873cdad711d24d8c96ba8ced3e5bd85'
 
 
 def main(argv=None):

@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.rig'
-DEFINITION_SHA256 = '4ec73c4578d50d36d1dc304c7177c61f40a28a871778daaea8f00da2818ff39e'
+DEFINITION_SHA256 = 'f16945bc9a60ff3186830c3eac5c043a28494d359fb5b9bd27b5e8c869e9b7c7'
 
 
 def main(argv=None):

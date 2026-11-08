@@ -311,8 +311,16 @@ test('known SPA heading transition is pending; unknown heading is a contract fai
   location.pathname='/workspace/generate/'+ID;assert.equal(readPanelDOM('retopo').kind,'pending');
 });
 function progressDOM(path,{progress=[],busy=false}={}){
-  // closest() honours selector lists: a node matches when any listed ancestor encloses it.
-  const node=(text,within=[])=>({innerText:text,getClientRects:()=>[1],closest:selector=>selector.split(',').some(s=>within.includes(s.trim()))?{}:null});
+  // closest() honours selector lists and returns the nearest listed ancestor. Ancestors are
+  // innermost first: a selector string, or {href} for an asset link card.
+  const node=(text,within=[])=>({innerText:text,getClientRects:()=>[1],closest:selector=>{
+    const parts=selector.split(',').map(s=>s.trim());
+    for(const ancestor of within){
+      if(typeof ancestor==='string'){if(parts.includes(ancestor))return {};}
+      else if(parts.includes('a[href]'))return {getAttribute:name=>name==='href'?ancestor.href:null};
+    }
+    return null;
+  }});
   const paragraphs=[node('Faces'),node('Vertices'),...progress.map(([text,within])=>node(text,within))];
   paragraphs[0].nextElementSibling={innerText:'12'};paragraphs[1].nextElementSibling={innerText:'8'};
   const action={innerText:'Retopology 40',disabled:busy,getAttribute:()=>null,closest:()=>null};
@@ -352,6 +360,31 @@ test('another card or a dialog showing a failure never marks the ready routed as
   for(const text of ['Generation failed','Unknown server error','Task failed']){
     progressDOM(route,{progress:[[text,[]]]});assert.equal(readAssetDOM().status,'failed');
     progressDOM(route,{progress:[['Retopologizing...',[]],[text,[]]]});assert.equal(readAssetDOM().status,'failed');
+  }
+});
+test('the routed asset\'s own card speaks for it; another asset\'s card, the sidebar or a dialog never does',()=>{
+  const route='/workspace/retopology/'+ID,own={href:'/workspace/retopology/'+ID};
+  // In-place update: the old mesh and Export stay while the asset's own card reports the job.
+  for(const text of ['Generation failed','Unknown server error','Task failed'])
+    for(const within of [[own],[own,'[role="tabpanel"]'],[own,'[role="dialog"]']]){
+      progressDOM(route,{progress:[[text,within]]});
+      const status=readAssetDOM();assert.equal(status.status,'failed');assert.equal(status.asset_id,ID);assert.equal(status.export_enabled,true);
+      // Its own failure outranks its own progress and another card's progress.
+      progressDOM(route,{progress:[['Retopologizing...',within],['Retopologizing...',['[role="tabpanel"]']],[text,within]]});assert.equal(readAssetDOM().status,'failed');
+    }
+  for(const within of [[own],[own,'[role="tabpanel"]']]){
+    progressDOM(route,{progress:[['Retopologizing...',within]]});const status=readAssetDOM();assert.equal(status.status,'generating');assert.equal(status.processing,true);
+  }
+  // Another asset's card (also one that names this UUID only in its query), a link with no
+  // asset UUID, and the sidebar or a dialog outside this asset's own card stay unrelated.
+  const elsewhere=[[{href:'/workspace/retopology/'+OTHER}],[{href:'/workspace/retopology/'+OTHER},'[role="tabpanel"]'],[{href:'/workspace/rigging/'+OTHER},'[role="dialog"]'],
+    [{href:'/workspace/retopology/'+OTHER+'?source='+ID}],[{href:'/workspace/generate'}],['[role="tabpanel"]'],['[role="dialog"]']];
+  for(const within of elsewhere){
+    for(const text of ['Generation failed','Unknown server error','Task failed','Retopologizing...']){
+      progressDOM(route,{progress:[[text,within]]});const status=readAssetDOM();assert.equal(status.status,'ready');assert.equal(status.processing,false);
+    }
+    // Nor do they hide this asset's own failure.
+    progressDOM(route,{progress:[['Retopologizing...',within],['Task failed',[own,'[role="tabpanel"]']]]});assert.equal(readAssetDOM().status,'failed');
   }
 });
 function rigPanelDOM(own,shortcut){

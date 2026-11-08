@@ -49,6 +49,28 @@ test('a failed sidebar, link or dialog card never reports the ready output as fa
     failure.closest=()=>null;r=(await operationStatus(page,fixture()))[0];assert.equal(r.status,'failed');assert.equal(r.model_completed,false);
   }
 });
+test('a new output\'s own card failure reads failed; the source\'s or another asset\'s card never does',async()=>{
+  // An asset link card: closest() returns the link for a[href] and the sidebar for [role="tabpanel"].
+  const card=(text,href)=>({innerText:text,getClientRects:()=>[1],closest:selector=>{const parts=selector.split(',').map(s=>s.trim());
+    return parts.includes('a[href]')?{getAttribute:name=>name==='href'?href:null}:parts.includes('[role="tabpanel"]')?{}:null;}});
+  const mesh=()=>[{innerText:'Faces',nextElementSibling:{innerText:'8468'},getClientRects:()=>[1]},{innerText:'Vertices',nextElementSibling:{innerText:'8399'},getClientRects:()=>[1]}];
+  const show=(paragraphs,exportEnabled)=>{const main={innerText:'',querySelectorAll:s=>s==='p'?paragraphs:[{innerText:'Export',disabled:!exportEnabled,closest:()=>null}]};
+    globalThis.document={querySelector:()=>main};globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/texture/'+OUTPUT};};
+  // The real reader runs against this DOM, with no navigation.
+  const page={evaluate:async fn=>fn===readLocation||fn===readAssetDOM?fn():assert.fail('reader'),click:()=>assert.fail('navigation'),goto:()=>assert.fail('navigation')};
+  // A new output has no mesh or Export yet; only its own sidebar card reports the job.
+  for(const text of ['Generation failed','Unknown server error','Task failed']){
+    show([card(text,'/workspace/texture/'+OUTPUT)],false);
+    const r=(await operationStatus(page,fixture()))[0];assert.equal(r.status,'failed');assert.equal(r.provider_status,'failed');assert.equal(r.model_completed,false);
+  }
+  show([card('Generating Texture...','/workspace/texture/'+OUTPUT)],false);
+  let r=(await operationStatus(page,fixture()))[0];assert.equal(r.status,'pending');assert.equal(r.provider_status,'generating');assert.equal(r.model_completed,false);
+  // The source's failed card, or another asset's, leaves the ready output ready.
+  for(const href of ['/workspace/texture/'+SOURCE,'/workspace/generate/'+SOURCE,'/workspace/texture/'+SOURCE+'?output='+OUTPUT]){
+    show([...mesh(),card('Generation failed',href),card('Generating Texture...',href)],true);
+    r=(await operationStatus(page,fixture()))[0];assert.equal(r.status,'completed');assert.equal(r.provider_status,'ready');assert.equal(r.model_completed,true);
+  }
+});
 test('unknown receipt and source-only acknowledgement never report completed or use the provider',async()=>{
   for(const extra of [{status:'submission_unknown'},{status:'dispatch_claimed'},{asset_id:SOURCE}]){
     const args=fixture(extra);const r=(await operationStatus({evaluate:()=>assert.fail('provider')},args))[0];assert.equal(r.model_completed,false);assert.equal(r.provider_checked,false);assert.equal(r.lock_changed,false);assert.equal(r.submission_repeated,false);}

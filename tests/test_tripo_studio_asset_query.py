@@ -25,7 +25,7 @@ def test_query_bundle_permissions_and_independent_source_pin(operation):
     assert 'credential_env' not in tool['command']
     assert builder.adapter_digest() == 'd34bd8e9a69c55c28c176fb978577bc0390dbdf41d1b96495cc3774ae319fd46'
     # Reviewed sidebar/SPA-source waits and observed Texture HUD; independent query pin stays unchanged.
-    assert builder.workspace_digest() == '412196c7aeda352e094e67429950b12c260681d6aa8c7e531f23841dcd444723'
+    assert builder.workspace_digest() == '254f4c672f56ca9f6e592b213713abb1133590b62666504969d0e0a58775787e'
 
 
 @pytest.mark.parametrize('operation', builder.QUERY_OPERATIONS)

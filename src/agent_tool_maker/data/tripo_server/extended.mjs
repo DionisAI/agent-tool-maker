@@ -92,9 +92,17 @@ export function readAssetDOM() {
     const count=Number(value.split('/')[0]);return Number.isSafeInteger(count)?count:null;
   };
   const faces = numberAfter('Faces'), vertices = numberAfter('Vertices');
-  // Another card (sidebar tabpanel, asset link) or a dialog is not this routed asset's progress or failure.
-  const processing = paragraphs.some(el => !el.closest?.('[role="tabpanel"], [role="dialog"], a[href]') && /^(Generating(?: Texture)?\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3}|Segmenting\.{0,3}|Enhancing\.{0,3})$/i.test(el.innerText.trim()));
-  const failed = paragraphs.some(el => !el.closest?.('[role="tabpanel"], [role="dialog"], a[href]') && /^(Generation failed|Unknown server error|Task failed)/i.test(el.innerText.trim()));
+  // Identity, not position: text speaks for the routed asset outside every card and dialog,
+  // or inside its own card (a link naming this UUID and no other). Another asset's card, or
+  // the sidebar tabpanel or a dialog outside that card, is not its progress or failure.
+  const own = el => {
+    const link = el.closest?.('a[href]');
+    if (!link) return !el.closest?.('[role="tabpanel"], [role="dialog"]');
+    const ids = (link.getAttribute?.('href') || '').match(/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}/gi) || [];
+    return ids.length > 0 && ids.every(found => found.toLowerCase() === match[1]);
+  };
+  const processing = paragraphs.some(el => own(el) && /^(Generating(?: Texture)?\.{0,3}|Processing\.{0,3}|Retopologizing\.{0,3}|Rigging\.{0,3}|Segmenting\.{0,3}|Enhancing\.{0,3})$/i.test(el.innerText.trim()));
+  const failed = paragraphs.some(el => own(el) && /^(Generation failed|Unknown server error|Task failed)/i.test(el.innerText.trim()));
   const exports = Array.from(main.querySelectorAll('button')).filter(el => el.innerText.trim() === 'Export' && !el.closest('[role="dialog"]'));
   const exportEnabled = exports.length === 1 && !exports[0].disabled;
   const status = failed ? 'failed' : processing ? 'generating' : faces > 0 && vertices > 0 && exportEnabled ? 'ready' : 'pending';

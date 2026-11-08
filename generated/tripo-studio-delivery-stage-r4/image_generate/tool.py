@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.image_generate'
-DEFINITION_SHA256 = '01ff5b820efc898738d7e935db4b9ce009ac4cdc98ff09916b237a80aa469e94'
+DEFINITION_SHA256 = '4d63b4fdb35f72d0cbdce82d643a211affe6075e677e5d3771eef0cbdd0ff4ce'
 
 
 def main(argv=None):
