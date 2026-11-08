@@ -50,7 +50,8 @@ def dispatch(args, router):
         server, result = connection.begin_login(args.provider, keep_login=args.keep_login, replace=args.replace)
         if server is None:
             return result
-        print(__import__("json").dumps(result), flush=True)
+        # Progress goes to stderr: stdout carries exactly one JSON object, the final result.
+        print(__import__("json").dumps(result), file=sys.stderr, flush=True)
         try:
             final = server.run()
             if final["action"] == "connected" and final.get("refreshable") and args.keep_login:

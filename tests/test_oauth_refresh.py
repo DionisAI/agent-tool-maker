@@ -664,6 +664,23 @@ def test_cli_status_for_missing_connection_needs_login(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)['status'] == 'missing'
 
 
+def test_cli_login_keeps_one_json_object_on_stdout(oauth, monkeypatch, capsys):
+    """The 'started' progress line goes to stderr; stdout stays the single JSON result Agents parse."""
+    from functools import partial
+    from agent_tool_maker.cli import main
+    manager, _, _ = oauth
+    opened = []
+    monkeypatch.setattr(manager, 'begin_login', partial(manager.begin_login, opener=lambda url: opened.append(url) or True, timeout=.01))
+    monkeypatch.setattr('agent_tool_maker.oauth_cli.OAuth', lambda *args: manager)
+    assert main(['--home', str(manager.state.home), 'oauth', 'login']) == 2
+    out, err = capsys.readouterr()
+    final = json.loads(out)  # Raises on a second JSON value ("Extra data").
+    assert (final['status'], final['action'], final['last_error']) == ('needs_login', 'login_failed', 'oauth_login_timeout')
+    progress = json.loads(err)
+    assert (progress['status'], progress['action'], progress['browser_opened']) == ('pending', 'started', True)
+    assert len(opened) == 1 and opened[0] not in out + err and 'code_challenge' not in out + err
+
+
 def test_failed_cli_replacement_does_not_install_service(oauth, monkeypatch):
     from types import SimpleNamespace
     from agent_tool_maker.oauth_cli import dispatch

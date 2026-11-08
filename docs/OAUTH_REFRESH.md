@@ -36,6 +36,7 @@ Agent 打开本机管理页；在「服务 → Higgsfield → ATM 登录 · Higg
 
 `atm oauth status higgsfield` 仅返回状态、有效期、续期开关和后台服务的最近安装状态。
 `atm oauth login higgsfield --keep-login` 打开一轮官方 PKCE 登录，等待人类授权最多 5 分钟。
+等待开始时，`"action": "started"` 状态作为一行 JSON 写到 stderr；stdout 只有登录结束后的一个 JSON 对象。
 重复请求复用 pending，既有连接默认保留；明确更新用 `--replace`。
 等待中的登录只能由所有者在管理台点「取消登录」立即结束（见下文 2026-10-21 记录）；没有 CLI 取消命令。
 `atm oauth refresh higgsfield` 在内部续期，不输出令牌。
