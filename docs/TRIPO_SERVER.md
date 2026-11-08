@@ -27,9 +27,12 @@
 3. Agent 执行 `atm studio install`，核对 bundle SHA256，随后使用相同 SHA
    `--approve SHA --apply --atm-executable /absolute/atm`。只安装服务器命名空间。
    重复相同安装复用，定义变化明确报错，后续通过已有 CAS 审阅更新流程处理。
-4. Agent 执行 `atm studio login --ttl 600`，准备 SSH 本地端口转发与本机 VNC 查看器。
-   人在**服务器浏览器**完成 Tripo 官网登录/验证，不把密码、授权链接或 Key 发到聊天。
-   `atm studio login-close` 关闭查看器；600 秒固定到期也会自动关闭，不静默续期。
+4. Agent 只给出一条命令：人在自己的 SSH 终端（`ssh -L 5900:127.0.0.1:5900 …`）执行
+   `atm studio login --ttl 600`。它为本次查看器生成一次性 VNC 密码，只写到该终端，
+   不进 stdout、Agent 记录或 job；没有终端（Agent 执行）时报 `interactive_required`，不打开查看器。
+   人用本机 VNC 查看器连接后在**服务器浏览器**完成 Tripo 官网登录/验证，不把密码、授权链接或 Key 发到聊天。
+   只接受一个查看器，该查看器断开即关闭；`atm studio login-close` 也可关闭，
+   600 秒固定到期也会自动关闭，不静默续期。
 5. Agent 查询服务器 `account`，验证 login/credits，再执行任务。供应商生成/上传/导出
    继续遵守原工具各自的确认门槛，不复用此前付费批准。
 
@@ -87,7 +90,10 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
 - 原 paid lock、pre-click receipt、request-key、报价/Private/预算检查不变。
   导出与上传限制在确切项目，不触碰浏览器认证文件。RPC 的 CDP 仅 DOM 上传及原生输入。
 - 临时 VNC 只监听 127.0.0.1，通过 SSH 使用；专属 Xvfb 配置私有 Xauthority。
-  无公网端口、公开调试端点或网页密码表单。VNC 信任已登录的本机用户，不作多租户隔离。
+  无公网端口、公开调试端点或网页密码表单。同机其他用户和进程也能连到该端口，所以 x11vnc
+  从 0700 状态目录中的 0600 文件读取本次密码并随即删除（`-passwdfile rm:`，不在进程参数中），
+  `-once -nevershared -dontdisconnect`：连接期间拒绝第二个查看器，断开后退出。
+  没有改用 Unix socket：x11vnc 文档说明 `-unixsock` 需要修改并重编译 libvncserver。
 - profile 仅由浏览器打开。Agent 不读取、导出、复制 Cookies、Token 或 profile 内容。
   停机保留 profile、回执、旧 socket。没有自动永久删除/清理。
 - 登录/验证码/站点错误/未知提交明确失败。已绑定并固定哈希的 `atm` 子进程以退出码 2 给出
@@ -122,7 +128,8 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
 专项 JUnit：`/private/tmp/atm-studio-server-final-20261004-o.xml`。
 非浏览器 JUnit：`/private/tmp/atm-studio-server-regression-20261004-n.xml`。
 wheel 核对：`/private/tmp/atm-studio-server-wheel-readback-20261004.json`。
-临时 VNC 的 TTL、loopback、Xauthority 和关闭后保留浏览器为**模拟协议测试**，
+临时 VNC 的 TTL、loopback、一次性密码文件与单查看器参数、Xauthority 和关闭后保留浏览器为**模拟协议测试**
+（x11vnc 参数按其官方选项文档核对，未在真实 x11vnc 上运行），
 没有把 macOS 测试当成 Linux 原生查看器验收。
 
 2026-10-17 Router ticket 补丁（同一假 Tripo 夹具，非供应商验收）：`tests/test_studio_server.py`

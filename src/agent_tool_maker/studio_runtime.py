@@ -236,6 +236,7 @@ class BrowserRuntime:
         self.download_event = asyncio.Event()
         self.download_arms = {}
         self.vnc = None
+        self.login_secret = None
         self.login_until = 0
         self.login_timer = None
         self.bridge = None
@@ -257,6 +258,9 @@ class BrowserRuntime:
                 self.vnc.terminate()
             await self.vnc.wait()
             self.vnc = None
+        if self.login_secret:
+            self.login_secret.unlink(missing_ok=True)  # x11vnc normally removed it on reading.
+            self.login_secret = None
         if self.login_timer:
             self.login_timer.cancel()
             self.login_timer = None
@@ -268,12 +272,15 @@ class BrowserRuntime:
             if self.vnc is expected:
                 await self.close_login()
 
-    async def login(self, ttl=600, port=5900):
+    async def login(self, ttl=600, port=5900, password=None):
         import shutil
         if not self.display or not self.authority:
             raise RouterError("headed_required", "Start serve with --virtual-display for the temporary server login viewer.")
         if not isinstance(ttl, int) or not 60 <= ttl <= 1800 or not isinstance(port, int) or not 1024 <= port <= 65535:
             raise RouterError("invalid_argument", "Login viewer TTL must be 60-1800 seconds and port 1024-65535.")
+        # VNC authentication uses 8 characters; alphanumerics avoid x11vnc's password-file markers.
+        if not (isinstance(password, str) and len(password) == 8 and password.isascii() and password.isalnum()):
+            raise RouterError("invalid_argument", "Open the viewer with atm studio login in the owner's terminal; it sets the one-time password.")
         if self.vnc and self.vnc.returncode is None:
             return {"status": "pending", "port": self.login_port, "expires_at": self.login_until, "reused": True}
         executable = shutil.which("x11vnc")
@@ -285,17 +292,23 @@ class BrowserRuntime:
             except OSError:
                 raise RouterError("login_port_busy", "Choose a free loopback login-viewer port.") from None
         await self.page.goto(ORIGIN + "/assets", wait_until="domcontentloaded")
+        # Other local users can reach a loopback port: x11vnc reads the session password from a
+        # private file it deletes ("rm:"), never argv; one viewer, refused while connected, then exit.
+        self.login_secret = studio_dir(self.home) / ("vnc-" + uuid.uuid4().hex + ".passwd")
+        atomic_write(self.login_secret, password.encode() + b"\n")
         self.vnc = await asyncio.create_subprocess_exec(executable, "-display", self.display, "-auth", str(self.authority), "-listen", "127.0.0.1",
-            "-localhost", "-rfbport", str(port), "-nopw", "-forever", "-shared", "-noxdamage",
-            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+            "-localhost", "-rfbport", str(port), "-passwdfile", "rm:" + str(self.login_secret), "-once", "-nevershared",
+            "-dontdisconnect", "-noxdamage", stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
         await asyncio.sleep(0.5)
         if self.vnc.returncode is not None:
+            await self.close_login()
             raise RouterError("login_viewer_failed", "Server viewer exited; check display dependencies locally.")
         self.login_port, self.login_until = port, time.time() + ttl
         current = self.vnc
         self.login_timer = asyncio.get_running_loop().call_later(ttl, lambda: asyncio.create_task(self.expire_login(current)))
         return {"status": "pending", "listen": "127.0.0.1", "port": port, "expires_at": self.login_until,
-                "transport": "ssh_forwarded_vnc", "human_login_required": True, "secrets_returned": False}
+                "transport": "ssh_forwarded_vnc", "authentication": "one_time_password", "single_viewer": True,
+                "human_login_required": True, "secrets_returned": False}
 
     async def locator(self, selector, options):
         if not isinstance(selector, str) or len(selector) > 4096:
@@ -445,7 +458,8 @@ class BrowserRuntime:
                 if self.lock.locked():
                     raise RouterError("runtime_busy", "An adapter is active; login entry was left unchanged.")
                 async with self.lock:
-                    result = await self.login(packet.get("ttl", 600), packet.get("port", 5900)) if method == "login" else await self.close_login()
+                    result = (await self.login(packet.get("ttl", 600), packet.get("port", 5900), packet.get("password"))
+                              if method == "login" else await self.close_login())
             elif method == "rpc":
                 if not self.active or packet.get("token") != self.active["token"]:
                     raise RouterError("unauthorized", "Browser RPC requires an active reviewed adapter invocation.")

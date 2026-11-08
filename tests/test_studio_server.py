@@ -299,20 +299,62 @@ def test_login_viewer_fixed_ttl_loopback_and_preserved_browser(tmp_path, monkeyp
     authority = tmp_path / "fixture.authority"
     authority.write_bytes(b"synthetic Xauthority")
     browser = runtime.BrowserRuntime(tmp_path, SimpleNamespace(pages=[Page()]), "node", ":99", authority)
+    password = "Fixture9"
     async def probe():
-        first = await browser.login(60, 5900)
-        second = await browser.login(1800, 5900)
+        for weak in (None, "", "short", "#comment", "x" * 9, 12345678):
+            with pytest.raises(RouterError) as refused:
+                await browser.login(60, 5900, weak)
+            assert refused.value.code == "invalid_argument"
+        assert not commands
+        first = await browser.login(60, 5900, password)
+        secret = Path(commands[0][commands[0].index("-passwdfile") + 1].removeprefix("rm:"))
+        assert secret.parent == runtime.studio_dir(tmp_path) and secret.read_text() == password + "\n"
+        assert secret.stat().st_mode & 0o777 == 0o600
+        second = await browser.login(1800, 5900, "Another1")
         assert second["reused"] and second["expires_at"] == first["expires_at"]
+        assert password not in canonical(first) + canonical(second) and not first["secrets_returned"]
         await browser.expire_login(object())  # A stale timer cannot close a later entry.
         assert browser.vnc is not None
         expected = browser.vnc
         await browser.expire_login(expected)
         assert browser.vnc is None and browser.context.pages[0] is browser.page
+        assert not secret.exists()  # Never left behind, even if x11vnc did not consume it.
     asyncio.run(probe())
     assert len(commands) == 1
     command = commands[0]
     assert command[command.index("-listen") + 1] == "127.0.0.1" and "-localhost" in command
     assert command[command.index("-auth") + 1] == str(authority)
+    # A per-session password read from a self-deleting private file (never argv), one viewer, then exit.
+    assert command[command.index("-passwdfile") + 1].startswith("rm:") and password not in " ".join(command)
+    assert not {"-nopw", "-forever", "-many", "-shared", "-alwaysshared"} & set(command)
+    assert {"-once", "-nevershared", "-dontdisconnect"} <= set(command)
+
+
+def test_login_password_reaches_only_the_owner_terminal(tmp_path, monkeypatch, capsys):
+    from agent_tool_maker import studio_cli
+    from agent_tool_maker.cli import main
+    sent, shown = [], []
+    async def bridge(home, packet, timeout=960):
+        sent.append(packet)
+        return {"status": "pending", "listen": "127.0.0.1", "port": packet["port"], "expires_at": 1.0, "secrets_returned": False}
+    class Terminal:
+        def __enter__(self): return self
+        def __exit__(self, *exc): return False
+        def write(self, text): shown.append(text)
+    monkeypatch.setattr(studio_cli, "request", bridge)
+    monkeypatch.setattr(studio_cli, "owner_terminal", Terminal)
+    assert main(["--home", str(tmp_path / "state"), "studio", "login", "--port", "5901"]) == 0
+    stdout = capsys.readouterr().out
+    password = sent[0]["password"]
+    assert re.fullmatch(r"[A-Za-z0-9]{8}", password) and password in "".join(shown)
+    assert password not in stdout and json.loads(stdout)["port"] == 5901 and not json.loads(stdout)["secrets_returned"]
+    # Without the owner's own terminal nothing is opened: an Agent transcript never receives a password.
+    sent.clear()
+    monkeypatch.undo()  # The real owner_terminal, with the fake bridge and a non-terminal stdin.
+    monkeypatch.setattr(studio_cli, "request", bridge)
+    monkeypatch.setattr(sys, "stdin", SimpleNamespace(isatty=lambda: False))
+    assert main(["--home", str(tmp_path / "state"), "studio", "login"]) == 2
+    assert json.loads(capsys.readouterr().out)["error"]["code"] == "interactive_required" and not sent
 
 
 def test_studio_help_hides_router_only_adapter(capsys):
@@ -478,7 +520,9 @@ def test_real_production_serve_entry_and_exclusive_profile(source_atm, tmp_path)
         assert code == 0 and status["browser_connected"] and status["provider_login"] == "unchecked_use_account_tool"
         duplicate = subprocess.run(command, capture_output=True, text=True, timeout=20)
         assert duplicate.returncode == 2 and json.loads(duplicate.stdout)["error"]["code"] == "runtime_busy"
-        code, headless_login = cli(source_atm, home, "login")
+        code, agent_login = cli(source_atm, home, "login")
+        assert code == 2 and agent_login["error"]["code"] == "interactive_required"  # No terminal: no password.
+        code, headless_login = cli_on_terminal(source_atm, home, "login")
         assert code == 2 and headless_login["error"]["code"] == "headed_required"
     finally:
         if process.poll() is None:
@@ -526,6 +570,20 @@ def server_process(tmp_path):
 
 def cli(executable, home, *arguments):
     result = subprocess.run([str(executable), "--home", str(home), "studio", *arguments], text=True, capture_output=True, timeout=45)
+    return result.returncode, json.loads(result.stdout)
+
+
+def cli_on_terminal(executable, home, *arguments):
+    """As the owner in an SSH session: a pseudo-terminal is stdin and the controlling terminal."""
+    import pty
+    primary, secondary = pty.openpty()
+    claim = "import fcntl,os,sys,termios;fcntl.ioctl(0,termios.TIOCSCTTY,0);os.execv(sys.argv[1],sys.argv[1:])"
+    try:
+        result = subprocess.run([sys.executable, "-c", claim, str(executable), "--home", str(home), "studio", *arguments],
+                                stdin=secondary, text=True, capture_output=True, timeout=45, start_new_session=True)
+    finally:
+        os.close(secondary)
+        os.close(primary)
     return result.returncode, json.loads(result.stdout)
 
 
