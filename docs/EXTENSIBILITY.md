@@ -149,7 +149,7 @@ atm cli bind ffprobe "$(command -v ffprobe)"
 python ./media-cli/tool.py --input ./task.json --workspace /your/project --dry-run
 ```
 
-生成的是**只需 Python 标准库、调用已安装 ATM>=0.6 命令的真实 CLI**，不是独立供应商SDK。ATM 在 pipx 的独立环境也可用；找不到入口时通过 `--atm /absolute/path/to/atm` 指定，不要求生成脚本和 ATM 安装在同一个Python环境。它固定tool ID和定义摘要；定义不同就拒绝运行，不偷偷安装或换版本。实际CLI也支持 `--client claude` / `--client codex` / `--client-profile`，继承Broker scope。包里没有Key、Cookie、权限或外部可执行文件。hash只证明文件一致，不是作者签名或安全审计。
+生成的是**只需 Python 标准库、调用已安装 ATM>=0.6 命令的真实 CLI**，不是独立供应商SDK。ATM 在 pipx 的独立环境也可用；找不到入口时通过 `--atm /absolute/path/to/atm` 指定，不要求生成脚本和 ATM 安装在同一个Python环境。它固定tool ID和定义摘要；定义不同就拒绝运行，不偷偷安装或换版本。实际CLI也支持 `--client claude` / `--client codex` / `--client-profile`，继承Broker scope。包里没有Key、Cookie、权限或外部可执行文件。hash只证明文件一致，不是作者签名或安全审计。`make pack` 写入中途失败时返回 `bundle_incomplete`：部分目录原样保留在 `--out` 供检查，`check-bundle` 判为无效且不会被复用，请换一个新的 `--out`。
 
 **可选模型路径：**ATM自己调用已安装并登录的Claude Code或Codex，只接收结构化工具定义，再使用同一编译器生成CLI。
 
@@ -164,6 +164,8 @@ atm make draft --agent claude --seed studio.json --brief observed-page.txt --out
 只把指定seed和非秘密brief发给所选模型。程序不读取供应商Key、不扫描环境找Key；复用CLI自己的官方登录。Claude请求关闭工具与用户自定义来源，Codex请求read-only、忽略用户配置、禁用shell/search；必须使用支持这些旗标的版本。它们仍是可信本地程序，组织管理策略仍适用；本版不声称完整模型进程隔离。命令/鉴权不支持时明确失败，不降级到更宽权限。
 
 本版没有内置“访问任意网站、探索全部功能、自动找到选择器”的Agent循环。已有主Agent可以用它拥有的浏览器收集观察结果，再交给factory；已有API文档、CLI --help的非秘密输出也可作为brief。代码厂是可执行子步骤，不是另一个无边界自主Agent。
+
+模型草稿不能削弱或转移seed的权限：去掉paid或permissions、更换credential或executable、在credential_env里新增或更换Key、修改API的origin或auth方式、新增/移除/更换recipe的设备本地登录session，都返回`draft_authority_changed`，不写出草稿。因此Key发往的真实API origin要先在seed里定好（`atm make new ID --kind api --url https://… --out seed.json`）；需要登录的recipe也要先在seed JSON里写好`recipe.session`（`make new --kind web`不会生成它）。同一origin下改path仍允许：带鉴权的请求不跟随重定向。没有登录的recipe可以补充必要的origin；有登录时，登录只在它保存时的origin上加载。command的argv不在比较范围：Key交给人工绑定的可执行文件后发往哪里由该程序决定，argv须由Owner在安装前审阅。
 
 结果只是草稿：不自动安装、不授予权限、不立即访问目标站点。`make validate`与`check-bundle`只是结构与一致性验证，真实行为需独立验收。本轮模型调用只做了CLI协议替身测试，未连接真实Claude/Codex账号。
 
