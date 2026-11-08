@@ -41,6 +41,7 @@ LOGIN_SECONDS = 300
 REFRESH_MARGIN = 90
 CLAIM_SECONDS = 120
 MAX_JSON = 65536
+CANCELLED_CLAIMS = 8
 
 
 def provider(name):
@@ -59,6 +60,25 @@ def pairs(items):
 
 def includes(value, required):
     return isinstance(value, list) and all(isinstance(item, str) for item in value) and set(required).issubset(value)
+
+
+def carried(meta, *rows, cancelled=None):
+    """`meta` keeping the claim ids of the owner's latest cancels from the row versions it replaces.
+
+    A cancelled login is told so by its own claim, whatever rewrote the row since. Claim ids are random hex,
+    never a secret; the newest CANCELLED_CLAIMS are kept, oldest first.
+    """
+    claims = []
+    for row in rows:
+        for claim in (row or {}).get("cancelled_claims", ()):
+            if claim not in claims:
+                claims.append(claim)
+    if cancelled and cancelled not in claims:
+        claims.append(cancelled)
+    result = {key: value for key, value in meta.items() if key != "cancelled_claims"}
+    if claims:
+        result["cancelled_claims"] = claims[-CANCELLED_CLAIMS:]
+    return result
 
 
 def secret_string(value):
@@ -81,9 +101,12 @@ class OAuth:
         if not row:
             return None, None
         meta = json.loads(row["metadata"])
-        if meta["status"] == "pending" and "previous" in meta and meta["login_deadline"] <= self.clock():
+        if meta["status"] == "pending" and "previous" in meta and meta["login_deadline"] <= self.clock() \
+                and meta.get("phase") != "exchanging":
             # An abandoned replacement never touched the stored tokens; the previous connection resumes.
-            meta = {**meta["previous"], "last_error": "oauth_login_timeout"}
+            # Not once its code is at the token endpoint: that exchange records its own outcome, even after
+            # the deadline, and until it does status() reports refresh_unknown.
+            meta = carried({**meta["previous"], "last_error": "oauth_login_timeout"}, meta["previous"], meta)
         return dict(row), meta
 
     def _seal(self, payload):
@@ -216,6 +239,7 @@ class OAuth:
                 raise RouterError("oauth_conflict", "Connection changed while OAuth was in flight; no automatic retry.", uncertain=True)
             meta.update(status="ready", expires_at=payload["expires_at"], refreshable=bool(payload.get("refresh_token")),
                         last_error=None if payload.get("refresh_token") else "oauth_refresh_token_missing")
+            # cancelled_claims stays: a login the owner cancelled may still be in discovery or registration.
             for key in ("claim", "claim_deadline", "phase", "login_deadline", "previous", "last_error_hint"):
                 meta.pop(key, None)
             if refresh:
@@ -239,7 +263,7 @@ class OAuth:
                 return value
             if "previous" in meta:
                 # A failed replacement never touched the stored tokens; the previous connection resumes.
-                self._write(db, noted(meta["previous"]))
+                self._write(db, noted(carried(meta["previous"], meta["previous"], meta)))
             elif meta["status"] == "refreshing" and isinstance(error, Unsent):
                 # Nothing reached the provider, so the refresh token is unspent: release the claim.
                 meta = noted(meta)
@@ -258,6 +282,16 @@ class OAuth:
             _, meta = self._row(db)
         return bool(meta) and meta.get("claim") == claim
 
+    @staticmethod
+    def _still_claimed(meta, claim):
+        """A login that lost its claim sends nothing more; the owner's 取消登录 is named as such."""
+        if meta and meta.get("claim") == claim:
+            return
+        # By its own claim, not last_error: another login, a refresh or a callback may have rewritten the row since.
+        if meta and claim in meta.get("cancelled_claims", ()):
+            raise RouterError("oauth_cancelled", "The owner cancelled this login; it stopped before opening the browser and sends no further OAuth request.")
+        raise RouterError("oauth_conflict", "OAuth login ownership changed.")
+
     def cancel_login(self, name=NAME):
         """The owner ends a pending login now instead of waiting for its deadline; nothing is sent."""
         provider(name)
@@ -269,14 +303,17 @@ class OAuth:
                 # The callback's code is already at the token endpoint: that exchange records its own outcome.
                 raise RouterError("oauth_exchanging", "The login code is already being exchanged; wait for it to finish.")
             if pending:
+                claim = meta["claim"]
                 if "previous" in meta:
                     # A replacement that kept the working tokens sealed (metadata-only `previous`): that connection resumes.
-                    meta = {**meta["previous"], "last_error": "oauth_cancelled"}
-                    meta.pop("last_error_hint", None)
+                    restored = {**meta["previous"], "last_error": "oauth_cancelled"}
+                    restored.pop("last_error_hint", None)
+                    meta = carried(restored, meta["previous"], meta, cancelled=claim)
                 else:
                     for key in ("claim", "phase", "login_deadline", "last_error_hint"):
                         meta.pop(key, None)
                     meta.update(status="needs_login", last_error="oauth_cancelled")
+                    meta = carried(meta, meta, cancelled=claim)
                 self._write(db, meta)
                 db.execute("INSERT INTO events(job_id,kind,at) VALUES (NULL,?,?)", ("oauth.cancelled", self.clock()))
         # The cancelled login no longer owns the row: its listener stops and its callback is refused.
@@ -370,14 +407,20 @@ class OAuth:
                     raise RouterError("oauth_conflict", "Another process connected this provider; explicit replacement is required.")
                 if old and (old["status"] == "refreshing" and old["claim_deadline"] > self.clock() or old["status"] == "pending" and old["login_deadline"] > self.clock()):
                     raise RouterError("oauth_busy", "A pending OAuth request already owns this connection.")
-                meta = {"status": "pending", "claim": claim, "phase": "registering", "login_deadline": self.clock() + timeout,
-                        "keep_login": keep_login, "last_error": None}
+                meta = carried({"status": "pending", "claim": claim, "phase": "registering", "login_deadline": self.clock() + timeout,
+                                "keep_login": keep_login, "last_error": None}, (old or {}).get("previous"), old)
                 if old and old["status"] == "ready":
                     # Metadata-only write: the working tokens stay sealed until the replacement finishes.
                     self._write(db, {**meta, "previous": old})
+                elif old and "previous" in old:
+                    # A lapsed replacement whose exchange recorded no outcome still holds those tokens sealed.
+                    self._write(db, {**meta, "previous": old["previous"]})
                 else:
                     self._write(db, meta, {})
             discovered = self.discovery()
+            # Discovery can take a minute; a login the owner cancelled meanwhile registers no client.
+            with self.state.db() as db:
+                self._still_claimed(self._row(db)[1], claim)
             client = self._request("POST", ENDPOINTS["registration_endpoint"], body={"client_name": "ATM local OAuth",
                                    "redirect_uris": [server.redirect_uri], "token_endpoint_auth_method": "none",
                                    "grant_types": ["authorization_code", "refresh_token"], "response_types": ["code"]})
@@ -387,8 +430,7 @@ class OAuth:
             with self.state.db() as db:
                 db.execute("BEGIN IMMEDIATE")
                 _, meta = self._row(db)
-                if meta.get("claim") != claim:
-                    raise RouterError("oauth_conflict", "OAuth login ownership changed.")
+                self._still_claimed(meta, claim)  # Cancelled during registration: never waits, opens no browser.
                 meta["phase"] = "waiting"
                 self._write(db, meta)
             self._logins[claim] = payload
@@ -428,7 +470,7 @@ class OAuth:
             if "error" in query:
                 code = None
                 if "previous" in meta:
-                    restored = {**meta["previous"], "last_error": "oauth_access_denied"}
+                    restored = carried({**meta["previous"], "last_error": "oauth_access_denied"}, meta["previous"], meta)
                     restored.pop("last_error_hint", None)
                     self._write(db, restored)
                 else:

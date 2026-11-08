@@ -18,12 +18,15 @@ def login(router, *, provider, keep_login, replace, executable):
         manager = OAuth(worker.state, worker.vault, worker.net)
         server, result = manager.begin_login(provider, keep_login=keep_login, replace=replace)
     except BaseException:
+        # A failed or cancelled login drops its key snapshot and PKCE values as soon as begin_login returns.
         worker.close()
         worker.vault._key = None
+        worker.vault._used_secrets.clear()
         raise
     if server is None:
         worker.close()
         worker.vault._key = None
+        worker.vault._used_secrets.clear()
         return result
 
     def run():

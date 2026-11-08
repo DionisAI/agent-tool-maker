@@ -27,8 +27,11 @@ Agent 打开本机管理页；在「服务 → Higgsfield → ATM 登录 · Higg
 - 「停止自动续期」关闭新刷新准入，不删除连接、供应商授权或服务文件；
   已在途的一次刷新可能完成。重新登录需要明确勾选替换既有 ATM OAuth 连接；登录仍有效（含正在续期、
   自动续期没有运行）时，这条连接方式上也有「重新登录」，用于换账号、重新授权或重装续期服务。
-  替换完成前旧令牌保持不变；替换在发现、注册、授权、换取 token 任一步失败、被拒绝、
-  超时或进程中途退出时，原连接恢复为可用状态，`last_error` 记录替换未完成的原因。
+  替换完成前旧令牌保持不变。替换在发现、注册或换取 token 时失败，或授权被拒绝并回调到本机时，
+  原连接立即恢复为可用状态，`last_error` 记录替换未完成的原因。没有回调（例如授权页只显示错误、浏览器被关掉）
+  或登录进程中途退出时，状态保持 `pending`，直到 5 分钟的登录期限过后原连接才恢复（`oauth_login_timeout`）；
+  所有者可以在管理台点「取消登录」立即恢复（`oauth_cancelled`，见下文 2026-10-21 记录）。
+  授权码已经在换取 token 时，既不能取消，期限过后也不恢复原连接，见「故障与追溯」。
 - 供应商撤销授权、不给 refresh token、要求验证码或登录、keyring 被锁定时，状态会说明原因。
   保存状态不构成永久有效保证。
 
@@ -36,6 +39,7 @@ Agent 打开本机管理页；在「服务 → Higgsfield → ATM 登录 · Higg
 
 `atm oauth status higgsfield` 仅返回状态、有效期、续期开关和后台服务的最近安装状态。
 `atm oauth login higgsfield --keep-login` 打开一轮官方 PKCE 登录，等待人类授权最多 5 分钟。
+等待开始时，`"action": "started"` 状态作为一行 JSON 写到 stderr；stdout 只有登录结束后的一个 JSON 对象。
 重复请求复用 pending，既有连接默认保留；明确更新用 `--replace`。
 等待中的登录只能由所有者在管理台点「取消登录」立即结束（见下文 2026-10-21 记录）；没有 CLI 取消命令。
 `atm oauth refresh higgsfield` 在内部续期，不输出令牌。
@@ -71,6 +75,10 @@ MCP HTTP 绑定可使用：
 refresh token：释放 claim，连接保持 `ready`/`expired`，下次检查可再次续期，`last_error` 记录原因。
 发送后才中断（写入/读取超时、连接被重置）仍为 `refresh_unknown`，不自动重试。
 同一登录 authorization code 只换一次；state/issuer 不匹配、Host/path 不匹配、重复查询字段不换 token。
+授权码送到 token 端点后（`phase: exchanging`），即使 5 分钟的登录期限在交换途中过去，也由这次交换记录结果：
+记录前状态为 `refresh_unknown`，成功就保存新令牌。交换进程中途退出、没有记录结果时，状态保持 `refresh_unknown`
+（不知道供应商是否已为这个授权码签发令牌），需要重新登录；如果这是一次替换，新的登录仍不改动原来密封保存的令牌，
+新的登录没有完成时原连接恢复。
 回调日志、provider body/error_description、授权 URL、令牌均不显示给 Agent。
 事件仅记录 `oauth.connected/refreshed/needs_login/refresh_unknown/cancelled`，不记录身份或秘密。
 服务 stdout 为限定状态，日志 0600；不存在供应商账单/生成心跳。
@@ -147,12 +155,20 @@ IPv4 的 NAT64 地址（`64:ff9b::/96`）、6to4（`2002::/16`）、Teredo（`20
   #77 已关闭（2026-10-21 查看）；其中没有提到 `authorization_invalid`。
 - 结论只到这里：可能的原因有两种，没有确定是哪一种。一是 Higgsfield 只允许部分 OAuth 客户端；二是这个账户的套餐
   不含 MCP。ATM 本机没有坏，也不会绕过这项拒绝。实际可用的做法是“higgsfield 程序”这条连接方式：官方 CLI
-  （`higgsfield auth login`），ATM 已经封装了它。
+  （`higgsfield auth login`）。用订阅额度生成内容要直接用官方 CLI；ATM 通过它只提供四个只读查询
+  （`higgsfield.subscription.account/models/model/cost`，见 docs/HIGGSFIELD_SUBSCRIPTION.md）。
+  开发者 API（`higgsfield.generate`）另外计费，不用订阅额度。
 - ATM 的处理：登录等待中，D11（点“打开官方登录页面”之后）、ATM 登录卡片和首页提示都说明这段 JSON 的含义、两种可能的
   原因，并指向“higgsfield 程序”。所有者可以点 **取消登录** 立即结束这次等待，不必等 5 分钟的期限：
   `POST /api/oauth/cancel {"provider":"higgsfield"}`，与管理台其他写入一样需要 bearer 和精确的 Origin/Host，
   只改写连接元数据，不需要 ATM 主密码，也不向 Higgsfield 发送任何请求。它释放这次登录的占用。如果取消的是一次替换登录，
   而原来的令牌仍然密封保存（只写元数据的替换，元数据里有 `previous`），原来的连接继续有效；否则状态为 `needs_login`。
   两种情况都记 `last_error: "oauth_cancelled"` 和一条 `oauth.cancelled` 事件。被取消的那次登录的回调会被拒绝，本机回调监听在一秒内停止并丢弃它的密钥快照。
+  登录还在发现或客户端注册时也可以取消：发现结束后、注册前和进入等待前，登录都会确认这次占用还是自己的。发现中取消的，
+  不再发送注册请求；注册中取消的（这个客户端已经注册，不会再用），不进入等待，也不打开浏览器。那次登录请求返回
+  `oauth_cancelled`（管理台显示“你取消了这次登录。”），并立即丢弃它的密钥快照。是不是被取消，按这次登录自己的占用编号认定，
+  不看连接当前的 `last_error`：取消时，连接元数据的 `cancelled_claims` 记下这次登录的占用编号（随机十六进制，不含任何密钥），
+  只留最近 8 个（更早被取消、到这时才返回的登录记为 `oauth_conflict`，同样就此停止）；之后的登录、续期和替换登录的结束都保留这份列表。所以所有者取消后立即重新登录，或恢复的原连接已经续期，
+  那次慢返回的登录仍然得到 `oauth_cancelled`，新的登录不受影响。占用因其他原因丢失时仍是 `oauth_conflict`。
   授权码已经在换 token 时（`phase: exchanging`）不能取消（`oauth_exchanging`），由那次交换记录自己的结果。
   没有 CLI 取消命令：Agent 只读状态，把登录交给所有者。

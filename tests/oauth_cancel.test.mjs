@@ -29,7 +29,12 @@ test('the refusal line says how it looks, names both possible causes and points 
   // Two causes are possible; the copy names both and claims neither.
   assert.ok(O.refused.includes('可能它只允许部分 OAuth 客户端') && O.refused.includes('也可能你的套餐不含 MCP'));
   for (const word of ['一定', '肯定', '原因是', '因为']) assert.ok(!O.refused.includes(word), word);
-  for (const word of ['“higgsfield 程序”', '官方命令行', 'higgsfield auth login', '同样的 Higgsfield 工具']) assert.ok(O.refused.includes(word), word);
+  for (const word of ['“higgsfield 程序”', '官方命令行', 'higgsfield auth login']) assert.ok(O.refused.includes(word), word);
+  // What that route gives, as it is: ATM wraps four read-only queries (account, models, model, cost); generating with
+  // subscription credits is the official CLI itself; the developer API is billed separately.
+  for (const word of ['同样的', '已经封装']) assert.ok(!O.refused.includes(word), word);
+  for (const word of ['用订阅额度生成内容要直接用这个命令行', 'ATM 通过它只提供四个只读查询', '（账户、模型列表、模型详情、费用估算）',
+    '开发者 API 另外计费，不用订阅额度']) assert.ok(O.refused.includes(word), word);
   assert.equal(O.cancel, '取消登录');
   const texts = Object.entries(plain(O));
   assert.ok(texts.length >= 6);

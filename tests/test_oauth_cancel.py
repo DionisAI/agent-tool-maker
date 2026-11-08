@@ -3,6 +3,7 @@
 Fake OAuth only: httpx MockTransport, fixture resolver and an injected browser opener. No provider is contacted.
 """
 import json
+import re
 import threading
 import time
 import uuid
@@ -17,7 +18,7 @@ from agent_tool_maker.demo import fixture_resolver
 from agent_tool_maker.engine import Router
 from agent_tool_maker.errors import RouterError
 from agent_tool_maker.network import Network
-from agent_tool_maker.oauth import ENDPOINTS, ISSUER, NAME, RESOURCE, OAuth
+from agent_tool_maker.oauth import ENDPOINTS, ISSUER, NAME, PROTECTED_METADATA, RESOURCE, SERVER_METADATA, OAuth
 from agent_tool_maker.storage import State, canonical
 from agent_tool_maker.vault import Vault
 from agent_tool_maker.webapp import Console, WebVault
@@ -87,7 +88,8 @@ def test_cancel_restores_a_replacement_that_kept_the_working_tokens_sealed(oauth
     assert 'last_error_hint' not in result
     meta, after_nonce, after_cipher = row(manager)
     assert (after_nonce, after_cipher) == (nonce, cipher)  # The sealed tokens were never touched.
-    assert meta == {**ready, 'last_error': 'oauth_cancelled'}
+    # The restored connection also names the cancelled login (its random claim id only, never a secret).
+    assert meta == {**ready, 'last_error': 'oauth_cancelled', 'cancelled_claims': ['f' * 32]}
     assert manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_1'
 
 
@@ -153,6 +155,260 @@ def test_the_cancelled_login_listener_stops_soon_and_keeps_the_cause(oauth):
     assert manager.status()['last_error'] == 'oauth_cancelled' and events(manager)[-1] == 'oauth.cancelled'
 
 
+class Slow(Provider):
+    """A provider whose answer at one pinned URL comes only when released (real timeouts allow ~60 s per request)."""
+    def __init__(self, at=PROTECTED_METADATA):
+        super().__init__()
+        self.at, self.gate, self.waiting = at, threading.Event(), threading.Event()
+
+    def __call__(self, request):
+        if str(request.url) == self.at:
+            self.waiting.set()
+            assert self.gate.wait(30)
+        return super().__call__(request)
+
+
+def held_login(manager, at, **kwargs):
+    """Start a login whose provider holds the request at `at`; the owner can cancel while it waits there."""
+    slow = Slow(at)
+    manager.net = Network(httpx.MockTransport(slow), fixture_resolver)
+    outcome, opened, phases = {}, [], []
+    write = manager._write
+    def recorded(db, meta, payload=None):
+        phases.append(meta.get('phase'))
+        return write(db, meta, payload)
+    manager._write = recorded
+    def run():
+        try:
+            outcome['result'] = manager.begin_login(opener=lambda url: opened.append(url) or True, **kwargs)
+        except RouterError as error:
+            outcome['error'] = error
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    assert slow.waiting.wait(10)
+    return slow, thread, outcome, opened, phases
+
+
+@pytest.mark.parametrize('replace', [False, True])
+def test_a_login_cancelled_during_discovery_registers_no_client(oauth, replace):
+    manager, fixture, now = connected(oauth) if replace else oauth
+    before = row(manager)
+    slow, thread, outcome, opened, _ = held_login(manager, PROTECTED_METADATA, replace=replace)
+    try:
+        assert manager.status()['status'] == 'pending'
+        assert manager.cancel_login(NAME)['action'] == 'cancelled'
+    finally:
+        slow.gate.set()
+        thread.join(10)
+        manager.net.close()
+    assert not thread.is_alive() and 'result' not in outcome
+    assert outcome['error'].code == 'oauth_cancelled' and 'cancel' in str(outcome['error'])
+    # Discovery finished after the cancel: no client is registered for a login nobody waits for any more.
+    assert [str(r.url) for r in slow.requests] == [PROTECTED_METADATA, SERVER_METADATA]
+    assert opened == [] and manager._logins == {}
+    status = manager.status()
+    assert status['status'] == ('ready' if replace else 'needs_login') and status['last_error'] == 'oauth_cancelled'
+    assert events(manager)[-1] == 'oauth.cancelled'  # The stopped login recorded nothing over the owner's cancel.
+    if replace:
+        assert row(manager)[1:] == before[1:] and manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_1'
+
+
+def test_a_login_cancelled_during_registration_never_waits_or_opens_a_browser(oauth):
+    manager, fixture, now = oauth
+    slow, thread, outcome, opened, phases = held_login(manager, ENDPOINTS['registration_endpoint'])
+    try:
+        assert manager.cancel_login(NAME)['action'] == 'cancelled'
+    finally:
+        slow.gate.set()
+        thread.join(10)
+        manager.net.close()
+    assert not thread.is_alive() and 'result' not in outcome and outcome['error'].code == 'oauth_cancelled'
+    # The registered client is never used: no 'waiting' row, no PKCE state kept, no browser, no callback to accept.
+    assert 'waiting' not in phases and opened == [] and manager._logins == {}
+    meta, _, _ = row(manager)
+    assert meta['status'] == 'needs_login' and meta['last_error'] == 'oauth_cancelled'
+    assert not {'claim', 'phase', 'login_deadline'} & set(meta)
+    assert events(manager)[-1] == 'oauth.cancelled' and token_requests(slow) == []
+
+
+def test_a_login_whose_claim_another_login_took_still_reports_a_conflict(oauth):
+    """Only the owner's cancel reads as oauth_cancelled; any other loss of the claim stays oauth_conflict."""
+    manager, fixture, now = oauth
+    slow, thread, outcome, opened, _ = held_login(manager, PROTECTED_METADATA)
+    try:
+        with manager.state.db() as db:
+            meta = json.loads(db.execute('SELECT metadata FROM oauth_connections WHERE name=?', (NAME,)).fetchone()[0])
+            db.execute('UPDATE oauth_connections SET metadata=? WHERE name=?', (canonical({**meta, 'claim': 'e' * 32}), NAME))
+    finally:
+        slow.gate.set()
+        thread.join(10)
+        manager.net.close()
+    assert outcome['error'].code == 'oauth_conflict' and opened == []
+    assert ENDPOINTS['registration_endpoint'] not in [str(r.url) for r in slow.requests]
+    assert row(manager)[0]['claim'] == 'e' * 32  # The other login's claim is left alone.
+
+
+def other_worker(manager, fixture):
+    """Another login or refresh on the same state and vault (the console gives every login its own worker)."""
+    net = Network(httpx.MockTransport(fixture), fixture_resolver)
+    return OAuth(manager.state, manager.vault, net, clock=manager.clock), net
+
+
+@pytest.mark.parametrize('replace', [False, True])
+@pytest.mark.parametrize('end', ['waiting', 'connected', 'denied', 'failed', 'timed_out'])
+def test_a_cancelled_login_hears_so_after_the_owner_logged_in_again(oauth, replace, end):
+    """取消登录, then 重新登录 while the first login's discovery is slow: the row now belongs to the second login,
+    whose own outcome (still waiting, connected, denied, failed exchange or past its deadline) rewrote last_error."""
+    manager, fixture, now = connected(oauth) if replace else oauth
+    slow, thread, outcome, opened, _ = held_login(manager, PROTECTED_METADATA, replace=replace)
+    first = row(manager)[0]['claim']
+    again, net = other_worker(manager, fixture)
+    second = None
+    try:
+        assert manager.cancel_login(NAME)['action'] == 'cancelled'
+        second, started, query = begin(again, replace=replace)
+        assert started['action'] == 'started' and started['browser_opened'] is True
+        if end in {'connected', 'denied'}:
+            answer = {'code': 'FIXTURE_CODE'} if end == 'connected' else {'error': 'access_denied'}
+            again.callback(second.claim, {'state': query['state'], 'iss': ISSUER, **answer})
+        if end == 'failed':
+            fixture.token_result = httpx.Response(400, json={'error': 'invalid_grant'})
+            with pytest.raises(RouterError) as caught:
+                again.callback(second.claim, {'state': query['state'], 'code': 'FIXTURE_CODE', 'iss': ISSUER})
+            assert caught.value.code == 'oauth_invalid_grant'
+            fixture.token_result = None
+        if end == 'timed_out':
+            now[0] += 301
+        slow.gate.set()
+        thread.join(10)
+        assert not thread.is_alive() and 'result' not in outcome
+        # Before: the first login read the second login's row as a conflict ("an ATM login already exists").
+        assert outcome['error'].code == 'oauth_cancelled'
+        assert [str(r.url) for r in slow.requests] == [PROTECTED_METADATA, SERVER_METADATA] and opened == []
+        # The first login's end leaves the second login's row alone.
+        meta = row(manager)[0]
+        assert meta['cancelled_claims'] == [first] and first != second.claim
+        expected = {'waiting': 'pending', 'connected': 'ready', 'denied': 'ready' if replace else 'denied',
+                    'failed': 'ready' if replace else 'needs_login', 'timed_out': 'ready' if replace else 'needs_login'}[end]
+        assert manager.status()['status'] == expected
+        if end == 'waiting':
+            assert meta['claim'] == second.claim and meta['phase'] == 'waiting'
+            assert again.callback(second.claim, {'state': query['state'], 'code': 'FIXTURE_CODE', 'iss': ISSUER})['status'] == 'ready'
+        if manager.status()['status'] == 'ready':
+            assert manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_1'
+    finally:
+        slow.gate.set()
+        thread.join(10)
+        if second:
+            second.server_close()
+        manager.net.close()
+        net.close()
+
+
+def test_a_cancelled_replacement_hears_so_after_a_refresh_rewrote_the_row(oauth):
+    """Cancelling a replacement restores the working connection; its refresh can rewrite the row (last_error None)
+    before the cancelled login's discovery returns."""
+    manager, fixture, now = connected(oauth)
+    slow, thread, outcome, opened, _ = held_login(manager, PROTECTED_METADATA, replace=True)
+    first = row(manager)[0]['claim']
+    refresher, net = other_worker(manager, fixture)
+    fixture.next_access, fixture.next_refresh = 'FIXTURE_ACCESS_2', 'FIXTURE_REFRESH_2'
+    try:
+        assert manager.cancel_login(NAME)['status'] == 'ready'
+        assert refresher.refresh(NAME, force=True)['action'] == 'refreshed'
+        assert manager.status()['last_error'] is None  # The refresh no longer says oauth_cancelled.
+    finally:
+        slow.gate.set()
+        thread.join(10)
+        manager.net.close()
+        net.close()
+    assert not thread.is_alive() and 'result' not in outcome
+    assert outcome['error'].code == 'oauth_cancelled'  # Before: oauth_conflict.
+    assert ENDPOINTS['registration_endpoint'] not in [str(r.url) for r in slow.requests] and opened == []
+    meta = row(manager)[0]
+    assert meta['status'] == 'ready' and meta['cancelled_claims'] == [first] and 'claim' not in meta
+    assert events(manager)[-1] == 'oauth.refreshed'  # The cancelled login recorded nothing over the refresh.
+    assert manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_2'
+
+
+def test_a_login_that_lost_its_claim_to_a_later_cancelled_login_reports_a_conflict(oauth):
+    """last_error names the latest cancel, which may be another login's: only its own claim makes a login cancelled."""
+    manager, fixture, now = oauth
+    slow, thread, outcome, opened, _ = held_login(manager, PROTECTED_METADATA)
+    first = row(manager)[0]['claim']
+    other, net = other_worker(manager, fixture)
+    try:
+        now[0] += 301  # The first login's deadline passes while its discovery hangs; another login takes the row.
+        second, started, _ = begin(other)
+        second.server_close()
+        assert started['action'] == 'started'
+        assert manager.cancel_login(NAME)['action'] == 'cancelled'  # The owner cancels that second login.
+        assert manager.status()['last_error'] == 'oauth_cancelled'
+    finally:
+        slow.gate.set()
+        thread.join(10)
+        manager.net.close()
+        net.close()
+    assert outcome['error'].code == 'oauth_conflict'  # Before: it read the second login's cancel as its own.
+    assert row(manager)[0]['cancelled_claims'] == [second.claim] and first != second.claim
+    assert manager.status()['last_error'] == 'oauth_cancelled' and events(manager)[-1] == 'oauth.cancelled'
+
+
+@pytest.mark.parametrize('end', ['failed', 'denied', 'lapsed'])
+def test_a_replacement_that_ends_keeps_the_cancelled_claims(oauth, end):
+    """Restoring `previous` (a failed exchange, a denial, a lapsed deadline) keeps the cancelled logins' claims."""
+    manager, fixture, now = connected(oauth)
+    server, _, query = begin(manager, replace=True)
+    try:
+        meta, _, _ = row(manager)
+        # Hand-written: the claims only beside `previous`, so restoring `previous` alone would drop them.
+        with manager.state.db() as db:
+            db.execute('UPDATE oauth_connections SET metadata=? WHERE name=?', (canonical({**meta, 'cancelled_claims': ['c' * 32]}), NAME))
+        if end == 'failed':
+            manager._failed(server.claim, RouterError('oauth_http', 'Fake provider refusal.'))
+        elif end == 'denied':
+            manager.callback(server.claim, {'state': query['state'], 'error': 'access_denied', 'iss': ISSUER})
+        else:
+            now[0] += 301
+    finally:
+        server.server_close()
+    with manager.state.db() as db:
+        _, restored = manager._row(db)
+    assert restored['status'] == 'ready' and 'previous' not in restored and restored['cancelled_claims'] == ['c' * 32]
+    with pytest.raises(RouterError) as caught:
+        OAuth._still_claimed(restored, 'c' * 32)
+    assert caught.value.code == 'oauth_cancelled'
+    assert manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_1'
+
+
+@pytest.mark.parametrize('replace', [False, True])
+def test_the_cancelled_claims_stay_few_and_carry_no_secret(oauth, replace):
+    manager, fixture, now = connected(oauth) if replace else oauth
+    claims, states = [], []
+    for _ in range(10):
+        server, _, query = begin(manager, replace=replace)
+        server.server_close()
+        claims.append(server.claim)
+        states.append(query['state'])
+        assert manager.cancel_login(NAME)['action'] == 'cancelled'
+    meta = row(manager)[0]
+    assert meta['cancelled_claims'] == claims[-8:]  # The newest eight, oldest first.
+    assert all(re.fullmatch('[0-9a-f]{32}', claim) for claim in meta['cancelled_claims'])
+    assert 'previous' not in meta and manager.status()['status'] == ('ready' if replace else 'needs_login')
+    raw = manager.state.path.read_bytes()
+    assert not [state for state in states if state.encode() in raw]
+    assert 'cancelled_claims' not in manager.status()  # Status never lists them.
+    # A login cancelled more than eight cancels ago that returns only now reads as a conflict.
+    with pytest.raises(RouterError) as caught:
+        OAuth._still_claimed(meta, claims[0])
+    assert caught.value.code == 'oauth_conflict'
+    with pytest.raises(RouterError) as caught:
+        OAuth._still_claimed(meta, claims[-1])
+    assert caught.value.code == 'oauth_cancelled'
+    if replace:
+        assert manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_1'
+
+
 # ------------------------------------------------------------------ console endpoint
 
 @pytest.fixture
@@ -204,6 +460,79 @@ def test_cancel_endpoint_is_owner_only_and_validated(console):
     assert client.get(path, headers={'Authorization': 'Bearer ' + server.token}).status_code == 404
     assert call(console, '/api/connections').json()['oauth'][0]['status'] == 'pending'  # None of these cancelled it.
     assert call(console, path, {'provider': NAME}).json()['action'] == 'cancelled'
+
+
+def test_a_slow_provider_does_not_block_the_console(console, monkeypatch):
+    server, client, fixture = console
+    slow, routers = Slow(), []
+    def worker_router(home):
+        routers.append(Router(home, network=Network(httpx.MockTransport(slow), fixture_resolver)))
+        return routers[-1]
+    monkeypatch.setattr(oauth_web, 'Router', worker_router)
+    results = []
+    worker = threading.Thread(target=lambda: results.append(login(console)))
+    worker.start()
+    try:
+        assert slow.waiting.wait(10)  # The login request is in discovery and holds the pending claim.
+        headers = {'Authorization': 'Bearer ' + server.token, 'Origin': server.origin}
+        started = time.monotonic()
+        with httpx.Client(base_url=server.origin, timeout=5, trust_env=False) as quick:
+            assert quick.get('/api/connections', headers=headers).json()['oauth'][0]['status'] == 'pending'
+            # The claim is the login's lease: a second login opens nothing while the first is in flight.
+            again = quick.post('/api/oauth/login', json={'provider': NAME, 'passphrase': 'fake-console-password'}, headers=headers)
+            assert again.status_code == 200 and again.json()['action'] == 'preserved' and again.json()['browser_opened'] is False
+            assert quick.post('/api/session/lock', json={}, headers=headers).status_code == 200
+            cancelled = quick.post('/api/oauth/cancel', json={'provider': NAME}, headers=headers)
+        assert cancelled.status_code == 200 and cancelled.json()['action'] == 'cancelled'
+        assert time.monotonic() - started < 5 and worker.is_alive()
+    finally:
+        slow.gate.set()
+        worker.join(30)
+    # The cancelled login stops after discovery: it says it was cancelled, registers no client, records nothing over
+    # the owner's cancel, opens no browser and drops its key snapshot.
+    assert results[0].status_code == 400 and results[0].json()['error']['code'] == 'oauth_cancelled'
+    oauth = call(console, '/api/connections').json()['oauth'][0]
+    assert oauth['status'] == 'needs_login' and oauth['last_error'] == 'oauth_cancelled'
+    assert fixture.opened == [] and not workers()  # The browser opener of every console login records here.
+    assert [str(r.url) for r in slow.requests] == [PROTECTED_METADATA, SERVER_METADATA]
+    assert len(routers) == 1 and routers[0].vault._key is None and routers[0].vault._used_secrets == []
+
+
+def test_console_cancel_then_login_again_while_the_first_is_slow(console, monkeypatch):
+    """取消登录 then 重新登录: the first request still says it was cancelled, the second opens the browser."""
+    server, client, fixture = console
+    slow, routers = Slow(), []
+    def worker_router(home):
+        transport = slow if not routers else fixture  # Only the first login's provider is slow.
+        routers.append(Router(home, network=Network(httpx.MockTransport(transport), fixture_resolver)))
+        return routers[-1]
+    monkeypatch.setattr(oauth_web, 'Router', worker_router)
+    results = []
+    worker = threading.Thread(target=lambda: results.append(login(console)))
+    worker.start()
+    try:
+        assert slow.waiting.wait(10)
+        headers = {'Authorization': 'Bearer ' + server.token, 'Origin': server.origin}
+        with httpx.Client(base_url=server.origin, timeout=5, trust_env=False) as quick:
+            assert quick.post('/api/oauth/cancel', json={'provider': NAME}, headers=headers).json()['action'] == 'cancelled'
+            again = quick.post('/api/oauth/login', json={'provider': NAME, 'passphrase': 'fake-console-password'}, headers=headers)
+        assert again.status_code == 200 and again.json()['action'] == 'started' and len(fixture.opened) == 1
+        slow.gate.set()
+        worker.join(30)
+        assert results[0].status_code == 400 and results[0].json()['error']['code'] == 'oauth_cancelled'  # Before: oauth_conflict.
+        assert ENDPOINTS['registration_endpoint'] not in [str(r.url) for r in slow.requests] and len(fixture.opened) == 1
+        assert routers[0].vault._key is None and routers[0].vault._used_secrets == []
+        # The second login still waits for the owner in the browser.
+        assert call(console, '/api/connections').json()['oauth'][0]['status'] == 'pending'
+    finally:
+        slow.gate.set()
+        worker.join(30)
+        # Cancelling the second login stops its five-minute listener.
+        call(console, '/api/oauth/cancel', {'provider': NAME})
+        deadline = time.monotonic() + 10
+        while workers() and time.monotonic() < deadline:
+            time.sleep(.05)
+    assert not workers() and len(routers) == 2
 
 
 def test_console_cancel_frees_the_login_at_once(console):

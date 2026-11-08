@@ -648,6 +648,78 @@ def test_replacement_keeps_tokens_until_completion(oauth):
     assert parse_qs(fixture.requests[-1].content.decode())['refresh_token'] == ['FIXTURE_REFRESH_2']
 
 
+def test_replacement_exchange_that_finishes_after_the_deadline_keeps_its_tokens(oauth):
+    manager, fixture, now = connected(oauth)
+    fixture.next_access, fixture.next_refresh = 'FIXTURE_ACCESS_2', 'FIXTURE_REFRESH_2'
+    server, _, query = begin(manager, replace=True)
+    fixture.block, outcome = threading.Event(), {}
+    fixture.entered.clear()
+    def exchange():
+        try:
+            outcome['result'] = manager.callback(server.claim, {'state': query['state'], 'code': 'FIXTURE_CODE', 'iss': ISSUER})
+        except RouterError as error:
+            outcome['error'] = error.code
+    thread = threading.Thread(target=exchange)
+    try:
+        thread.start()
+        assert fixture.entered.wait(5)  # The code is at the token endpoint.
+        now[0] += 301  # The login window lapses while the provider answers.
+        # In flight its outcome is unknown: it reads neither as the old connection nor as a timeout.
+        assert manager.status()['status'] == 'refresh_unknown'
+    finally:
+        fixture.block.set()
+        thread.join(5)
+        server.server_close()
+    assert outcome.get('result', {}).get('action') == 'connected', outcome
+    status = manager.status()
+    assert status['status'] == 'ready' and status['refreshable'] and status['last_error'] is None
+    assert manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_2'
+    manager.refresh(force=True)
+    assert parse_qs(fixture.requests[-1].content.decode())['refresh_token'] == ['FIXTURE_REFRESH_2']
+
+
+class Died(BaseException):
+    """Stands in for the login process dying at the token endpoint: no except block records an outcome."""
+
+
+def test_replacement_exchange_with_no_outcome_reads_unknown_and_a_new_login_keeps_the_old_tokens(oauth, monkeypatch):
+    manager, fixture, now = connected(oauth)
+    server, _, query = begin(manager, replace=True)
+    real = manager._request
+    def died(method, url, **kwargs):
+        if url == ENDPOINTS['token_endpoint']:
+            raise Died
+        return real(method, url, **kwargs)
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(manager, '_request', died)
+            with pytest.raises(Died):
+                manager.callback(server.claim, {'state': query['state'], 'code': 'FIXTURE_CODE', 'iss': ISSUER})
+    finally:
+        server.server_close()
+    with manager.state.db() as db:
+        sealed = db.execute('SELECT nonce, ciphertext FROM oauth_connections').fetchone()[:]
+    now[0] += 301
+    # Whether the provider issued tokens for that code is unknown: no timeout or old connection is claimed, nothing is retried.
+    assert manager.status()['status'] == 'refresh_unknown'
+    count = len(fixture.requests)
+    with pytest.raises(RouterError) as caught:
+        manager.refresh(force=True)
+    assert caught.value.code == 'oauth_refresh_unknown' and len(fixture.requests) == count
+    # A new login still keeps the working tokens sealed until it completes; when it is denied, they resume.
+    second, started, fresh = begin(manager)
+    try:
+        assert started['action'] == 'started'
+        with manager.state.db() as db:
+            assert db.execute('SELECT nonce, ciphertext FROM oauth_connections').fetchone()[:] == sealed
+        assert manager.callback(second.claim, {'state': fresh['state'], 'iss': ISSUER, 'error': 'access_denied'})['action'] == 'denied'
+    finally:
+        second.server_close()
+    status = manager.status()
+    assert status['status'] == 'ready' and status['last_error'] == 'oauth_access_denied'
+    assert manager.access_token(NAME, RESOURCE) == 'FIXTURE_ACCESS_1'
+
+
 @pytest.mark.parametrize('value,code', [({'status':'missing'},2), ({'status':'needs_login'},2), ({'status':'pending'},3),
     ({'status':'ready'},0), ({'status':'ready','action':'connected'},0), ({'status':'ready','action':'login_failed'},2),
     ({'status':'ready','action':'denied'},2)])
@@ -662,6 +734,23 @@ def test_cli_status_for_missing_connection_needs_login(tmp_path, capsys):
     from agent_tool_maker.cli import main
     assert main(['--home', str(tmp_path/'state'), 'oauth', 'status']) == 2
     assert json.loads(capsys.readouterr().out)['status'] == 'missing'
+
+
+def test_cli_login_keeps_one_json_object_on_stdout(oauth, monkeypatch, capsys):
+    """The 'started' progress line goes to stderr; stdout stays the single JSON result Agents parse."""
+    from functools import partial
+    from agent_tool_maker.cli import main
+    manager, _, _ = oauth
+    opened = []
+    monkeypatch.setattr(manager, 'begin_login', partial(manager.begin_login, opener=lambda url: opened.append(url) or True, timeout=.01))
+    monkeypatch.setattr('agent_tool_maker.oauth_cli.OAuth', lambda *args: manager)
+    assert main(['--home', str(manager.state.home), 'oauth', 'login']) == 2
+    out, err = capsys.readouterr()
+    final = json.loads(out)  # Raises on a second JSON value ("Extra data").
+    assert (final['status'], final['action'], final['last_error']) == ('needs_login', 'login_failed', 'oauth_login_timeout')
+    progress = json.loads(err)
+    assert (progress['status'], progress['action'], progress['browser_opened']) == ('pending', 'started', True)
+    assert len(opened) == 1 and opened[0] not in out + err and 'code_challenge' not in out + err
 
 
 def test_failed_cli_replacement_does_not_install_service(oauth, monkeypatch):
