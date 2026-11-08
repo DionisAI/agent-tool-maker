@@ -85,9 +85,10 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
   无公网端口、公开调试端点或网页密码表单。VNC 信任已登录的本机用户，不作多租户隔离。
 - profile 仅由浏览器打开。Agent 不读取、导出、复制 Cookies、Token 或 profile 内容。
   停机保留 profile、回执、旧 socket。没有自动永久删除/清理。
-- 登录/验证码/站点错误/未知提交明确失败。普通 ATM job 的 CLI 失败可能报告
-  `cli_failed`/`submission_unknown`；直接 `studio adapter`（只读工具）的 JSON 及保留回执区分根因，
-  不因进程或浏览器健康伪造供应商成功。
+- 登录/验证码/站点错误/未知提交明确失败。已绑定并固定哈希的 `atm` 子进程以退出码 2 给出
+  `outcome_uncertain=false` 的确定拒绝（如服务器未运行的 `runtime_unavailable`）时，普通 ATM job
+  记为 `failed` 并保留原错误码；其他 CLI 失败仍报告 `cli_failed`/`submission_unknown`。
+  直接 `studio adapter`（只读工具）的 JSON 及保留回执区分根因，不因进程或浏览器健康伪造供应商成功。
 
 ## 本机验收与待验收
 
