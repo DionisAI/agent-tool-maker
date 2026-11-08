@@ -261,6 +261,15 @@ class OAuth:
             _, meta = self._row(db)
         return bool(meta) and meta.get("claim") == claim
 
+    @staticmethod
+    def _still_claimed(meta, claim):
+        """A login that lost its claim sends nothing more; the owner's 取消登录 is named as such."""
+        if meta and meta.get("claim") == claim:
+            return
+        if meta and meta.get("last_error") == "oauth_cancelled":
+            raise RouterError("oauth_cancelled", "The owner cancelled this login; it stopped before opening the browser and sends no further OAuth request.")
+        raise RouterError("oauth_conflict", "OAuth login ownership changed.")
+
     def cancel_login(self, name=NAME):
         """The owner ends a pending login now instead of waiting for its deadline; nothing is sent."""
         provider(name)
@@ -384,6 +393,9 @@ class OAuth:
                 else:
                     self._write(db, meta, {})
             discovered = self.discovery()
+            # Discovery can take a minute; a login the owner cancelled meanwhile registers no client.
+            with self.state.db() as db:
+                self._still_claimed(self._row(db)[1], claim)
             client = self._request("POST", ENDPOINTS["registration_endpoint"], body={"client_name": "ATM local OAuth",
                                    "redirect_uris": [server.redirect_uri], "token_endpoint_auth_method": "none",
                                    "grant_types": ["authorization_code", "refresh_token"], "response_types": ["code"]})
@@ -393,8 +405,7 @@ class OAuth:
             with self.state.db() as db:
                 db.execute("BEGIN IMMEDIATE")
                 _, meta = self._row(db)
-                if meta.get("claim") != claim:
-                    raise RouterError("oauth_conflict", "OAuth login ownership changed.")
+                self._still_claimed(meta, claim)  # Cancelled during registration: never waits, opens no browser.
                 meta["phase"] = "waiting"
                 self._write(db, meta)
             self._logins[claim] = payload
