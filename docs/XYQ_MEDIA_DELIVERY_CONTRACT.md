@@ -10,6 +10,11 @@
 
 ## 本期交付组件
 
+2026-10-08后续：常用ATM运行时的 media inspect 已安装，85个包文件匹配源码，
+新安装环境对合成PNG完整解码通过；独立 xyq.media.artifact_inspect 定义仍仅编译/隔离阶段。
+安装明细与可回退升级见[图片下载合同最新节](XYQ_DOWNLOAD_CONTRACT.md)。
+下文早期源码/隔离回执保留，不据此推断该独立定义或供应商媒体交付已验收。
+
 只有atm命令，新增atm media inspect；工具工厂另生成xyq.media.artifact_inspect。
 网页工具编译器维持原18个定义/路由，本地校验单独编译，不加载新浏览器适配器或扩大浏览器范围。
 file是项目内相对路径，kind为image/audio/video，expected_sha256必填。

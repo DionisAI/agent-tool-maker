@@ -17,13 +17,13 @@ spec.loader.exec_module(b)
 @pytest.mark.parametrize('op',b.VIEWER_OPERATIONS)
 def test_viewer_definition_source_and_permissions(op):
     tool=b.manifest(op)
-    assert validate_bundle(ROOT/'generated/tripo-studio-viewer'/op)['sha256']==digest(tool)
+    assert validate_bundle(ROOT/'generated/tripo-studio-delivery-stage-r4'/op)['sha256']==digest(tool)
     assert tool['paid'] is False
     assert set(tool['permissions'])==({'execute_code'} if op=='viewer_inspect' else {'execute_code','external_write'})
     assert b.viewer_digest() in tool['command']['argv']
     assert 'outputs' not in tool['command'] and 'credential_env' not in tool['command']
-    assert b.workspace_digest()=='3b7df85e08edf55de3dc09c777ed771c01fbc0965d13b6db0b20528536909dcc'
-    assert b.ui_options_digest()=='47aca5a146ab8b2531893e2408a1b2914f2d0efc4ea506e896d2c6655dcebfb9'
+    assert b.workspace_digest()=='3684f332b267a258d7bc9a24f003cf6ebe26bc50428a7abc6c0f2a8eef387d5e'
+    assert b.ui_options_digest()=='1dac47aee1b9ff81a7001c80b0f265871a32e3c1fbce64e74f065dda3c296708'
 
 
 @pytest.mark.parametrize('op',b.VIEWER_OPERATIONS)

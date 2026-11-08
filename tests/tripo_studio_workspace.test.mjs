@@ -12,6 +12,14 @@ import { readAccountDOM } from '../examples/opencli/tripo-studio/core.mjs';
 const TMP = realpathSync(tmpdir());
 const ID='11111111-2222-3333-4444-555555555555',OTHER='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const sha=value=>createHash('sha256').update(value).digest('hex');
+test('same-UUID Texture submission recognizes the exact observed HUD phrase, not another sidebar task',()=>{
+  globalThis.location={origin:'https://studio.tripo3d.ai',pathname:'/workspace/texture/'+ID};
+  const progress={innerText:'Generating Texture...',getClientRects:()=>[1],closest:()=>null};
+  globalThis.document={querySelectorAll:()=>[progress]};
+  const accepted=readWorkspaceSubmissionDOM('texture',ID);assert.equal(accepted.kind,'ready');assert.equal(accepted.asset_id,ID);assert.equal(accepted.acceptance,'processing_ui_not_completion');
+  progress.closest=()=>({});assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
+  progress.closest=()=>null;progress.innerText='Generating an unrelated task';assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
+});
 const temp=()=>mkdtempSync(join(TMP, 'atm-tripo-workspace-'));
 const FORM={kind:'ready',module:'segment',asset_id:ID,heading:'Segmentation',quoted_credits:40,credits:100,button_enabled:true,action_label:'Start Segmenting 40',warnings:[],settings:{detail_level:'Balanced'}};
 function fixturePage(form=FORM,{available=true,clickError=false}={}) {

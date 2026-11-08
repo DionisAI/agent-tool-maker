@@ -80,8 +80,10 @@ Skill 冲突须审阅后用 `--replace-skills` 备份替换。包未发布到 Py
 ## 网页工具与开发
 
 ATM 也能观察网页、制作可审阅适配器，生成固定定义、返回 JSON 的 CLI；凭证与登录留在本地，合同记录功能和验收边界。
+- [Tripo Studio](docs/TRIPO_STUDIO_CLI.md)：34项已安装，资产、报价、单次提交、查看器和导出；[后处理实测](docs/TRIPO_DELIVERY_CONTRACT.md)与完成文件分列。复用浏览器订阅，与开发者 API 分开；未知结果留存回执。[独立服务器](docs/TRIPO_SERVER.md)自行登录。
 - [小云雀](docs/XYQ_MEDIA_CONTRACT.md)：当前专注图像、视频、音频生成的参数、音色、参考素材、任务与下载，不以 Pippit 命令数量代表覆盖。[MP3 参考上传源码/隔离验收](docs/XYQ_MP3_REFERENCE_CONTRACT.md)与实机接收分列；白板、故事板、3D 导演台和复杂时间线暂缓，原实验源码保留。
 - [本地产物校验](docs/XYQ_MEDIA_DELIVERY_CONTRACT.md)：检查图片/音频/视频的字节、格式和完整解码；合成文件验收与网页下载、任务关联分开，不据此宣称供应商交付。
+小云雀当前27项已安装：[媒体运行时](docs/XYQ_MEDIA_RUNTIME_CONTRACT.md)20项、3个[图片结果读取](docs/XYQ_RESULT_CONTRACT.md)、2个[图片下载工具](docs/XYQ_DOWNLOAD_CONTRACT.md)和2个[首页素材只读发现](docs/XYQ_HOME_MATERIAL_CONTRACT.md)。素材格式/三个菜单入口及获准会话图片查询已通过真实 CLI，完整首页草稿保持；本轮临时绑定已解除。完整网页覆盖、真实付费生成、首页上传及视频/音频交付仍待验收；独立音频项目 origin_mismatch 和原未知 MP3/下载锁保持。完整状态见[覆盖表](docs/XYQ_WEB_COVERAGE.md)。
 
 [Agent 操作说明](SKILL.md) · [架构与安全](SECURITY.md) · [工具扩展](docs/EXTENSIBILITY.md) · [开发说明](CONTRIBUTING.md) · [v0.8 验收](docs/TEST_REPORT_V08.md)
 

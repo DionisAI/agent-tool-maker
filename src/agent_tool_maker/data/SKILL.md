@@ -17,6 +17,43 @@ The registered runtime block below takes precedence over PATH for daily commands
 
 ## Daily workflow — execute these steps yourself, not a checklist for the human
 
+### Media delivery acceptance
+
+Read docs/TRIPO_DELIVERY_CONTRACT.md for the current 34 installed Tripo tools.
+Texture aliases reuse workspace guards. The observed `Generating Texture...` HUD
+is processing even when old geometry and Export remain available. Other sidebar
+jobs do not define the current model state. Same-UUID updates and original unknown
+receipts need explicit completion evidence; operation_status never releases locks.
+The approved Retopo40/Texture30 test used its full70 credits; never repeat either
+paid request or silently resume Auto-rig. Original unknown upload/Texture locks stay.
+For XYQ see docs/XYQ_GENERATION_CONTRACT.md: optional --include-delivery compiles20
+tools; default18 is unchanged. Generation is one exact-draft native submission,
+not a completed task. generation_status is a LOCAL original-receipt query, not
+a provider poller. Audio unit-rate quotes need a separate total-price contract.
+docs/XYQ_RESULT_CONTRACT.md adds three installed read-only conversation-image tools:
+results, result_inspect and result_download_quote. --include-results plus delivery
+compiles23, not23 installed. Read exact thread/resource IDs only; no navigation or
+preview opening. Resource IDs are not task IDs. Download quote is a digest-bound
+enabled/hit-verified control plan, not a price, click or file. Preserve the original
+unknown manual download, never repeat it due a wait timeout. Real paid generation,
+task association and file acceptance stay separate; full prompts stay out of discovery.
+docs/XYQ_DOWNLOAD_CONTRACT.md defines two download/status tools and atm delivery.
+Check its latest install receipt and both exact tool IDs with atm describe;
+compiled bundles alone do not establish production availability.
+Pin the public native bridge, adapter and
+local decoding pipeline. One source-associated completed event plus exact stable
+decoded PNG is delivery evidence; filename/blob alone stays unknown, freshness
+and provider task association stay unverified. The fixed download directory is
+compiler-owned. Preserve original manual uncertainty markers and partial bytes.
+An observed original native receipt permits same-key LOCAL finalization only;
+it never permits another click. Status is local, not provider polling. Synthetic
+native/generated-CLI acceptance is distinct from actual website download acceptance.
+Installed App download lifecycle was separately verified with one pure native CLI
+click of a synthetic loopback PNG, then exact SHA/full decode. This validates
+App fields, not the provider CDN/Blob source association or tool installation.
+CUA and App observations stay separate; a CUA file alone is not
+an App completion event. Keep prior timeouts and original provider locks intact.
+
 ### XYQ media generation parity — not the Pippit command list
 
 Follow docs/XYQ_MEDIA_CONTRACT.md for the user's current image/video/audio scope:

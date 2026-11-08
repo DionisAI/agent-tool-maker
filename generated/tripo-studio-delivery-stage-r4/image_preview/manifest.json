@@ -1,0 +1,63 @@
+{
+  "id": "tripo.studio.image_preview",
+  "provider": "tripo",
+  "title": "Tripo Studio image_preview",
+  "capabilities": [
+    "3d",
+    "image_preview"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "card_id": {
+        "type": "string",
+        "pattern": "^(?:image:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}:(?:single|[0-9]|[1-9][0-9])|multiview:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$"
+      },
+      "view_index": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 3
+      }
+    },
+    "required": [
+      "card_id",
+      "view_index"
+    ],
+    "additionalProperties": false
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "image-preview",
+      "--pin",
+      "13c05dc89662502d4209d7b613418b3b54ffa00a973352984206e38801b43b59",
+      "-f",
+      "json",
+      "--card",
+      {
+        "input": "card_id"
+      },
+      "--view",
+      {
+        "input": "view_index"
+      }
+    ],
+    "output": "json",
+    "timeout": 900
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Observed DOM only. Model scope and Image scope are checked on each read. Collected has no filter. Image task plus index preserves distinct images; four multiview images are one card. Signed query strings are discarded. Existing dialogs are preserved. No upload, generation, publication or private API.",
+  "completion": "Query is always partial without an observed authoritative end contract. Image preview verifies exact task/index and closes only the preview it opened. Preview metadata and listed actions are not completed generation.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}

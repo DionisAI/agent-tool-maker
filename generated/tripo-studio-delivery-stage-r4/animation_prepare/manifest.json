@@ -1,0 +1,79 @@
+{
+  "id": "tripo.studio.animation_prepare",
+  "provider": "tripo",
+  "title": "Tripo Studio animation_prepare",
+  "capabilities": [
+    "3d",
+    "animation_prepare"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code",
+    "external_write"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "asset_id": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1000
+          },
+          "duration": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "expected_prompt_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "asset_id",
+      "settings"
+    ],
+    "additionalProperties": false
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "animation-prepare",
+      "--pin",
+      "1dac47aee1b9ff81a7001c80b0f265871a32e3c1fbce64e74f065dda3c296708",
+      "-f",
+      "json",
+      "--asset",
+      {
+        "input": "asset_id"
+      },
+      "--settings",
+      {
+        "json": "settings"
+      }
+    ],
+    "output": "json",
+    "timeout": 180
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Visible semantic UI controls only. Exact source UUID, typed settings and actual enabled options. Animation preserves an existing prompt unless replacement binds its digest. Export preserves existing dialogs, opens and closes only its own transient dialog. No generation, preset application, download, upload, publication or raw authentication.",
+  "completion": "Animation form readiness is not a completed motion. Export options are read back before closing the owned dialog; UI may remember settings, so inspect again before any action. No save or export button click, no paid quote or downloaded/validated file. Multi-format output acceptance remains separate.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}

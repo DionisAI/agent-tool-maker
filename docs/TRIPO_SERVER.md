@@ -8,6 +8,8 @@
 浏览器及后台执行继续运行。登录保存不等于供应商永不要求重新认证。
 
 这是现有 31 个 DOM 工具的独立执行后端，不是新增 31 项供应商验收。
+本机 delivery 阶段的 texture_quote、texture、operation_status 尚未加入服务器分派；
+服务器上的 Texture 仍走已审阅的 workspace_prepare / workspace_submit。
 `tripo.server.*` 使用原 `tripo.studio.*` 的 schema、权限、预算和付费回执，旧定义保持原样。
 仍使用 Studio 订阅额度；与开发者 API 独立。登录状态不进入 ATM Key 同步。
 
@@ -58,7 +60,8 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
 - `studio status` 是运行时状态，不代表供应商已登录；通过 `account` 实际读取网页。
 - Unix socket 0600、状态/profile 目录 0700、同 UID 校验；没有 TCP 工具 API。
   只信任本用户代码，不宣称隔离恶意同用户程序。
-- 每次操作绑定包含 Python 驱动、Node dispatcher 和 18 个原适配器的 bundle 摘要。
+- 每次操作绑定包含 Python 驱动、Node dispatcher 和 20 个原适配源文件的 bundle 摘要
+  （含随源码闭包打包、但不分派的 2 份 delivery 源）。
   一次只运行一个操作；并发报 busy，不排队或重试副作用。
 - 原 paid lock、pre-click receipt、request-key、报价/Private/预算检查不变。
   导出与上传限制在确切项目，不触碰浏览器认证文件。RPC 的 CDP 仅 DOM 上传及原生输入。
@@ -107,7 +110,7 @@ wheel 核对：`/private/tmp/atm-studio-server-wheel-readback-20261004.json`。
 ## 开发真源
 
 DOM 源码只在 `examples/opencli/tripo-studio/` 维护。
-`scripts/build_tripo_server.py` 确定性生成包内快照/index；测试校验全部 18 文件字节相同，
+`scripts/build_tripo_server.py` 确定性生成包内快照/index；测试校验全部 20 文件字节相同，
 不是手工维护第二份适配器。driver/protocol 在 `studio_runtime.py`，CLI 在 `studio_cli.py`。
 Playwright 使用[持久上下文](https://playwright.dev/python/docs/api/class-browsertype#browser-type-launch-persistent-context)，
 退出/重启不转储认证状态。只新增 `atm studio` 子命令，没有其他安装命令名。

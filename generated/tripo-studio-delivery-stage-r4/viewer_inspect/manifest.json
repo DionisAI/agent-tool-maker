@@ -1,0 +1,53 @@
+{
+  "id": "tripo.studio.viewer_inspect",
+  "provider": "tripo",
+  "title": "Tripo Studio viewer_inspect",
+  "capabilities": [
+    "3d",
+    "viewer_inspect"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "asset_id": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
+      }
+    },
+    "required": [
+      "asset_id"
+    ],
+    "additionalProperties": false
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "viewer-inspect",
+      "--pin",
+      "55ea3568db6a9eee1d3d7e9bfe5b19c20bf5ecbd2e687ab1a432d45f2fd4fdf8",
+      "-f",
+      "json",
+      "--asset",
+      {
+        "input": "asset_id"
+      }
+    ],
+    "output": "json",
+    "timeout": 240
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Visible semantic viewer and hierarchy controls only. Exact model UUID, typed render/environment values, bounded native camera inputs, exact node name and prior transform digest. Preserve existing dialogs and close only owned environment layers. No generation, upload, export, publication, save-button click or raw authentication.",
+  "completion": "Editor state is read back, not provider persistence, mesh quality or validated files. Camera actions report bounded input dispatched without inventing an engine pose; rendered visual acceptance is separate. Environment/render choices may be remembered. Transform edits may autosave even without a Save-button click; use an explicitly approved test asset. Transforms are two-decimal values within the reviewed magnitude bound. Destructive node menu items are not clicked.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}

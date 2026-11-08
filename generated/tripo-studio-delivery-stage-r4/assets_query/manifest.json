@@ -1,0 +1,109 @@
+{
+  "id": "tripo.studio.assets_query",
+  "provider": "tripo",
+  "title": "Tripo Studio assets_query",
+  "capabilities": [
+    "3d",
+    "assets_query"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": false,
+  "permissions": [
+    "execute_code"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "category": {
+        "enum": [
+          "Model",
+          "Image"
+        ]
+      },
+      "ownership": {
+        "enum": [
+          "My Assets",
+          "Collected",
+          "Image Assets"
+        ]
+      },
+      "filter": {
+        "enum": [
+          "All",
+          "Smart Mesh",
+          "Untextured",
+          "Textured",
+          "Rigged",
+          "multi-views"
+        ]
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "max_pages": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50
+      }
+    },
+    "required": [
+      "category",
+      "ownership",
+      "filter",
+      "limit",
+      "max_pages"
+    ],
+    "additionalProperties": false
+  },
+  "example": {
+    "category": "Image",
+    "ownership": "Image Assets",
+    "filter": "All",
+    "limit": 100,
+    "max_pages": 5
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "assets-query",
+      "--pin",
+      "13c05dc89662502d4209d7b613418b3b54ffa00a973352984206e38801b43b59",
+      "-f",
+      "json",
+      "--category",
+      {
+        "input": "category"
+      },
+      "--ownership",
+      {
+        "input": "ownership"
+      },
+      "--filter",
+      {
+        "input": "filter"
+      },
+      "--limit",
+      {
+        "input": "limit"
+      },
+      "--pages",
+      {
+        "input": "max_pages"
+      }
+    ],
+    "output": "json",
+    "timeout": 900
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/"
+  ],
+  "notes": "Observed DOM only. Model scope and Image scope are checked on each read. Collected has no filter. Image task plus index preserves distinct images; four multiview images are one card. Signed query strings are discarded. Existing dialogs are preserved. No upload, generation, publication or private API.",
+  "completion": "Query is always partial without an observed authoritative end contract. Image preview verifies exact task/index and closes only the preview it opened. Preview metadata and listed actions are not completed generation.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}

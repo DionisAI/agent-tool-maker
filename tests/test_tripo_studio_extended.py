@@ -19,7 +19,7 @@ spec.loader.exec_module(builder)
 
 @pytest.mark.parametrize('operation', builder.EXTENDED_OPERATIONS)
 def test_extended_bundle_matches_factory_and_permissions(operation):
-    directory = ROOT/'generated/tripo-studio-extended'/operation
+    directory = ROOT/'generated/tripo-studio-delivery-stage-r4'/operation
     result = validate_bundle(directory)
     tool = builder.manifest(operation)
     assert result['sha256'] == digest(tool)

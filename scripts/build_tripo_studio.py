@@ -31,6 +31,49 @@ VIEWER_OPERATIONS = ('viewer_inspect', 'viewer_prepare', 'viewer_camera', 'hiera
 VIEWER_FILES = (*WORKSPACE_FILES, 'viewer.mjs', 'viewer.js')
 IMAGE_FORM_OPERATIONS = ('image_form_inspect', 'image_form_prepare')
 IMAGE_FORM_FILES = (*WORKSPACE_FILES, 'image-form.mjs', 'image-form.js')
+DELIVERY_OPERATIONS = ('texture_quote', 'texture', 'operation_status')
+DELIVERY_FILES = (*WORKSPACE_FILES, 'delivery.mjs', 'delivery.js')
+
+
+def delivery_manifest(operation):
+    if operation not in DELIVERY_OPERATIONS:
+        raise ValueError('Unknown Tripo delivery operation')
+    h = hashlib.sha256()
+    for name in DELIVERY_FILES:
+        path = ROOT/'examples/opencli/tripo-studio'/name
+        if path.is_symlink() or not path.is_file():
+            raise RuntimeError('Delivery sources must be regular reviewed files')
+        h.update((name+'\0').encode())
+        h.update(path.read_bytes())
+        h.update(b'\0')
+    properties = {}
+    argv = ['__opencli_shim', 'tripo-studio', operation.replace('_', '-'), '--pin', h.hexdigest(), '-f', 'json']
+    if operation in ('texture_quote', 'texture'):
+        properties['asset_id'] = {'type': 'string', 'pattern': '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$'}
+        argv += ['--asset', {'input': 'asset_id'}]
+    if operation == 'texture_quote':
+        properties['settings'] = {'type': 'object', 'properties': {
+            'resolution': {'enum': ['2K', '4K', '8K']}, 'prompt': {'type': 'string', 'maxLength': 1000},
+            'remove_lighting': {'type': 'boolean'}, 'expected_prompt_sha256': {'type': 'string', 'pattern': '^[a-f0-9]{64}$'}}, 'additionalProperties': False}
+        argv += ['--settings', {'json': 'settings'}]
+    else:
+        properties['request_key'] = {'type': 'string', 'pattern': '^[A-Za-z0-9_.:-]{1,160}$'}
+        argv += ['--key', {'input': 'request_key'}, '--ledger', {'workspace': ''}]
+    if operation == 'texture':
+        properties.update(quote_sha256={'type': 'string', 'pattern': '^[a-f0-9]{64}$'},
+                          max_credits={'type': 'integer', 'minimum': 1, 'maximum': 10000},
+                          human_confirmed={'type': 'boolean', 'const': True})
+        argv += ['--quote', {'input': 'quote_sha256'}, '--budget', {'input': 'max_credits'}, '--confirm']
+    if operation == 'operation_status':
+        properties['wait_seconds'] = {'type': 'integer', 'minimum': 0, 'maximum': 120}
+        argv += ['--wait', {'input': 'wait_seconds'}]
+    return validate_manifest({'id': 'tripo.studio.'+operation, 'provider': 'tripo', 'title': 'Tripo Studio '+operation,
+        'capabilities': ['3d', operation], 'adapter': 'command', 'executable': 'opencliapp', 'paid': operation == 'texture',
+        'permissions': ['execute_code'] + ([] if operation == 'operation_status' else ['external_write']),
+        'schema': {'type': 'object', 'properties': properties, 'required': list(properties), 'additionalProperties': False},
+        'command': {'argv': argv, 'output': 'json', 'timeout': 180}, 'sources': ['https://studio.tripo3d.ai/'],
+        'notes': 'Texture is the existing reviewed workspace texture contract, not a new provider backend. Status binds one retained project model receipt and its actual output UUID. Unknown submissions and source-only processing remain unresolved; never release their locks or resubmit.',
+        'completion': 'Provider-ready model is separate from a submitted operation and validated export. Texture/rig/retopo quality and positive real paid acceptance remain distinct. No Cookie, token, profile or unrelated receipt reads.'})
 
 
 def image_form_digest():
@@ -298,6 +341,8 @@ def paid_digest():
 
 
 def manifest(operation):
+    if operation in DELIVERY_OPERATIONS:
+        return delivery_manifest(operation)
     if operation in IMAGE_FORM_OPERATIONS:
         return image_form_manifest(operation)
     if operation in VIEWER_OPERATIONS:
@@ -347,8 +392,8 @@ def manifest(operation):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--out', type=Path, required=True)
-    parser.add_argument('--stage', choices=['readonly', 'paid', 'extended', 'workspace', 'asset-query', 'ui-options', 'viewer', 'image-form', 'all'], default='readonly')
+    parser.add_argument('--stage', choices=['readonly', 'paid', 'extended', 'workspace', 'asset-query', 'ui-options', 'viewer', 'image-form', 'delivery', 'all'], default='readonly')
     args = parser.parse_args()
-    operations = ('account', 'assets') if args.stage == 'readonly' else ('quote', 'generate') if args.stage == 'paid' else EXTENDED_OPERATIONS if args.stage == 'extended' else WORKSPACE_OPERATIONS if args.stage == 'workspace' else QUERY_OPERATIONS if args.stage == 'asset-query' else UI_OPTIONS_OPERATIONS if args.stage == 'ui-options' else VIEWER_OPERATIONS if args.stage == 'viewer' else IMAGE_FORM_OPERATIONS if args.stage == 'image-form' else ('account', 'assets', 'quote', 'generate', *EXTENDED_OPERATIONS, *WORKSPACE_OPERATIONS, *QUERY_OPERATIONS, *UI_OPTIONS_OPERATIONS, *VIEWER_OPERATIONS, *IMAGE_FORM_OPERATIONS)
+    operations = ('account', 'assets') if args.stage == 'readonly' else ('quote', 'generate') if args.stage == 'paid' else EXTENDED_OPERATIONS if args.stage == 'extended' else WORKSPACE_OPERATIONS if args.stage == 'workspace' else QUERY_OPERATIONS if args.stage == 'asset-query' else UI_OPTIONS_OPERATIONS if args.stage == 'ui-options' else VIEWER_OPERATIONS if args.stage == 'viewer' else IMAGE_FORM_OPERATIONS if args.stage == 'image-form' else DELIVERY_OPERATIONS if args.stage == 'delivery' else ('account', 'assets', 'quote', 'generate', *EXTENDED_OPERATIONS, *WORKSPACE_OPERATIONS, *QUERY_OPERATIONS, *UI_OPTIONS_OPERATIONS, *VIEWER_OPERATIONS, *IMAGE_FORM_OPERATIONS, *DELIVERY_OPERATIONS)
     result = [pack(manifest(operation), args.out / operation) for operation in operations]
-    print(json.dumps({'adapter_sha256': adapter_digest(), 'paid_adapter_sha256': paid_digest(), 'extended_adapter_sha256': extended_digest(), 'workspace_adapter_sha256': workspace_digest(), 'query_adapter_sha256': query_digest(), 'ui_options_adapter_sha256': ui_options_digest(), 'viewer_adapter_sha256': viewer_digest(), 'image_form_adapter_sha256': image_form_digest(), 'bundles': result, 'installed': False, 'provider_calls': 0}))
+    print(json.dumps({'adapter_sha256': adapter_digest(), 'paid_adapter_sha256': paid_digest(), 'extended_adapter_sha256': extended_digest(), 'workspace_adapter_sha256': workspace_digest(), 'query_adapter_sha256': query_digest(), 'ui_options_adapter_sha256': ui_options_digest(), 'viewer_adapter_sha256': viewer_digest(), 'image_form_adapter_sha256': image_form_digest(), 'delivery_adapter_sha256': delivery_manifest('operation_status')['command']['argv'][4], 'bundles': result, 'installed': False, 'provider_calls': 0}))

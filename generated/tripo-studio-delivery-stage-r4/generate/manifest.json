@@ -1,0 +1,94 @@
+{
+  "id": "tripo.studio.generate",
+  "provider": "tripo",
+  "title": "Tripo Studio generate",
+  "capabilities": [
+    "3d",
+    "generate"
+  ],
+  "adapter": "command",
+  "executable": "opencliapp",
+  "paid": true,
+  "permissions": [
+    "execute_code",
+    "external_write"
+  ],
+  "schema": {
+    "type": "object",
+    "properties": {
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      },
+      "max_credits": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10000
+      },
+      "quote_sha256": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "request_key": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.:-]{1,160}$"
+      },
+      "human_confirmed": {
+        "type": "boolean",
+        "const": true
+      }
+    },
+    "additionalProperties": false,
+    "required": [
+      "prompt",
+      "max_credits",
+      "quote_sha256",
+      "request_key",
+      "human_confirmed"
+    ]
+  },
+  "command": {
+    "argv": [
+      "__opencli_shim",
+      "tripo-studio",
+      "generate",
+      "--pin",
+      "6af9b056c3f0f75ba9a4b1a8ee6b4fae41870c259f4baab6b325ed7d14863190",
+      "-f",
+      "json",
+      "--prompt",
+      {
+        "input": "prompt"
+      },
+      "--budget",
+      {
+        "input": "max_credits"
+      },
+      "--quote",
+      {
+        "input": "quote_sha256"
+      },
+      "--key",
+      {
+        "input": "request_key"
+      },
+      "--ledger",
+      {
+        "workspace": ""
+      },
+      "--confirm"
+    ],
+    "output": "json",
+    "timeout": 90
+  },
+  "sources": [
+    "https://studio.tripo3d.ai/",
+    "https://www.tripo3d.ai/help/api-plugins/tripo-studiotripo-api"
+  ],
+  "notes": "Visible DOM only; reuse browser-owned login, no credential injection. Pin covers adapter files, not hostile-code isolation. Asset coverage is loaded cards, task_status unknown. Paid text path requires current quote, human confirmation, credit ceiling and durable pre-click claim. No upload, publishing or automatic retry.",
+  "completion": "CLI acceptance only. Paid submission observes a new asset route; finished model and download are separate gates.",
+  "user_defined": true,
+  "implementation": "native",
+  "verification": "user_installed_not_live_verified"
+}
