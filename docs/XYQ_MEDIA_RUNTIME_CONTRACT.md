@@ -11,7 +11,7 @@
 - 新原生命名空间：`xyq-media`；唯一用户安装命令仍为 `atm`。
 - 加载器：`~/.opencli/clis/xyq-media-runtime/media.js`；32份字节一致的审阅源码位于
   `reviewed/`。根加载器只转换两个相对导入路径；闭包含声明和分派代码。
-- 完整源码 pin：`06d6591e8239ed0efa216b242dac86a0900bc6d40df2392fc70809837111fd23`。
+- 完整源码 pin：`58471330ad310bd9d0040bc63f1ca2037081fee3b04ecf98776d7277d7c3b381`。
 - 保留旧 `xyq-web` 等加载器及注册，没有静默替换旧浏览器入口。
   首页读取/参数/报价/提交使用既有 `site:xyq-home`；音频/项目历史使用
   `site:xyq-web`，继承公开 profile 路由。没有自动导航、bind/unbind 或错误后换页。
