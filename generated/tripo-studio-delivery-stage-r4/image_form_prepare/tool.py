@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.image_form_prepare'
-DEFINITION_SHA256 = '31f7ffa0bf9d10a1040c79c8ff50ba1aacfcabae4bb56dc345dda98698534fae'
+DEFINITION_SHA256 = 'f4ad55a123c247f265eb9ea98ad6521a3b91f399212b77b85775345a45f09693'
 
 
 def main(argv=None):

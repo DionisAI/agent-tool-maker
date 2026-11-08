@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 TOOL = 'tripo.studio.animation_prepare'
-DEFINITION_SHA256 = '9ff59c0dd51288ace9090a14ebedfde645d4713a6a158a3a5a57a1892e581e4b'
+DEFINITION_SHA256 = '8a4ec771635205a2f107608dfa2622040636f7a93ebf300caa9e2cbda9ba96b0'
 
 
 def main(argv=None):
