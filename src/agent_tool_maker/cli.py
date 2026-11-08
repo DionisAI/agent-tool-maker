@@ -106,6 +106,8 @@ def parser():
     oauth_commands(sub)
     from .studio_cli import add_commands as studio_commands
     studio_commands(sub)
+    from .media import add_commands as media_commands
+    media_commands(sub)
     return p
 
 
@@ -285,6 +287,9 @@ def main(argv=None):
         elif args.command=="demo":
             from .demo import run_demo
             value=run_demo(args.out)
+        elif args.command == "media":
+            from .media import dispatch as media_dispatch
+            value = media_dispatch(args)
         else:
             router=Router(args.home)
             value=dispatch(args,router)

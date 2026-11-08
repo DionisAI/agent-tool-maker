@@ -5,6 +5,9 @@ DOM adapters, compiler output and live-provider acceptance distinct; never treat
 a website subscription as developer-API credits. Contracts live in feature docs.
 Independent server browsers own their login/profile and execution; no local-computer
 relay or auth-state sync. Keep server-runtime and real-provider acceptance distinct.
+XYQ's active scope is website-parity image, video and audio generation, including
+voice selection and user-approved reference/voice uploads. Complex canvas,
+storyboard, 3D director and timeline editing are deferred; see docs/XYQ_MEDIA_CONTRACT.md.
 
 Read README.md and SKILL.md first. The default experience is **Agent prepares;
 human unlocks in one local window; Agent continues**. Do not hand the user a long

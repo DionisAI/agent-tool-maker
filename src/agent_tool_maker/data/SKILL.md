@@ -17,6 +17,268 @@ The registered runtime block below takes precedence over PATH for daily commands
 
 ## Daily workflow — execute these steps yourself, not a checklist for the human
 
+### XYQ media generation parity — not the Pippit command list
+
+Follow docs/XYQ_MEDIA_CONTRACT.md for the user's current image/video/audio scope:
+website parameters, preset/custom voices, approved reference/voice uploads,
+tasks and downloads. Complex canvas, storyboard, 3D and timeline editing are
+deferred. Preserve existing experimental sources. Actual website controls define
+scope; Pippit is a reference, not evidence of full generation-feature coverage.
+Use docs/XYQ_WEB_COVERAGE.md for evidence and pending acceptance.
+Use the latest feature-contract install receipts and exact atm describe results
+for production availability; the complete xyq.web.* bundle is not all installed.
+The explicit bound audio reader passed generated-CLI -> isolated ATM ->
+installed OpenCLIApp acceptance; do not imply all other tools are installed. Foundation
+queries read /home without navigation or clicks; form_options requires an
+already-open preferences menu. form_state binds the actual composer draft;
+form_choices opens/closes only its own menu. form_prepare requires the exact
+expected_draft_sha256 and sets dynamic semantic models/radio groups, video
+duration, canvas or plain prompt with native input/readback. Existing layers,
+files and references stay intact; unknown file state stops writes. Rich-reference
+prompts use a separate edit contract, not whole-editor replacement. Native Escape
+closes only the verified owned preferences layer. Phase/completed-step/cleanup
+errors report partial preparation; do not automatically retry or roll back.
+Parked canvas_inspect binds exact project_id/canvas_id on the current /project tab and
+reads DOM node IDs/types/layout plus text hashes, both editable and read-only.
+It does not navigate, create nodes or prove persistence. The approved test canvas
+was manually created/edited through CUA and verified in a fresh page; that is
+separate from installed CLI acceptance. Preserve user drafts and existing layers.
+Report partial discovery, unsupported surfaces and unknown quotes distinctly.
+No automatic uploads, generation, purchasing or publication.
+Browser authentication stays browser-owned. Review adapter and bridge digests
+before installation. Source/mock/native fixture/site observation/real execution
+remain separate acceptance states.
+The compiler defaults to eighteen media-stage tools; --include-canvas is an
+explicit experimental export, not the current work plan. Voice controls require
+their actual UI contract, not a name added to a prompt. Installed upload, generation and
+delivery remain pending. Opening @reference inserts a draft character: preserve
+and verify draft changes, never advertise it as a pure voice-list query.
+mode_choices/mode_prepare bind a known empty draft and preserve attachment chips
+even when the browser resets FileList. Badges are not semantic mode titles.
+Radix mode menus mask the rendered background with aria-hidden. Only the owning
+workflow may read that exact mask after mutual trigger/menu IDs and one visible
+layer are verified. Independent masks remain excluded; no DOM unmasking or forced
+input. Default readers stay unchanged. See docs/XYQ_FORM_CONTRACT.md.
+Real-source CUA mode_choices passed on the known empty home audio draft: all
+four menu titles were read, only the owning menu was closed, and the complete
+draft digest stayed unchanged. This is not installed CLI or mode_prepare
+acceptance. Separately approved temporary image/video mode_prepare and default
+form_choices passed on the empty homepage; the complete original audio draft was
+restored. Current preference triggers keep data-state=closed while aria-expanded
+is true. Expanded state requires its exact controlled, visible generation panel
+with the observed model/preferences sections; malformed associations fail.
+Discovery also reads native range duration bounds and pressed Seed buttons.
+Seed custom-value preparation and other models' dynamic menus remain pending;
+pressed buttons are observations, not invented radio groups or writable settings.
+audio_form_state_bound follows docs/XYQ_BOUND_READ_CONTRACT.md. Standard adapters
+and browser bind have distinct surface routing in this runtime. The new explicit
+reader uses the public Page API on the fixed named browser session; it does not
+silently replace the original reader after an error. Agent presents the verified
+test page, binds once, and checks its exact project/canvas without returning the
+full URL. The reader only evaluates the exact existing audio DOM contract and
+inherits public profile routing. No bind/unbind, navigation, input or auth export.
+Installed OpenCLI retains the two reviewed audio read registrations; the old loader
+is preserved. App-window manual handoff is no longer a gate for that audio route.
+For home state/menu/mode tools, docs/XYQ_HOME_BINDING_CONTRACT.md defines the separate
+site:xyq-home browser binding. The compiler's explicit --bound-home option changes
+five existing definitions, not default routing or tool IDs. Five reviewed home
+registrations are loaded separately. The previous four-entry snapshot's generated CLI -> isolated ATM -> installed
+App -> the bound empty homepage passed eight phases: audio state, mode choices,
+image mode/default choices, video mode/default choices, audio restoration and
+final state. The original complete draft digest and 6396 credits stayed unchanged;
+final request-key reuse returned the same job. No upload or generation occurred.
+Menu/mode input uses public native APIs with exact origin/path, target-hit checks
+and owned-menu Escape. Existing masked menus report dialog_open before polling;
+never silently dismiss them, unmask the DOM or substitute another page. Human
+closes an existing menu before continuation; this run resumed after a fresh read
+confirmed no existing layer. A correct URL binding alone is not form readiness.
+Preserve the initial unknown read as historical failure. One acceptance helper
+expected ready instead of mode_prepare's prepared: reconcile the completed job
+and independent readback, never repeat the already-applied mode input.
+The added bound form_prepare is reviewed, loaded and isolated-tested. Generated
+CLI -> new isolated ATM -> installed App passed its exact-digest-only no-op:
+ready, prepared=true, zero completed_steps and null options; before/after full
+draft reads agree, and request-key reuse returns the same job. This is no real
+parameter/prompt write acceptance. Follow docs/XYQ_HOME_PREPARE_CONTRACT.md:
+semantic model/radio/canvas clicks stay in exact owned surfaces; plain text uses
+fixed native selectAll/deleteBackward/insertLineBreak commands and nativeType.
+Verify actual focus, full selection, interior caret and literal final readback.
+Keep nonempty spaces/LF exact; semantic empty matches readDraftDOM. Number-input
+selection stays explicitly unverified; never infer selection from a sent key.
+Do not expose arbitrary keys/CDP/DOM writes. Retain input_phase and uncertain
+applied-input failures, with no automatic retries or normalization of NBSP drift.
+Installed home sources now match the new five-entry pin; the complete old four-entry
+snapshot is preserved. Approve actual input scope separately before field writes.
+audio_form_state/audio_reference_upload follow docs/XYQ_AUDIO_CONTRACT.md:
+exact project/canvas/node IDs, one audio node because the footer has no node-id
+marker, approved project PCM WAV and SHA, exact form digest,
+explicit confirmation/purpose, stable request key matching the ATM request key.
+Default empty mode retains the empty-draft contract. Explicit mode=append adds
+one approved WAV up to three audio references while preserving prompts/tokens
+and all existing audio/image cards in their relative order. Duplicate file names,
+full slots, busy drafts or unknown/nonempty FileList stop input. Recheck the bound
+draft after durable intent and before the one native file input. Default receipt
+fingerprints remain compatible; append has its own fingerprint. Real append
+acceptance requires separate file approval, never reuse the earlier one-WAV grant.
+Upload intent/lock precedes one native DOM file input. Unknown outcomes retain
+the lock; reuse performs no upload and is not current-form verification.
+Attached chips do not prove voice effects, persistence or generated audio.
+The latest source stage adds bounded MPEG Layer-III MP3 intake to that same upload
+operation; see docs/XYQ_MP3_REFERENCE_CONTRACT.md. Its duration counts encoded-frame
+samples including padding, decoder_verified=false, not a quote or complete decode.
+WAV return fields and legacy empty/append fingerprints remain compatible. Staged
+MP3 pins are new transitive audio closures. The one explicit upload registration
+is now upgraded at f33eecb, with all nine preceding c70aa32 source files preserved in a verified
+backup; the other thirteen registrations retain their older pins. Current staged
+definitions are not all deployed. Generated CLI -> isolated ATM -> installed App
+passed MP3 stale-digest preflight only: upload_rejected/draft_changed, zero native
+input/intent and same-key same-job. Native fixture or preflight acceptance is not
+live-provider MP3 attachment; the consumed WAV approval does not cover a new MP3.
+The later user-confirmed synthetic MP3 append at c70aa32 returned submission_unknown;
+its original request, intent and active lock are preserved. Independent readback
+still shows the original WAV/token, not successful MP3 attachment. The f33eecb
+bridge uses exactly one public Page.setFileInput call after the original input,
+file and draft guards; the installed bridge owns chooser interception. Never
+retry through bare CDP or in-page byte injection. Post-intent failures retain a
+private request-key.failure.json with bounded code/phase/step metadata, not raw
+bridge text. A code upgrade or stale-draft preflight does not reconcile that
+unknown operation or approve another upload. See the MP3 contract's latest section.
+Production ATM and user-level Skills have not been upgraded for this feature.
+audio_prompt_prepare binds the exact form/reference digests, fills plain text
+before structured mentions, and appends one existing uploaded-audio token using
+its observed mention control after native end-caret/Selection verification.
+Already-mentioned references return with zero input. Preserve existing rich
+prompts; reject duplicate reference names, covered controls, unknown selections
+and changed drafts. Native literal readback is exact, including spaces/newlines;
+never silently normalize NBSP or claim a literal @filename is an asset token.
+Partial preparation reports phase/completed_steps/uncertainty without retries.
+audio_choices/audio_prepare use actual audio-footer model IDs and integer sample
+rates with exact menu/trigger association, owned-menu cleanup and form readback.
+Preserve prompts, structured tokens, references and file controls. Model-induced
+rate defaults are actual implicit changes. A partly covered center uses bounded
+interior hit-testing and native point input on the exact control; fully covered
+controls stop input, with no forced clicks or changing the overlay. Both tools
+require external_write because even choice discovery opens menus. Real-source
+CUA discovery passed; native fixture preparation is separate from real setting
+changes and installed CLI acceptance. Task-center notifications are not media
+task/result completion; check project scope before extracting global tasks.
+The real synthetic-WAV CUA upload and source DOM read passed; native fixture
+prompt/token preparation and real-source zero-input mention validation passed.
+audio_quote is a read-only exact-form-bound estimate-rate query. Verify the actual
+estimated-credit title, visible single-audio-node footer and stable bracketing form/
+price reads. Keep the displayed denominator (e.g. 1 credit per 3 seconds); this
+is not an output duration, total bill or spending ceiling. Missing/unsupported
+prices and busy quotes stay unknown/pending. No menus, input or generation.
+See docs/XYQ_AUDIO_QUOTE_CONTRACT.md. A rate quote does not approve any spending.
+Three reviewed audio read entries (including the explicit bound rate query) and five explicit home state/menu/mode/prepare entries
+are loaded, not generation tools. The
+original adapter's last real check reported origin_mismatch on its separate owned surface;
+the explicit bound reader passed exact-project generated-CLI / isolated-ATM /
+installed-App acceptance. Its App test-panel handoff is no longer pending.
+Production ATM installation, other CLI reads/writes, homepage uploads/MP3, real multiple
+references, voice effects, generation, tasks and downloads remain pending.
+The compiler's explicit --bound-audio-quote keeps the same xyq.web.audio_quote ID
+and default routing intact; it composes with --bound-home. The new evaluate-only
+audio-quote-bound registration passed generated CLI -> new isolated ATM -> installed
+App -> exact synthetic-WAV test draft, with stable-key reuse of the completed job.
+Full before/after form and rate digests agree; 1 credit per 3 seconds stays an
+estimated unit rate, never a total bill, output duration or spending permission.
+Original audio/home sources, registrations, third-party App and production ATM
+are preserved. Follow docs/XYQ_AUDIO_QUOTE_CONTRACT.md; no automatic fallback,
+rebinding, input, upload or generation. The retained job is historical, not a fresh quote.
+The explicit --bound-audio-edit composes with home/quote flags and changes only
+the three existing audio_choices/audio_prepare/audio_prompt_prepare routes.
+Three reviewed audio preparation registrations are loaded in their own directory;
+the separate upload route is described below; no generation registration is loaded. The public native bridge and
+semantic settings/reference contracts passed isolated native fixtures. Generated
+CLI -> isolated ATM -> installed App passed an already-mentioned reference no-op
+on the exact synthetic-WAV draft: zero steps, unchanged full form/prompt digests,
+same-job reuse and 6396 credits. This is not real menu/field/prompt/append acceptance.
+Follow docs/XYQ_AUDIO_BINDING_CONTRACT.md. Native targets recheck unique audio
+scope/ownership/hits; Escape only closes this call's menu. Plain replacement
+requires real full selection, fixed editing commands and exact literal readback;
+rich references stay intact. Keep input_phase and uncertain post-dispatch failure
+even if a business wrapper has not yet recorded a setting step. No automatic
+retry, rebinding, rollback, auth export, upload or generation.
+
+The explicit --bound-audio-upload composes with the home/quote/edit flags and
+changes only the existing audio_reference_upload route/pin/completion contract.
+One reviewed upload registration is loaded; the previous eleven registrations,
+their source closures, App and production ATM/vault remain intact. Follow
+docs/XYQ_AUDIO_UPLOAD_BINDING_CONTRACT.md. Reuse the original approved-file,
+exact-form, empty/append, durable intent/lock and historical receipt contracts.
+The public bridge exposes only depth-zero DOM root, the exact audio file-input
+query and one approved WAV. Requery on the SAME captured root before attachment:
+another getDocument can reallocate frontend node IDs for an unchanged input.
+Actual input replacement still stops; no DOM modifications or arbitrary CDP.
+Known zero-step preflight conflicts return upload_rejected with reason/phase,
+upload_accepted=false and native_file_input_sent=false. A completed ATM job for
+that conditional stop is not successful upload. Origin/file/bridge/protocol
+errors and any post-intent failures stay errors/uncertain; never auto-retry them.
+Generated CLI -> isolated ATM -> installed App passed a deliberately stale-hash
+preflight stop on the original test draft, with same-job request reuse and
+unchanged full form/prompt/6396 credits. No new file was transmitted; confirm=true
+in this negative fixture is not a fresh upload grant. Native isolated fixtures
+passed actual attachment/append/replacement cases. Real CLI attachment, multiple
+references, persistence and voice effect acceptance remain pending, requiring
+separate file approval rather than reusing the consumed one-WAV consent.
+
+home_quote follows docs/XYQ_HOME_QUOTE_CONTRACT.md. The new read-only entry uses
+site:xyq-home's explicit public browser routing and only expected_draft_sha256;
+the original sixteen definitions retain their own routing. Interleave three
+price reads with full draft snapshots, preserving actual prompts/references,
+files, mode/preferences/canvas. Existing layers, unknown file state and any
+draft/price/submit-state race stay explicit failures with no fallback.
+Read the exact home credit-estimate amount slot; a crossed-out originalAmount
+is distinct from the current amount. Labels and amount must agree. Missing or
+busy prices never mean zero/free. Preserve per-second units and exact displayed
+decimal precision; do not infer durations or multiply rounded rates.
+quoted_estimate is displayed_estimate_only; quoted_rate is unit_rate_only.
+total_credits/output_duration_seconds remain null, spending ceiling/charge scope/
+final bill verification remain false. No spending approval comes from this read.
+One reviewed quote registration is loaded separately; real default-mode CLI
+acceptance and final restored-draft evidence are recorded in its contract.
+
+project_history_state follows docs/XYQ_PROJECT_HISTORY_CONTRACT.md. It reads only
+the exact project_id/canvas_id's current history view using site:xyq-web/browser's
+public evaluator. No opening/closing menus, filtering, navigation or input. Two
+stable snapshots verify the owned history trigger/dialog, media tabs and status
+filter. Closed/loading counts are null; an explicit empty marker proves only
+visible_record_count=0 under the selected filters. task_count stays null,
+all_records/row_scope_verified/task_rows_parsed stay false. Populated records stop
+with unsupported_history_records until real row ownership and shape are verified;
+do not substitute global TaskCenter data or invent task IDs. Existing layers,
+wrong scope and snapshot races are explicit errors with no fallback or rebinding.
+One reviewed read registration is loaded separately, preserving the previous
+thirteen registrations and seventeen bundle definitions. Generated CLI -> isolated
+ATM -> installed App passed open-empty and closed views, with same-job reuse of
+the open query and independent full original audio/home-form restoration. CUA
+closed only this test's own history panel; the CLI itself performed zero input.
+Current displayed balance is 6430 on both pages; the earlier 6396 is historical,
+not unchanged-balance evidence for this run. No uploads or generation were sent.
+Actual task-row IDs/status/results and validated downloads remain pending.
+
+Local media delivery evidence follows docs/XYQ_MEDIA_DELIVERY_CONTRACT.md. The
+source adds atm media inspect and a separate generated xyq.media.artifact_inspect
+bundle; production ATM and user-level Skills were not upgraded. Website compilation
+remains eighteen tools with unchanged definitions/pins/registrations. Use only an
+explicit project-relative file, image/audio/video kind and expected SHA256. No
+browser, credentials or network are involved. Reject linked/special/unknown files,
+wrong SHA, fake extensions/error pages, truncation and identity/byte races. PNG/
+JPEG/WebP need actual pixel load after structural verification; WAV needs every
+PCM frame. MP3/MP4 require reviewed hash-pinned FFmpeg/ffprobe, fd-only input,
+closed MOV external references, bounded processes and actual full decode. Output
+only whitelisted media facts, not tags/EXIF/prompts or signed links. Local limits
+and unsupported variants are explicit; never downgrade to header-only success.
+artifact_verified proves local bytes/decoding only: task_association_verified,
+provider_generation_verified/download_verified remain false. artifact_rejected
+is an explicit valid=false condition with reason/phase, not successful delivery;
+the generated adapter job may complete that negative check. Direct inspect exits
+2 for invalid media. Dependency/process/protocol errors remain errors. Same-key
+reuse is historical; use a new key to check current bytes without repeating any
+provider action. Source-ATM/generated-CLI acceptance of six synthetic formats is
+separate from installed production ATM and real provider task/download acceptance.
+
 ### Tripo Studio website tools and CLI making
 
 For independent/headless server execution, read docs/TRIPO_SERVER.md. Use the
