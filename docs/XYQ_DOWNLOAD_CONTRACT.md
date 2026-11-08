@@ -163,7 +163,7 @@ settings.request_key 可沿用。已失败的 job 键只返回原 failed job，�
 
 部分升级时各状态的实际行为：
 - 只换运行时（旧定义）：旧定义的 `--pin` 与新源码不符，ATM 在任何认领前返回 definition_changed。
-  旧定义没有 `--adapter-dir`，参数解析仍会放行到这一 pin 检查。
+  旧定义没有 `--adapter-dir` 和 `--allow-write`，参数解析仍会放行到这一 pin 检查。
 - 新运行时 + 新定义 + 旧闭包（加载器未换）：上述只读检查返回 definition_changed，工作目录没有
   账本或锁，桥接零启动；重装闭包后以新的 job `--request-key` 重跑即可。没有此检查时，旧加载器会在
   读取网页前停止（pin 不符，旧入口也没有 `--download-root`），外层却只见桥接非零退出，记为
