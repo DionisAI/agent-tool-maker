@@ -1931,5 +1931,13 @@ def test_a_dialog_keeps_the_modal_through_its_own_reopen_only(browser, tmp_path,
         assert page.evaluate('t => ownsModal(t)', b) is False
         assert page.evaluate("t => { const c = openModal({title: 'C'}); return [ownsModal(t), ownsModal(c)]; }", b) == [False, True]
         page.keyboard.press('Escape')
+        # A different dialog opened from inside one (C6 from an alert's 允许) takes a new token: the first dialog's
+        # late answers must not write into it.
+        a = page.evaluate("""() => { const a = openModal({title: 'A'});
+          showAlert('x', {error: {code: 'unsafe_download', hint: 'fake_ip_tunnel', message: 'x'}}); return a; }""")
+        page.locator('[data-key="fake-ip:allow"]').click()
+        expect(page.locator('#modal-title')).to_have_text('允许 ATM 连接本机代理给出的 198.18.x.x 地址？')
+        assert page.evaluate('t => [ownsModal(t), ownsModal(modalToken())]', a) == [False, True]
+        page.keyboard.press('Escape')
         assert not log['errors'], log['errors']
         ctx.close()

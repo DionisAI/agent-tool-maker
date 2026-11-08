@@ -235,6 +235,9 @@ const modalToken = () => modalSeq;
 const ownsModal = mine => mine===modalSeq && $('#modal').open;
 const closeOwn = (mine, successor=null) => { if(!ownsModal(mine))return; if(successor)ui.successor=successor; closeModal(); };
 const alertOwn = (mine, message, opts) => ownsModal(mine) ? showAlert(message, opts) : toast(message, true);
+// A different dialog opened from inside an open one (C6 from an alert's 允许) takes a new token, so the first
+// dialog's late answers are rejected. Its way back rebuilds that dialog under the new token.
+const handOver = () => ++modalSeq;
 
 // ---- Dialog kit ----
 // Returns the dialog's token (the same one when it reopens itself).
@@ -286,7 +289,7 @@ function showAlert(message, {field=null, error=null}={}) {
   else if(error&&code&&(!T.knownError(code)||T.keepsDetail(code))&&error.detail) n.append(el('details',{},el('summary',{},'技术信息'),el('p',{},error.detail)));
   // Only a refusal caused by the proxy's Fake-IP answers offers the owner's switch; it never retries anything.
   if(T.fakeIpHint(code,error?.hint)&&!fakeIpOn()){const back=modalReopen;
-    n.append(el('span',{class:'alert-actions'},el('button',{type:'button',class:'secondary','data-key':'fake-ip:allow',onclick:()=>fakeIpConfirm({back,error})},T.network.allow)));}
+    n.append(el('span',{class:'alert-actions'},el('button',{type:'button',class:'secondary','data-key':'fake-ip:allow',onclick:()=>{handOver();fakeIpConfirm({back,error});}},T.network.allow)));}
   n.setAttribute('role','alert'); n.hidden=false;
   if(field){field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby','modal-alert');field.focus();}
 }
