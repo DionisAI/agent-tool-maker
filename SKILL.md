@@ -30,7 +30,11 @@ An approved paid test whose credits are spent is never repeated, and Auto-rig is
 never silently resumed. Original unknown upload/Texture locks stay.
 For XYQ see docs/XYQ_GENERATION_CONTRACT.md: optional --include-delivery compiles20
 tools; default18 is unchanged. Generation is one exact-draft native submission,
-not a completed task. generation_status is a LOCAL original-receipt query, not
+not a completed task. Before xyq.web.generate, show the user the exact displayed
+estimate, the mode and the max_credits you will pass, then wait for their approval
+in chat. Only after that approval set human_confirmed, estimated_cost_confirmed and
+max_credits and pass --allow-paid; an earlier approval, a quote or a rate read never
+stands in for it. generation_status is a LOCAL original-receipt query, not
 a provider poller. Audio unit-rate quotes need a separate total-price contract.
 docs/XYQ_RESULT_CONTRACT.md adds three read-only conversation-image tools:
 results, result_inspect and result_download_quote. --include-results plus delivery
