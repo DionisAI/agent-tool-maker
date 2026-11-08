@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import shutil
 import threading
+import time
 from urllib.parse import urlsplit
 
 import pytest
@@ -63,10 +64,16 @@ def console(tmp_path, monkeypatch, *, saved=False, empty=False, request=True, sy
         server.shutdown(); server.server_close(); thread.join(5)
 
 
-def open_page(browser, server, info=None, *, width=1440, height=1000, init=None, **context):
+BOOT = re.compile(r'/api/(overview|tools|connections|jobs|clis|sync|access|extensions|session|passkeys)$')
+
+
+def open_page(browser, server, info=None, *, width=1440, height=1000, init=None, boot=None, **context):
+    """`boot`: a dict that keeps the ten bootstrap answers; later pages (and refreshes) given it replay them."""
     ctx = browser.new_context(viewport={'width': width, 'height': height}, **context)
     if init:
         ctx.add_init_script(init)
+    if boot is not None:
+        ctx.route(BOOT, lambda route: replay(route, boot))
     page = ctx.new_page()
     page.set_default_timeout(15000)
     log = {'errors': [], 'requests': [], 'console': []}
@@ -78,6 +85,14 @@ def open_page(browser, server, info=None, *, width=1440, height=1000, init=None,
     page.goto(server.origin + '/#token=' + server.token)
     page.wait_for_function("() => { const h = document.querySelector('#main .page-title h1'); return h && !h.textContent.includes('正在连接'); }")
     return ctx, page, log
+
+
+def replay(route, boot):
+    url = route.request.url
+    if url not in boot:
+        response = route.fetch()
+        boot[url] = {'status': response.status, 'headers': response.headers, 'body': response.body()}
+    route.fulfill(**boot[url])
 
 
 def posts(log):
@@ -1323,3 +1338,598 @@ def test_lock_ends_the_project_approval_it_says_it_ends(browser, tmp_path, monke
         ctx.close()
     finally:
         server.shutdown(); server.server_close(); thread.join(5)
+
+
+# ---------------------------------------------------------------- one #modal: a late answer never writes into another dialog
+# Every dialog shares the one <dialog id="modal">. A request held in the page until the owner has closed its dialog and
+# opened another must leave that other dialog as it was; released while its own dialog is still open, it fills it.
+
+class Held:
+    """Requests to `pattern` wait in the page until release(); they then get `answer` (None: the real server, 'abort': a
+    failed connection, (status, body), or a body). `only` picks the POST bodies to hold; the rest get `other` at once."""
+    def __init__(self, page, pattern, answer=None, only=None, other=None):
+        self.page, self.answer, self.only, self.other, self.routes, self.released = page, answer, only, other, [], False
+        page.route(pattern, self.handle)
+
+    def handle(self, route):
+        body = json.loads(route.request.post_data or '{}') if route.request.method == 'POST' else {}
+        if self.only and not self.only(body):
+            reply(route, self.other)
+        elif self.released:
+            reply(route, self.answer)
+        else:
+            self.routes.append(route)
+
+    def wait(self):
+        for _ in range(600):
+            if self.routes:
+                return
+            self.page.wait_for_timeout(25)
+        raise AssertionError('no request was held')
+
+    def release(self):
+        self.released = True
+        for route in self.routes:
+            reply(route, self.answer)
+
+
+class HeldRead:
+    """A chosen file's read in the page (File.prototype.text, this page only) waits until release(), then gives `text`."""
+    def __init__(self, page, text):
+        self.page = page
+        page.evaluate("t => { delete window.releaseRead; File.prototype.text = function () { return new Promise(r => { window.releaseRead = () => r(t); }); }; }", text)
+
+    def wait(self):
+        self.page.wait_for_function("() => typeof window.releaseRead === 'function'")
+
+    def release(self):
+        self.page.evaluate('() => window.releaseRead()')
+
+
+def reply(route, answer):
+    if answer is None:
+        route.continue_()
+    elif answer == 'abort':
+        route.abort()
+    else:
+        status, body = answer if isinstance(answer, tuple) else (200, answer)
+        route.fulfill(status=status, content_type='application/json', body=json.dumps(body))
+
+
+def in_flight(page):
+    """Counts the page's /api/ requests in flight, and when that last changed."""
+    flight = {'n': 0, 'at': time.monotonic()}
+    def counter(step):
+        def count(request):
+            if '/api/' in request.url:
+                flight['n'] += step; flight['at'] = time.monotonic()
+        return count
+    page.on('request', counter(1)); page.on('requestfinished', counter(-1)); page.on('requestfailed', counter(-1))
+    return flight
+
+
+def settle(page, flight, quiet=0.5):
+    """Until no request has been in flight for `quiet` seconds: the late answer, and all it started, has run."""
+    deadline = time.monotonic() + 20
+    while flight['n'] > 0 or time.monotonic() - flight['at'] < quiet:
+        assert time.monotonic() < deadline, flight
+        page.wait_for_timeout(50)
+
+
+SHOWN = """() => { const $ = id => document.getElementById(id), alert = $('modal-alert');
+  return {open: $('modal').open, title: $('modal-title').textContent, steps: $('modal-steps').outerHTML, body: $('modal-body').innerHTML,
+          actions: $('modal-actions').innerHTML, status: $('modal-status').textContent, alert: alert.hidden ? null : alert.textContent}; }"""
+FAKE_REFUSAL = (400, {'error': {'code': 'fake_refusal', 'message': 'fixture refusal'}})
+
+
+def dialog(page, expect, section, locate, title):
+    go(page, section)
+    node = locate(page)
+    node.scroll_into_view_if_needed()
+    node.click()
+    expect(page.locator('#modal-title')).to_have_text(title)
+    return page.locator('#modal')
+
+
+def refreshed(page, expect):
+    """刷新状态, then until that refresh has rendered (an earlier 已刷新 may still be announced)."""
+    page.locator('#refresh').click()
+    expect(page.locator('#refresh')).not_to_have_attribute('aria-busy', 'true')
+
+
+def unlock_dialog(page, expect):  # D2, from the pill on every section
+    page.locator('#session-action').click()
+    expect(page.locator('#modal-title')).to_have_text('解锁 Key 30 分钟')
+
+
+def custom_key_dialog(page, expect):  # D5
+    go(page, 'services')
+    page.get_by_role('button', name='添加自定义 Key', exact=True).click()
+    expect(page.locator('#modal-title')).to_have_text('添加自定义 Key')
+
+
+def vault_dialog(page, expect):  # D8, from the pill of a home without a vault
+    page.locator('#session-action').click()
+    expect(page.locator('#modal-title')).to_have_text('设置 Key 的保管方式')
+
+
+def closes(toast):
+    def check(page, expect):
+        expect(page.locator('#modal')).to_be_hidden()
+        expect(page.locator('#toast')).to_have_text(toast)
+    return check
+
+
+def says(alert):
+    def check(page, expect):
+        expect(page.locator('#modal')).to_be_visible()
+        expect(page.locator('#modal-alert')).to_contain_text(alert)
+    return check
+
+
+# Starters: each opens its dialog (or, for a page control, none) and sends the request it holds.
+def setup_preview(page, expect, info):  # D1-cli: the preview starts as the dialog opens (the CI failure: D2 read 绑定 blender)
+    held = Held(page, '**/api/setup/preview')
+    go(page, 'settings/programs')
+    page.locator('[data-program=blender]').get_by_role('button', name='绑定', exact=True).click()
+    expect(page.locator('#modal-title')).to_have_text('绑定 blender')
+    return held
+
+
+def setup_apply(answer):
+    def start(page, expect, info):
+        modal = dialog(page, expect, 'agents', lambda p: p.get_by_role('button', name='安装到 Codex', exact=True), '安装 ATM 到 Codex')
+        apply = modal.get_by_role('button', name='确认安装', exact=True)
+        expect(apply).to_have_attribute('aria-disabled', 'false')
+        held = Held(page, '**/api/setup/apply', answer)
+        apply.click()
+        return held
+    return start
+
+
+def tool_detail(answer):
+    def start(page, expect, info):
+        held = Held(page, '**/api/tools/tripo.text_to_3d', answer)
+        dialog(page, expect, 'services/tripo', lambda p: p.locator('[data-key="tool:tripo.text_to_3d"]'), re.compile(r'.+'))
+        expect(page.locator('#modal-body')).to_have_text('正在读取…')
+        return held
+    return start
+
+
+def tool_dialog_switch(page, expect, info):  # D4's own switch
+    dialog(page, expect, 'services/tripo', lambda p: p.locator('[data-key="tool:tripo.text_to_3d"]'), re.compile(r'.+'))
+    expect(page.locator('#modal-body')).to_contain_text('会做什么')
+    held = Held(page, '**/api/tools/toggle', FAKE_REFUSAL)
+    page.locator('#modal-actions [role=switch]').click()
+    return held
+
+
+def page_switch(page, expect, info):
+    go(page, 'services/tripo')
+    held = Held(page, '**/api/tools/toggle', FAKE_REFUSAL)
+    page.get_by_role('switch', name='允许 Agent 使用 tripo.studio.generate', exact=True).click()
+    return held
+
+
+def page_refresh(page, expect, info):
+    held = Held(page, '**/api/overview', 'abort')
+    page.locator('#refresh').click()
+    return held
+
+
+def verify_plan(page, expect, info):  # D12 opens only once its plan is read
+    held = Held(page, '**/api/verify')
+    go(page, 'services/tripo')
+    page.locator('li.route[data-kind=key]').get_by_role('button', name='联网测试', exact=True).click()
+    return held
+
+
+def verify_start(page, expect, info):
+    modal = dialog(page, expect, 'services/tripo', lambda p: p.locator('li.route[data-kind=key]').get_by_role('button', name='联网测试', exact=True),
+                   '联网测试 Tripo3D 的 Key')
+    held = Held(page, '**/api/verify', {'status': 'ok', 'http_status': 200}, only=lambda b: b.get('allow_network'))  # Never the network.
+    modal.get_by_role('button', name='开始联网测试', exact=True).click()
+    return held
+
+
+def credit_cycle(page, expect, info):  # D3
+    modal = dialog(page, expect, 'overview', lambda p: p.locator('.credit-card[data-provider=tripo_studio] [data-credit-action=cycle]'), '设置续期日 · Tripo Studio')
+    held = Held(page, '**/api/credits/cycle')
+    page.get_by_label('每月续期日').fill('20')
+    modal.get_by_role('button', name='保存', exact=True).click()
+    return held
+
+
+def unlock(answer):  # D2
+    def start(page, expect, info):
+        unlock_dialog(page, expect)
+        held = Held(page, '**/api/session/unlock', answer)
+        page.get_by_label('ATM 主密码', exact=True).fill('fake-typed-password')
+        page.get_by_role('button', name='用主密码解锁', exact=True).click()
+        return held
+    return start
+
+
+def vault_init(page, expect, info):  # D8
+    vault_dialog(page, expect)
+    held = Held(page, '**/api/vault/init', {})
+    page.get_by_role('button', name='确认设置', exact=True).click()
+    return held
+
+
+def key_save(answer):  # D7
+    def start(page, expect, info):
+        modal = dialog(page, expect, 'services/elevenlabs', lambda p: p.locator('li.route[data-kind=key]').get_by_role('button', name='添加 API Key'),
+                       '添加 ElevenLabs 的 API Key')
+        page.get_by_label('API Key', exact=True).fill(fx.SECRET + '-typed')
+        held = Held(page, '**/api/connections/save', answer)
+        modal.get_by_role('button', name='加密保存', exact=True).click()
+        return held
+    return start
+
+
+def key_remove(page, expect, info):  # D13
+    modal = dialog(page, expect, 'services/tripo', lambda p: p.locator('li.route[data-kind=key]').get_by_role('button', name='移除', exact=True),
+                   '移除 Tripo3D 的 API Key')
+    page.get_by_label('确认 Key 名称').fill('tripo')
+    held = Held(page, '**/api/connections/remove', {})
+    modal.get_by_role('button', name='移除 Key', exact=True).click()
+    return held
+
+
+def declare(page, expect, info):  # D5, which goes on to D7 in the same dialog
+    modal = dialog(page, expect, 'services', lambda p: p.get_by_role('button', name='添加自定义 Key', exact=True), '添加自定义 Key')
+    page.get_by_label('Key 名称', exact=True).fill('fixture.custom')
+    held = Held(page, '**/api/credentials/declare', {})
+    modal.get_by_role('button', name='登记名称', exact=True).click()
+    return held
+
+
+def extension(install):  # D6
+    def start(page, expect, info):
+        from agent_tool_maker.extensions import new_template
+        modal = dialog(page, expect, 'services', lambda p: p.get_by_role('button', name='安装工具定义', exact=True), '安装工具定义')
+        page.get_by_label('工具定义 JSON').fill(json.dumps(new_template('studio.export', 'web', url='https://example.com/')))
+        if not install:
+            held = Held(page, '**/api/extensions/validate')
+            modal.get_by_role('button', name='检查定义', exact=True).click()
+            return held
+        modal.get_by_role('button', name='检查定义', exact=True).click()
+        apply = modal.get_by_role('button', name='批准安装', exact=True)
+        expect(apply).to_have_attribute('aria-disabled', 'false')
+        held = Held(page, '**/api/extensions/install', {})
+        apply.click()
+        return held
+    return start
+
+
+def passkey_bind(page, expect, info):  # D9; the WebAuthn ceremony is replaced by one held request (this page only)
+    page.evaluate("window.ATM_PASSKEY = {...window.ATM_PASSKEY, register: api => api('/api/passkeys/register/begin', {})}")
+    modal = dialog(page, expect, 'settings/keys', lambda p: p.get_by_role('button', name='绑定 Passkey', exact=True), '绑定 Passkey')
+    held = Held(page, '**/api/passkeys/register/begin', {})
+    modal.get_by_role('button', name='开始绑定', exact=True).click()
+    return held
+
+
+def passkey_disable(page, expect, info):  # D10, with a bound Passkey served to this page only
+    mock(page, '/api/passkeys', lambda b: b.update(credentials=[{'id': 'fake-credential', 'label': '1Password', 'disabled': False, 'created_at': 0}]))
+    refreshed(page, expect)
+    modal = dialog(page, expect, 'settings/keys', lambda p: p.get_by_role('button', name='停用 1Password', exact=True), '停用 1Password')
+    held = Held(page, '**/api/passkeys/disable', {})
+    modal.get_by_role('button', name='确认停用', exact=True).click()
+    return held
+
+
+PENDING = {'status': 'pending', 'browser_opened': True}
+
+
+def oauth_login(page, expect, info):  # D11, which goes on to its pending login in the same dialog
+    modal = dialog(page, expect, 'services/higgsfield', lambda p: p.locator('li.route[data-kind=oauth]').get_by_role('button', name='重新登录', exact=True),
+                   '登录 Higgsfield（ATM 登录）')
+    held = Held(page, '**/api/oauth/login', PENDING)  # Answered in the page: nothing opens and nothing leaves the machine.
+    modal.get_by_role('button', name='打开官方登录页面', exact=True).click()
+    return held
+
+
+def oauth_pending(page, expect):
+    page.route('**/api/oauth/login', lambda route: reply(route, PENDING))
+    modal = dialog(page, expect, 'services/higgsfield', lambda p: p.locator('li.route[data-kind=oauth]').get_by_role('button', name='重新登录', exact=True),
+                   '登录 Higgsfield（ATM 登录）')
+    modal.get_by_role('button', name='打开官方登录页面', exact=True).click()
+    expect(modal.get_by_role('button', name='取消登录', exact=True)).to_be_visible()
+    return modal
+
+
+def oauth_refresh(page, expect, info):  # D11 pending: 刷新状态
+    modal = oauth_pending(page, expect)
+    held = Held(page, '**/api/overview')
+    modal.get_by_role('button', name='刷新状态', exact=True).click()
+    return held
+
+
+CANCELLED = {'action': 'cancelled', 'status': 'missing'}
+
+
+def oauth_cancel(page, expect, info):  # D11 pending: 取消登录
+    modal = oauth_pending(page, expect)
+    held = Held(page, '**/api/oauth/cancel', CANCELLED)
+    modal.get_by_role('button', name='取消登录', exact=True).click()
+    return held
+
+
+def page_oauth_cancel(page, expect, info):  # 取消登录 on the route of a pending login (served as such to this page only)
+    mock(page, '/api/connections', lambda b: b['oauth'][0].update(status='pending'))
+    refreshed(page, expect)
+    go(page, 'services/higgsfield')
+    held = Held(page, '**/api/oauth/cancel', CANCELLED)
+    page.locator('li.route[data-kind=oauth]').get_by_role('button', name='取消登录', exact=True).click()
+    return held
+
+
+FAKE_IP = '通过本机代理的 Fake-IP 连接（198.18.0.0/15）'
+
+
+def fake_ip_allow(page, expect, info):  # C6 from 设置 › 高级
+    modal = dialog(page, expect, 'settings/advanced', lambda p: p.get_by_role('switch', name=FAKE_IP, exact=True), '允许 ATM 连接本机代理给出的 198.18.x.x 地址？')
+    held = Held(page, '**/api/settings/network', {})
+    modal.get_by_role('button', name='允许', exact=True).click()
+    return held
+
+
+def page_fake_ip_off(page, expect, info):  # The switch while the option is on (served as such to this page only)
+    mock(page, '/api/overview', lambda b: b.update(network={**(b.get('network') or {}), 'fake_ip_tunnel': True}))
+    refreshed(page, expect)
+    go(page, 'settings/advanced')
+    held = Held(page, '**/api/settings/network', FAKE_REFUSAL)
+    page.get_by_role('switch', name=FAKE_IP, exact=True).click()
+    return held
+
+
+def confirm(section, locate, title, button, path):  # C1, C2, C3, C5
+    def start(page, expect, info):
+        modal = dialog(page, expect, section, locate, title)
+        held = Held(page, '**' + path, {})
+        modal.get_by_role('button', name=button, exact=True).click()
+        return held
+    return start
+
+
+def bulk(answer):  # C4
+    def start(page, expect, info):
+        group = lambda p: p.locator('.tool-group', has=p.locator('.group-head', has_text='你的 Chrome 登录')).get_by_role('button', name='全部停用…')
+        modal = dialog(page, expect, 'services/xyq', group, re.compile(r'^停用「.+」的 \d+ 个工具？$'))
+        held = Held(page, '**/api/tools/toggle', answer)
+        modal.get_by_role('button', name='全部停用', exact=True).click()
+        return held
+    return start
+
+
+def sync_init(page, expect, info):  # D15
+    modal = dialog(page, expect, 'settings/sync', lambda p: p.get_by_role('button', name='生成本机身份', exact=True), '生成本机同步身份')
+    page.get_by_label('设备名称').fill('fixture-laptop')
+    held = Held(page, '**/api/sync/init', {})
+    modal.get_by_role('button', name='生成本机身份', exact=True).click()
+    return held
+
+
+def sync_export(page, expect, info):  # D17
+    modal = dialog(page, expect, 'settings/sync', lambda p: p.get_by_role('button', name='导出加密包', exact=True), '导出给 build-server')
+    held = Held(page, '**/api/sync/export', {'encrypted_packet': {'header': {'packet': 'fixture'}}})
+    modal.get_by_role('button', name='生成并下载加密包', exact=True).click()
+    return held
+
+
+def sync_import(apply):  # D14
+    def start(page, expect, info):
+        packet = info['home'].parent / 'fake.atmsync'
+        packet.write_text('{}')
+        modal = dialog(page, expect, 'settings/sync', lambda p: p.get_by_role('button', name='导入加密包', exact=True), '导入加密同步包')
+        page.get_by_label('选择加密同步包（.atmsync）').set_input_files(str(packet))
+        if not apply:
+            held = HeldRead(page, 'not an encrypted packet')
+            modal.get_by_role('button', name='检查内容', exact=True).click()
+            return held
+        held = Held(page, '**/api/sync/import', {'conflicts': 0}, only=lambda b: b.get('apply'),
+                    other={'status': 'planned', 'sender': 'f' * 64, 'changes': []})
+        modal.get_by_role('button', name='检查内容', exact=True).click()
+        approve = modal.get_by_role('button', name='批准导入', exact=True)
+        expect(approve).to_have_attribute('aria-disabled', 'false')
+        approve.click()
+        return held
+    return start
+
+
+def sync_resolve(page, expect, info):  # D18
+    modal = dialog(page, expect, 'services/exa', lambda p: p.locator('li.route[data-kind=key]').get_by_role('button', name='选择版本', exact=True), 'Exa 的 Key 选哪个版本？')
+    modal.locator('input[name=resolve-head]').first.check()
+    held = Held(page, '**/api/sync/resolve', {})
+    modal.get_by_role('button', name='使用这个版本', exact=True).click()
+    return held
+
+
+def sync_trust(page, expect, info):  # D16
+    from agent_tool_maker.storage import State
+    from agent_tool_maker.sync import Sync
+    from agent_tool_maker.vault import Vault
+    card = Sync(Vault(State(info['home'].parent / 'remote'), password=fx.PASSWORD)).identity()
+    modal = dialog(page, expect, 'settings/sync', lambda p: p.get_by_role('button', name='配对另一台设备', exact=True), '配对另一台设备')
+    page.get_by_label('另一台设备的公开身份（JSON）').fill(json.dumps(card))
+    page.get_by_label('独立核对指纹（在另一台设备上看到的完整指纹）').fill(card['id'])
+    for legend in ('允许发给它的 Key', '允许它发来或修改的 Key'):  # The scopes it already has.
+        modal.locator('fieldset', has=page.locator('legend', has_text=legend)).get_by_label('tripo', exact=True).check()
+    modal.get_by_role('button', name='检查配对内容', exact=True).click()
+    approve = modal.get_by_role('button', name='批准配对', exact=True)
+    expect(approve).to_have_attribute('aria-disabled', 'false')
+    held = Held(page, '**/api/sync/trust', {}, only=lambda b: b.get('apply'))
+    approve.click()
+    return held
+
+
+def grant(apply):  # D19
+    def start(page, expect, info):
+        modal = dialog(page, expect, 'agents', lambda p: p.get_by_role('button', name='新建受限授权', exact=True), '新建受限授权')
+        page.get_by_label('精确工具 ID（逗号分隔）').fill('ffmpeg.probe')
+        page.get_by_label('允许的项目目录').fill(str(info['workspace']))
+        check = modal.get_by_role('button', name='检查授权内容', exact=True)
+        if not apply:
+            held = Held(page, '**/api/access/grant', (409, {'error': {'code': 'profile_exists', 'message': 'fixture'}}))
+            check.click()
+            return held
+        check.click()
+        approve = modal.get_by_role('button', name='批准并写入', exact=True)
+        expect(approve).to_have_attribute('aria-disabled', 'false')
+        held = Held(page, '**/api/access/grant', {}, only=lambda b: b.get('apply'))
+        approve.click()
+        return held
+    return start
+
+
+def both(*checks):
+    def check(page, expect):
+        for c in checks:
+            c(page, expect)
+    return check
+
+
+def shows(selector, text, exact=False):
+    def check(page, expect):
+        node = expect(page.locator(selector))
+        node.to_have_text(text) if exact else node.to_contain_text(text)
+    return check
+
+
+def visible(selector):
+    return lambda page, expect: expect(page.locator(selector)).to_be_visible()
+
+
+# (name, starter, its dialog is open while the request waits (Escape closes it), the dialog opened meanwhile,
+#  what the answer does to its own dialog when nothing else was opened)
+LATE = [
+    ('D1-cli preview', setup_preview, True, unlock_dialog, both(shows('#modal-title', '绑定 blender', True), visible('#modal-body ul.plan'))),
+    ('D1 apply', setup_apply({}), True, unlock_dialog, closes('已安装到 Codex。在新会话里生效。')),
+    ('D1 apply setup_changed', setup_apply((409, {'error': {'code': 'setup_changed', 'message': 'fixture'}})), True, unlock_dialog,
+     both(says('计划在你确认前变了（文件或程序刚被改动）。已重新生成，请再看一遍。'), shows('#modal-title', '安装 ATM 到 Codex', True))),
+    ('D4 detail', tool_detail(None), True, unlock_dialog, both(shows('#modal-body', '会做什么'), visible('#modal-actions [role=switch]'))),
+    ('D4 detail missing', tool_detail((404, {'error': {'code': 'unknown_tool', 'message': 'fixture'}})), True, unlock_dialog,
+     shows('#modal-body', '这个工具已不在目录中。', True)),
+    ('D4 switch refused', tool_dialog_switch, True, unlock_dialog, visible('#modal-alert')),
+    ('page switch refused', page_switch, False, unlock_dialog, visible('#toast')),
+    ('page refresh failed', page_refresh, False, unlock_dialog, shows('#main .banner', '读取本机状态失败')),
+    ('D12 plan', verify_plan, False, unlock_dialog, visible('#modal-actions .primary')),
+    ('D12 result', verify_start, True, unlock_dialog, shows('#modal-body', '测试结果：')),
+    ('D3 save', credit_cycle, True, unlock_dialog, closes('续期日已保存。')),
+    ('D2 unlock', unlock({}), True, custom_key_dialog, closes('Key 已解锁 30 分钟。')),
+    ('D2 wrong password', unlock((400, {'error': {'code': 'vault_locked', 'message': 'fixture'}})), True, custom_key_dialog,
+     both(says('ATM 主密码不正确，Key 仍是锁定的。'), lambda p, e: e(p.get_by_label('ATM 主密码', exact=True)).to_have_attribute('aria-invalid', 'true'))),
+    ('D7 save', key_save({'status': 'saved'}), True, unlock_dialog, closes('已加密保存 ElevenLabs 的 API Key。')),
+    ('D7 already saved', key_save({'status': 'already_configured'}), True, unlock_dialog, says('这个 Key 已经保存过，没有改动。要换新的，请用“更换”。')),
+    ('D13 remove', key_remove, True, unlock_dialog, closes('已移除本机保存的 Tripo3D Key。')),
+    ('D5 declare', declare, True, unlock_dialog,
+     both(shows('#modal-title', '添加 fixture.custom 的 API Key', True), shows('#modal-body', '已登记 fixture.custom。现在保存它的 Key 吗？'))),
+    ('D6 check', extension(False), True, unlock_dialog, shows('#modal-status', '检查通过，可以批准安装。', True)),
+    ('D6 install', extension(True), True, unlock_dialog, closes(re.compile(r'^已安装 studio\.export。'))),
+    ('D9 bind', passkey_bind, True, unlock_dialog, closes('Passkey 已绑定。原有加密的 Key 保持不变。')),
+    ('D10 disable', passkey_disable, True, unlock_dialog, closes('已停用 1Password。')),
+    ('D11 login', oauth_login, True, unlock_dialog, shows('#modal-actions', '取消登录')),
+    ('D11 refresh', oauth_refresh, True, unlock_dialog, lambda p, e: e(p.locator('#modal')).to_be_hidden()),
+    ('D11 cancel', oauth_cancel, True, unlock_dialog, closes('已取消这次 ATM 登录。可以重新登录，或改用“higgsfield 程序”。')),
+    ('page cancel login', page_oauth_cancel, False, unlock_dialog, closes('已取消这次 ATM 登录。可以重新登录，或改用“higgsfield 程序”。')),
+    ('C6 allow', fake_ip_allow, True, unlock_dialog, closes('已允许通过本机代理连接（198.18.0.0/15）。')),
+    ('page Fake-IP off refused', page_fake_ip_off, False, unlock_dialog, visible('#toast')),
+    ('C1 unregister', confirm('agents', lambda p: p.locator('[data-agent=claude]').get_by_role('button', name='移除', exact=True), '从 Claude Code 移除 ATM？',
+                              '移除', '/api/agents/unregister'), True, unlock_dialog, closes('已从 Claude Code 移除 ATM；Key 和工具没有改变。')),
+    ('C2 revoke device', confirm('settings/sync', lambda p: p.get_by_role('button', name='撤销信任', exact=True), '撤销对 build-server 的信任？',
+                                 '撤销信任', '/api/sync/revoke'), True, unlock_dialog, closes('已撤销对 build-server 的信任。')),
+    ('C3 revoke grant', confirm('agents', lambda p: p.locator('#grants').get_by_role('button', name='撤销', exact=True), '撤销「项目 demo-video · 由授权窗口批准」？',
+                                '撤销授权', '/api/access/revoke'), True, unlock_dialog, closes('授权已撤销。')),
+    ('C5 stop renewing', confirm('services/higgsfield', lambda p: p.get_by_role('button', name='停止自动续期', exact=True), '停止 Higgsfield 自动续期？',
+                                 '停止自动续期', '/api/oauth/keep-login'), True, unlock_dialog, closes('已停止自动续期。')),
+    ('C4 bulk', bulk({}), True, unlock_dialog, closes(re.compile(r'^已停用 \d+ 个工具。$'))),
+    ('C4 bulk stopped', bulk((409, {'error': {'code': 'state_changed', 'message': 'fixture'}})), True, unlock_dialog, says('有工具的状态刚被改动，已停在第 1 个。')),
+    ('D17 export', sync_export, True, unlock_dialog, closes('加密包已下载。')),
+    ('D14 check unreadable', sync_import(False), True, unlock_dialog, says('不是有效的加密包。')),
+    ('D14 import', sync_import(True), True, unlock_dialog, closes('加密的 Key 已合并到本机。')),
+    ('D18 resolve', sync_resolve, True, unlock_dialog, closes('已选择 Exa 的 Key 版本，相关工具恢复使用。')),
+    ('D16 trust', sync_trust, True, unlock_dialog, closes('已配对 build-server。')),
+    ('D19 check profile_exists', grant(False), True, unlock_dialog, says('已经有一份受限授权的配置文件')),
+    ('D19 grant', grant(True), True, unlock_dialog, closes('已创建 Claude Code 的受限授权。')),
+]
+LATE_EMPTY = [('D8 vault', vault_init, True, vault_dialog, closes('Key 保管方式已设置。'))]
+LATE_NO_SYNC = [('D15 identity', sync_init, True, unlock_dialog, closes('已生成本机同步身份。'))]
+
+
+def late_answer(page, expect, info, flight, start, opened, other, own, interleaved):
+    """Interleaved: the other dialog stays exactly as it was, with no alert. Not: the answer fills or ends its own
+    dialog, through the dialog's own reopen where it has one."""
+    held = start(page, expect, info)
+    held.wait()
+    if interleaved:
+        if opened:
+            page.keyboard.press('Escape')
+            expect(page.locator('#modal')).to_be_hidden()
+        other(page, expect)
+        before = page.evaluate(SHOWN)
+        assert before['open'] and before['alert'] is None, before
+    held.release()
+    settle(page, flight)
+    if not interleaved:
+        own(page, expect)
+        return
+    after, short = page.evaluate(SHOWN), lambda v: v[:160] if isinstance(v, str) else v
+    assert after == before, {k: (short(before[k]), short(after[k])) for k in before if before[k] != after[k]}
+
+
+def late_answers(browser, server, info, cases):
+    """Each case in one page, its own dialog first and then interleaved. Every case runs; returns each one that failed."""
+    from playwright.sync_api import expect
+    failed, boot = [], {}
+    for name, start, opened, other, own in cases:
+        ctx, page, log = open_page(browser, server, info, boot=boot)
+        flight = in_flight(page)
+        for interleaved in (False, True):
+            try:
+                if page.evaluate("document.getElementById('modal').open"):
+                    page.keyboard.press('Escape')
+                    expect(page.locator('#modal')).to_be_hidden()
+                late_answer(page, expect, info, flight, start, opened, other, own, interleaved)
+                assert not log['errors'], log['errors']
+            except Exception as e:
+                failed.append((name, 'interleaved' if interleaved else 'own dialog', str(e).strip().splitlines()[0][:400]))
+                ctx.close()
+                ctx, page, log = open_page(browser, server, info, boot=boot)
+                flight = in_flight(page)
+        ctx.close()
+    return failed
+
+
+def test_a_late_answer_never_writes_into_another_dialog(browser, tmp_path, monkeypatch):
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        failed = late_answers(browser, server, info, LATE)
+    with console(tmp_path, monkeypatch, empty=True) as (server, info):
+        failed += late_answers(browser, server, info, LATE_EMPTY)
+    with console(tmp_path, monkeypatch, sync=False, request=False) as (server, info):
+        failed += late_answers(browser, server, info, LATE_NO_SYNC)
+    assert not failed, '\n'.join(map(str, failed))
+
+
+def test_a_dialog_keeps_the_modal_through_its_own_reopen_only(browser, tmp_path, monkeypatch):
+    """The token a dialog takes when it opens survives its own reopens (fuller content, its next step, C6 and back) and
+    nothing else: closing it (closeModal or Escape) and opening another ends it."""
+    from playwright.sync_api import expect
+    with console(tmp_path, monkeypatch, request=False) as (server, info):
+        ctx, page, log = open_page(browser, server, info)
+        result = page.evaluate("""() => {
+          const a = openModal({title: 'A'}), out = [ownsModal(a), modalToken() === a];
+          out.push(openModal({title: 'A, fuller'}) === a, ownsModal(a));
+          closeModal(); out.push(ownsModal(a));
+          const b = openModal({title: 'B'}); out.push(ownsModal(a), ownsModal(b), b !== a);
+          return out; }""")
+        assert result == [True, True, True, True, False, False, True, True], result
+        b = page.evaluate('modalToken()')
+        page.keyboard.press('Escape')
+        expect(page.locator('#modal')).to_be_hidden()
+        assert page.evaluate('t => ownsModal(t)', b) is False
+        assert page.evaluate("t => { const c = openModal({title: 'C'}); return [ownsModal(t), ownsModal(c)]; }", b) == [False, True]
+        page.keyboard.press('Escape')
+        assert not log['errors'], log['errors']
+        ctx.close()
