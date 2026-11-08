@@ -139,6 +139,36 @@ def test_file_upload_and_cdp_are_scoped(tmp_path):
     assert wrong_origin.value.code == "origin_mismatch"
 
 
+def test_dotdot_cannot_leave_the_project_or_reach_browser_state(tmp_path):
+    home, project = tmp_path / "state", tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    (tmp_path / "outside.png").write_bytes(b"fake raster fixture")
+    escape = str(project / ".." / "outside.png")  # Lexically below the project, really beside it.
+    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[SimpleNamespace(url=runtime.ORIGIN + "/assets")]), "node")
+    browser.cdp = SimpleNamespace()
+    browser.active = {"workspace": project}
+    with pytest.raises(RouterError) as upload:
+        asyncio.run(browser.rpc("cdp", ["DOM.setFileInputFiles", {"files": [escape]}]))
+    assert upload.value.code == "unsafe_path"
+    for operation, flag, value in [("image_quote", "--file", escape), ("export", "--output", str(project / ".." / "model.glb"))]:
+        original = runtime.index()[operation]
+        inputs = {key: sample(schema) for key, schema in original["schema"]["properties"].items()}
+        if "image" in inputs:
+            (project / inputs["image"]).write_bytes(b"fake raster fixture")
+        argv = compile_command(None, original, inputs, project, project)["argv"][3:]
+        runtime.validate_request(operation, argv, project)
+        argv[argv.index(flag) + 1] = value
+        with pytest.raises(RouterError) as escaped:
+            runtime.validate_request(operation, argv, project)
+        assert escaped.value.code == "unsafe_path"
+    argv = compile_command(None, runtime.index()["account"], {}, project, project)["argv"][3:]
+    packet = {"method": "run", "operation": "account", "argv": argv, "workspace": str(project / ".." / "state"), "bundle": "wrong"}
+    with pytest.raises(RouterError) as overlap:
+        asyncio.run(browser.run(packet))  # Names the browser state directory itself.
+    assert overlap.value.code == "unsafe_workspace"
+
+
 def test_runtime_busy_wrong_bundle_and_state_project_overlap(tmp_path):
     home = tmp_path / "state"
     home.mkdir()

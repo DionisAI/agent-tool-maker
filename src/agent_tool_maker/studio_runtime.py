@@ -36,6 +36,9 @@ def private_path(path: Path, *, directory=False):
     for item in [path, *path.parents]:
         if item.is_symlink():
             raise RouterError("unsafe_path", "Server state paths must not traverse symbolic links.")
+    # No component is a link, so collapsing '..' names what the kernel opens and the
+    # callers' lexical is_relative_to checks confine for real.
+    path = Path(os.path.normpath(path))
     if directory:
         path.mkdir(parents=True, exist_ok=True, mode=0o700)
     if path.exists():
@@ -73,6 +76,7 @@ def validate_request(operation, argv, workspace):
     if not spec or not isinstance(argv, list) or any(not isinstance(v, str) for v in argv):
         raise RouterError("invalid_argument", "Unknown server operation or malformed arguments.")
     template = spec["command"]["argv"][3:]
+    workspace = private_path(workspace)
     if len(argv) != len(template):
         raise RouterError("invalid_argument", "Arguments must match the reviewed command exactly.")
     values = {}
@@ -106,7 +110,6 @@ def validate_request(operation, argv, workspace):
             values[field] = True
     if next(Draft202012Validator(spec["schema"]).iter_errors(values), None):
         raise RouterError("invalid_input", "Server input does not satisfy the reviewed tool schema.")
-    private_path(workspace)
     if not workspace.is_dir() or workspace == Path("/"):
         raise RouterError("unsafe_path", "Use an existing absolute project directory.")
     return spec
@@ -362,7 +365,7 @@ class BrowserRuntime:
         workspace = Path(packet["workspace"])
         if not workspace.is_absolute():
             raise RouterError("unsafe_path", "Execution workspace must be absolute.")
-        home = self.home.absolute()
+        workspace, home = private_path(workspace), private_path(self.home)
         if workspace == home or workspace.is_relative_to(home) or home.is_relative_to(workspace):
             raise RouterError("unsafe_workspace", "Browser state and its ancestors/descendants must be separate from the execution project.")
         spec = validate_request(operation, argv, workspace)
