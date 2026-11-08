@@ -12,9 +12,32 @@ const el = (tag, attrs = {}, ...children) => {
   for (const child of children.flat()) if (child !== null && child !== undefined) n.append(child instanceof Node ? child : document.createTextNode(String(child)));
   return n;
 };
-let token = new URLSearchParams(location.hash.slice(1)).get('token') || '';
-if (location.hash) history.replaceState(null, '', location.pathname);
-let data = null, active = 'overview', noticeTimer;
+// The bearer and the current section live in this tab's sessionStorage (exact origin, this tab only);
+// never localStorage or cookies.
+const tabStore = key => ({
+  get() { try { return sessionStorage.getItem(key) || ''; } catch { return ''; } },
+  set(value) { try { sessionStorage.setItem(key, value); } catch {} },
+  clear() { try { sessionStorage.removeItem(key); } catch {} }
+});
+const tabToken = tabStore('atm-console-token'), tabSection = tabStore('atm-console-section');
+// `atm ui` opens #launch=<one-time code>; #token= is still read for already-open or bookmarked links.
+const fragment = new URLSearchParams(location.hash.slice(1)), launchCode = fragment.get('launch') || '';
+let token = fragment.get('token') || '', typed = '';
+if (token) tabToken.set(token); else if (!launchCode) token = tabToken.get();
+const SECTIONS = [...document.querySelectorAll('[data-nav]')].map(n => n.dataset.nav);
+const known = section => SECTIONS.includes(section) ? section : '';
+// This history entry's own section (reload, Back/Forward into a fresh load) first, then this tab's last one.
+let data = null, active = known(history.state?.section) || known(tabSection.get()) || 'overview', noticeTimer;
+const markNav = () => document.querySelectorAll('[data-nav]').forEach(n=>n.classList.toggle('active',n.dataset.nav===active));
+markNav();  // The restored section shows in the navigation before any data arrives.
+// The launch fragment leaves the address bar and this history entry before any request is made.
+if (location.hash) history.replaceState({section:active}, '', location.pathname); else history.replaceState({section:active}, '');
+const GATE_REASONS = {
+  session_expired:'会话已过期：在终端再次运行 atm ui 打开新的管理台',
+  unauthorized:'管理台已重启或会话已失效：在终端再次运行 atm ui',
+  rejected:'会话码未被接受：请核对终端所示 token 文件中的会话码',
+  launch_expired:'启动链接已使用或已过期：在终端再次运行 atm ui'
+};
 const toolFilters={q:'',mode:'',status:''};
 const labels = {
   configured_not_verified:'已配置 · 未验证', not_registered:'未注册', registered_not_host_verified:'已注册 · 待宿主验收',
@@ -53,7 +76,7 @@ function toolCollection() {
   const priority=['tripo','higgsfield','fal','xyq','comfyui','meshy','runway','elevenlabs','suno','ffmpeg','blender','github'];
   const rank=key=>priority.includes(key)?priority.indexOf(key):priority.length;
   const selected=[...groups.values()].sort((a,b)=>rank(a.brand.key)-rank(b.brand.key)||a.brand.name.localeCompare(b.brand.name)).slice(0,12);
-  const browse=query=>{toolFilters.q=query;toolFilters.mode='';toolFilters.status='';active='tools';render();};
+  const browse=query=>{toolFilters.q=query;toolFilters.mode='';toolFilters.status='';go('tools');};
   return el('section',{class:'tool-collection'},
     el('div',{class:'section-head'},el('div',{},el('h2',{},'你的工具箱'),el('small',{},groups.size+' 个提供方 · 图标用于识别，登录与可用性请查看状态')),btn('查看全部工具 →',()=>browse(''),'plain')),
     el('div',{class:'brand-grid'},...selected.map(({brand,provider,count})=>el('button',{class:'brand-tile',onclick:()=>browse(brand.key==='tripo'?'tripo.':provider)},
@@ -65,21 +88,41 @@ const toast = (message, error=false) => {
 };
 const action = fn => async event => {
   const b=event?.currentTarget; if (b?.tagName==='BUTTON') b.disabled=true;
-  try { await fn(event); } catch(e) { toast(e.message || '操作失败，请检查本地状态。',true); }
+  try { await fn(event); } catch(e) { if(!e?.gated) toast(e.message || '操作失败，请检查本地状态。',true); }
   finally { if (b?.isConnected) b.disabled=false; }
 };
+function showGate(reason='') {
+  const line=$('#gate-reason'); line.textContent=GATE_REASONS[reason]||''; line.hidden=!line.textContent;
+  $('#gate').hidden=false;
+}
+// The lock button and every 401 end the same way: no bearer, data, dialog or rendered page remains.
+function forget(reason='') {
+  token=''; tabToken.clear(); data=null; closeModal(); $('#main').replaceChildren(); showGate(reason);
+}
+// Sections are kept per tab across reloads; Back and Forward move between them.
+function go(section) {
+  if (section!==active) history.pushState({section},'');
+  active=section; tabSection.set(section); render();
+}
 async function api(path, body) {
-  const opts={headers:{Authorization:'Bearer '+token},cache:'no-store'};
+  const sent=token, opts={headers:{Authorization:'Bearer '+sent},cache:'no-store'};
+  // Locked or ended: nothing is sent without the bearer, and the gate already says why.
+  if(!sent){const error=new Error('unauthorized: 会话已结束');error.gated=true;throw error;}
   if (body !== undefined) {opts.method='POST';opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(body);}
   const r=await fetch(path,opts); const value=await r.json();
   if (!r.ok) {
-    if(r.status===401) {token=''; $('#gate').hidden=false;}
-    throw Object.assign(new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成')),{code:value.error?.code});
+    const error=Object.assign(new Error((value.error?.code || 'request_failed')+': '+(value.error?.message || '请求未完成')),{code:value.error?.code});
+    // Only an answer for the current bearer ends the session; a late reply for an old one must not.
+    // The gate then says why in Chinese, so callers do not repeat it in a toast.
+    if(r.status===401&&sent===token) {forget(value.error?.code==='session_expired'?'session_expired':sent===typed?'rejected':'unauthorized');error.gated=true;}
+    throw error;
   }
   return value;
 }
 async function refresh() {
+  const sent=token;
   const [overview,tools,connections,jobs,clis,sync,access,extensions,session,passkeys]=await Promise.all(['/api/overview','/api/tools','/api/connections','/api/jobs','/api/clis','/api/sync','/api/access','/api/extensions','/api/session','/api/passkeys'].map(p=>api(p)));
+  if(token!==sent)return;  // Locked or replaced meanwhile: a late answer must not reopen the page.
   data={overview,tools:tools.tools,connections,jobs:jobs.jobs,clis:clis.clis,sync,access,extensions,session,passkeys,sessionFetchedAt:Date.now()};
   $('#version').textContent='ATM v'+overview.version;
   $('#origin').textContent=location.host;
@@ -110,8 +153,8 @@ function agentCard(a) {
     },'plain danger'):null));
 }
 function render() {
+  markNav();
   if(!data)return;
-  document.querySelectorAll('[data-nav]').forEach(n=>n.classList.toggle('active',n.dataset.nav===active));
   const main=$('#main'); main.replaceChildren();
   if(active==='overview') {
     main.append(heading('连接一次，持续使用。','Claude Code 与 Codex，共用一套工具、凭证和执行记录。',btn('配置默认客户端 →',()=>setupDialog(), 'primary')));
@@ -453,14 +496,34 @@ const values=()=>({agent:agent.value,tools:tools.value.split(',').map(v=>v.trim(
 const apply=btn('批准并写入私有客户端文件',async()=>{const v=values();if(JSON.stringify(v)!==reviewed)throw new Error('权限已变化，请重新预览。');await api('/api/access/grant',{...v,apply:true,approved_sha256:hash});await refresh();closeModal();},'primary');apply.disabled=true;
 openModal('创建有范围的 Agent 授权',el('label',{},'客户端',agent),el('label',{},'精确工具 ID（逗号分隔）',tools),el('label',{},'允许的项目目录',workspace),el('label',{},'授权小时数（最多 720）',hours),el('label',{},paid,'允许所选工具消耗上游额度（不是金额上限）'),...permissions.map(p=>el('label',{},p.input,p.key)),view,el('div',{class:'dialog-actions'},btn('预览授权',async()=>{const v=values(),r=await api('/api/access/grant',v);reviewed=JSON.stringify(v);hash=r.approval_sha256;view.textContent=JSON.stringify(r,null,2);apply.disabled=false;}),apply));}
 
-document.querySelectorAll('[data-nav]').forEach(n=>n.onclick=()=>{active=n.dataset.nav;render();});
+document.querySelectorAll('[data-nav]').forEach(n=>n.onclick=()=>go(n.dataset.nav));
+// A launch link opened in this already-open tab changes only the fragment (popstate, then hashchange):
+// reload, so the normal load path strips and redeems it. Its popstate leaves the current section alone.
+const launchLink = () => /^#(launch|token)=/.test(location.hash);
+window.addEventListener('popstate',e=>{if(launchLink())return;active=known(e.state?.section)||'overview';tabSection.set(active);render();});
+window.addEventListener('hashchange',()=>{if(launchLink())location.reload();});
 $('#modal-close').onclick=closeModal;
 $('#modal').addEventListener('cancel',()=>$('#modal-body').replaceChildren());
 $('#modal').addEventListener('close',restoreFocus);
 $('#refresh').onclick=action(refresh);
-$('#lock').onclick=()=>{token='';data=null;closeModal();$('#main').replaceChildren();$('#gate').hidden=false;};
-$('#session-form').onsubmit=action(async e=>{e.preventDefault();token=$('#session-token').value;$('#session-token').value='';await refresh();});
-if(token)refresh().catch(e=>{toast(e.message,true);$('#gate').hidden=false;});
+$('#lock').onclick=()=>forget();
+$('#session-form').onsubmit=action(async e=>{e.preventDefault();typed=token=$('#session-token').value;$('#session-token').value='';await refresh();typed='';tabToken.set(token);});
+async function start() {
+  if (launchCode) {
+    // Exact-origin exchange of the one-time code: the bearer never enters a URL or a history entry.
+    const r=await fetch('/api/console/redeem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:launchCode}),cache:'no-store'});
+    const value=await r.json();
+    const stored=tabToken.get();
+    if (r.ok&&typeof value.token==='string') {token=value.token; tabToken.set(token);}
+    // A used or stale link opened in a tab that is already connected keeps that tab's session;
+    // refresh() still checks it, and a 401 then forgets it as usual.
+    else if (stored&&value.error?.code!=='session_expired') token=stored;
+    else {forget(value.error?.code==='session_expired'?'session_expired':'launch_expired');return;}
+  }
+  if (!token) {showGate();return;}
+  await refresh();  // The page-title placeholder stays while the bearer is checked; the gate does not flash.
+}
+start().catch(e=>{if(!e?.gated)toast(e.message,true);if($('#gate').hidden)showGate();});  // A 401 already shows why on the gate.
 
 function renderExtensions(main) {
   main.append(heading('扩展工坊','列表不是能力上限。独立管理新 Key，安装经审阅的 API、CLI 或网页配方。',btn('新增凭证槽',credentialSlotDialog,'primary')));

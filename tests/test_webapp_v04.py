@@ -130,6 +130,16 @@ def test_expired_session_cannot_read_state(console):
     assert get(console).status_code==401
 
 
+def test_expiry_is_reported_only_to_the_matching_bearer(console):
+    server,client=console
+    server.expires_at=time.monotonic()-1
+    r=get(console)
+    assert r.status_code==401 and r.json()['error']['code']=='session_expired'
+    for wrong in ({'Authorization':'Bearer wrong'},{}):
+        r=client.get('/api/overview',headers=wrong)
+        assert r.status_code==401 and r.json()['error']['code']=='unauthorized'
+
+
 def test_web_setup_uses_default_agents_and_shared_state(console):
     server,client=console
     plan=post(console,'/api/setup/preview',{}).json()
