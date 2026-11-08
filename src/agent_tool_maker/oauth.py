@@ -81,8 +81,11 @@ class OAuth:
         if not row:
             return None, None
         meta = json.loads(row["metadata"])
-        if meta["status"] == "pending" and "previous" in meta and meta["login_deadline"] <= self.clock():
+        if meta["status"] == "pending" and "previous" in meta and meta["login_deadline"] <= self.clock() \
+                and meta.get("phase") != "exchanging":
             # An abandoned replacement never touched the stored tokens; the previous connection resumes.
+            # Not once its code is at the token endpoint: that exchange records its own outcome, even after
+            # the deadline, and until it does status() reports refresh_unknown.
             meta = {**meta["previous"], "last_error": "oauth_login_timeout"}
         return dict(row), meta
 
@@ -375,6 +378,9 @@ class OAuth:
                 if old and old["status"] == "ready":
                     # Metadata-only write: the working tokens stay sealed until the replacement finishes.
                     self._write(db, {**meta, "previous": old})
+                elif old and "previous" in old:
+                    # A lapsed replacement whose exchange recorded no outcome still holds those tokens sealed.
+                    self._write(db, {**meta, "previous": old["previous"]})
                 else:
                     self._write(db, meta, {})
             discovered = self.discovery()

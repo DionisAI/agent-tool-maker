@@ -72,6 +72,10 @@ MCP HTTP 绑定可使用：
 refresh token：释放 claim，连接保持 `ready`/`expired`，下次检查可再次续期，`last_error` 记录原因。
 发送后才中断（写入/读取超时、连接被重置）仍为 `refresh_unknown`，不自动重试。
 同一登录 authorization code 只换一次；state/issuer 不匹配、Host/path 不匹配、重复查询字段不换 token。
+授权码送到 token 端点后（`phase: exchanging`），即使 5 分钟的登录期限在交换途中过去，也由这次交换记录结果：
+记录前状态为 `refresh_unknown`，成功就保存新令牌。交换进程中途退出、没有记录结果时，状态保持 `refresh_unknown`
+（不知道供应商是否已为这个授权码签发令牌），需要重新登录；如果这是一次替换，新的登录仍不改动原来密封保存的令牌，
+新的登录没有完成时原连接恢复。
 回调日志、provider body/error_description、授权 URL、令牌均不显示给 Agent。
 事件仅记录 `oauth.connected/refreshed/needs_login/refresh_unknown/cancelled`，不记录身份或秘密。
 服务 stdout 为限定状态，日志 0600；不存在供应商账单/生成心跳。
