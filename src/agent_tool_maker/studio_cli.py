@@ -5,7 +5,10 @@ import argparse
 import asyncio
 import copy
 import os
+import secrets
 import shutil
+import string
+import sys
 from pathlib import Path
 
 from .errors import RouterError
@@ -22,7 +25,7 @@ def add_commands(sub):
     daemon.add_argument("--headed", action="store_true")
     daemon.add_argument("--virtual-display", help="Linux Xvfb display, e.g. :99; keeps the browser headed after login closes")
     commands.add_parser("status")
-    login = commands.add_parser("login", help="Temporary loopback VNC entry into the SERVER browser; human login only")
+    login = commands.add_parser("login", help="Temporary loopback VNC entry into the SERVER browser; the owner runs it in their SSH terminal, which alone shows its one-time password")
     login.add_argument("--ttl", type=int, default=600)
     login.add_argument("--port", type=int, default=5900)
     commands.add_parser("login-close")
@@ -43,6 +46,17 @@ def add_commands(sub):
     adapter.add_argument("tool")
     adapter.add_argument("argv", nargs=argparse.REMAINDER)
     commands.metavar = "{" + ",".join(name for name in commands.choices if name != "adapter") + "}"
+
+
+def owner_terminal():
+    """The one-time viewer password goes to the owner's own terminal, never stdout, logs or job records."""
+    try:
+        if not (sys.stdin and sys.stdin.isatty()):
+            raise OSError
+        return open("/dev/tty", "w", encoding="utf-8")
+    except OSError:
+        raise RouterError("interactive_required", "Run atm studio login in the owner's own SSH terminal; its one-time "
+                          "viewer password is shown only there, never in an Agent transcript.") from None
 
 
 def manifests(home):
@@ -78,11 +92,18 @@ def dispatch(args, router):
         except Exception:
             raise RouterError("browser_start_failed", "Server browser startup failed; check Chromium, sandbox and display dependencies locally.") from None
         return {"status": "stopped", "profile_preserved": True}
-    if operation in {"status", "login", "login-close"}:
-        packet = {"method": "login_close" if operation == "login-close" else operation}
-        if operation == "login":
-            packet.update(ttl=args.ttl, port=args.port)
-        return asyncio.run(request(home, packet, timeout=60))
+    if operation == "login":
+        with owner_terminal() as terminal:
+            password = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
+            result = asyncio.run(request(home, {"method": "login", "ttl": args.ttl, "port": args.port, "password": password}, timeout=60))
+            if result.get("reused"):
+                terminal.write("A login viewer is already open; use the password shown when it opened, or run atm studio login-close first.\n")
+            else:
+                terminal.write(f"One-time VNC password for 127.0.0.1:{result['port']} (one viewer; it closes when that viewer "
+                               f"disconnects or the TTL ends): {password}\n")
+        return {**result, "password_shown": "owner_terminal_only"}
+    if operation in {"status", "login-close"}:
+        return asyncio.run(request(home, {"method": "login_close" if operation == "login-close" else operation}, timeout=60))
     if operation == "install":
         from .catalog import Catalog
         from .cli_adapter import bind_cli

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import fcntl
 import hashlib
 import hmac
@@ -28,6 +29,13 @@ CDP_METHODS = {"DOM.getDocument", "DOM.querySelector", "DOM.setFileInputFiles",
                "Input.dispatchKeyEvent", "Input.dispatchMouseEvent"}
 TICKET_ENV = "ATM_STUDIO_TICKET"
 TICKET_TTL = 60
+# Playwright's default action and navigation timeout on the server page, in seconds.
+ACTION_TIMEOUT = 15
+# Browser calls a stopped runner already sent settle within Playwright's timeout; wait at most this.
+RPC_SETTLE = ACTION_TIMEOUT + 5
+# Counted from the bridge accepting a run, the server adapter stops this long before ATM's own
+# timeout SIGKILLs its client, so its browser calls can settle and the server still reports first.
+SERVER_MARGIN = RPC_SETTLE + 5
 
 
 def private_path(path: Path, *, directory=False):
@@ -36,6 +44,9 @@ def private_path(path: Path, *, directory=False):
     for item in [path, *path.parents]:
         if item.is_symlink():
             raise RouterError("unsafe_path", "Server state paths must not traverse symbolic links.")
+    # No component is a link, so collapsing '..' names what the kernel opens and the
+    # callers' lexical is_relative_to checks confine for real.
+    path = Path(os.path.normpath(path))
     if directory:
         path.mkdir(parents=True, exist_ok=True, mode=0o700)
     if path.exists():
@@ -73,6 +84,7 @@ def validate_request(operation, argv, workspace):
     if not spec or not isinstance(argv, list) or any(not isinstance(v, str) for v in argv):
         raise RouterError("invalid_argument", "Unknown server operation or malformed arguments.")
     template = spec["command"]["argv"][3:]
+    workspace = private_path(workspace)
     if len(argv) != len(template):
         raise RouterError("invalid_argument", "Arguments must match the reviewed command exactly.")
     values = {}
@@ -106,7 +118,6 @@ def validate_request(operation, argv, workspace):
             values[field] = True
     if next(Draft202012Validator(spec["schema"]).iter_errors(values), None):
         raise RouterError("invalid_input", "Server input does not satisfy the reviewed tool schema.")
-    private_path(workspace)
     if not workspace.is_dir() or workspace == Path("/"):
         raise RouterError("unsafe_path", "Use an existing absolute project directory.")
     return spec
@@ -184,6 +195,26 @@ def same_user(writer):
         raise RouterError("unauthorized", "Server bridge accepts only the owning OS user.")
 
 
+async def hung_up(reader):
+    """Resolve once a bridge client closes its connection or sends past its one request line."""
+    with contextlib.suppress(OSError):
+        await reader.read(1)
+
+
+async def uncancelled(awaitable):
+    """Await to the end even when cancelled meanwhile, then pass the cancellation on."""
+    task = asyncio.ensure_future(awaitable)
+    cancelled = False
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            cancelled = True
+    if cancelled:
+        raise asyncio.CancelledError
+    return task.result()
+
+
 async def request(home, packet, timeout=960):
     path = private_path(studio_dir(home) / "runtime.json")
     try:
@@ -224,16 +255,21 @@ class BrowserRuntime:
         self.download_event = asyncio.Event()
         self.download_arms = {}
         self.vnc = None
+        self.login_secret = None
         self.login_until = 0
         self.login_timer = None
         self.bridge = None
 
     async def start(self):
-        if self.page is None:
-            self.page = await self.context.new_page()
-        self.page.set_default_timeout(15000)
-        self.page.on("download", self._download)
-        self.cdp = await self.context.new_cdp_session(self.page)
+        page = self.page
+        if page is None or page.is_closed():
+            page = await self.context.new_page()
+        page.set_default_timeout(ACTION_TIMEOUT * 1000)
+        page.on("download", self._download)
+        cdp = await self.context.new_cdp_session(page)
+        # Kept only whole: a reopen cut off by the run's budget leaves the closed page in place,
+        # so the next run reopens again instead of using a page without its CDP session.
+        self.page, self.cdp = page, cdp
 
     def _download(self, download):
         self.downloads.append(download)
@@ -245,6 +281,9 @@ class BrowserRuntime:
                 self.vnc.terminate()
             await self.vnc.wait()
             self.vnc = None
+        if self.login_secret:
+            self.login_secret.unlink(missing_ok=True)  # x11vnc normally removed it on reading.
+            self.login_secret = None
         if self.login_timer:
             self.login_timer.cancel()
             self.login_timer = None
@@ -256,12 +295,15 @@ class BrowserRuntime:
             if self.vnc is expected:
                 await self.close_login()
 
-    async def login(self, ttl=600, port=5900):
+    async def login(self, ttl=600, port=5900, password=None):
         import shutil
         if not self.display or not self.authority:
             raise RouterError("headed_required", "Start serve with --virtual-display for the temporary server login viewer.")
         if not isinstance(ttl, int) or not 60 <= ttl <= 1800 or not isinstance(port, int) or not 1024 <= port <= 65535:
             raise RouterError("invalid_argument", "Login viewer TTL must be 60-1800 seconds and port 1024-65535.")
+        # VNC authentication uses 8 characters; alphanumerics avoid x11vnc's password-file markers.
+        if not (isinstance(password, str) and len(password) == 8 and password.isascii() and password.isalnum()):
+            raise RouterError("invalid_argument", "Open the viewer with atm studio login in the owner's terminal; it sets the one-time password.")
         if self.vnc and self.vnc.returncode is None:
             return {"status": "pending", "port": self.login_port, "expires_at": self.login_until, "reused": True}
         executable = shutil.which("x11vnc")
@@ -273,17 +315,23 @@ class BrowserRuntime:
             except OSError:
                 raise RouterError("login_port_busy", "Choose a free loopback login-viewer port.") from None
         await self.page.goto(ORIGIN + "/assets", wait_until="domcontentloaded")
+        # Other local users can reach a loopback port: x11vnc reads the session password from a
+        # private file it deletes ("rm:"), never argv; one viewer, refused while connected, then exit.
+        self.login_secret = studio_dir(self.home) / ("vnc-" + uuid.uuid4().hex + ".passwd")
+        atomic_write(self.login_secret, password.encode() + b"\n")
         self.vnc = await asyncio.create_subprocess_exec(executable, "-display", self.display, "-auth", str(self.authority), "-listen", "127.0.0.1",
-            "-localhost", "-rfbport", str(port), "-nopw", "-forever", "-shared", "-noxdamage",
-            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+            "-localhost", "-rfbport", str(port), "-passwdfile", "rm:" + str(self.login_secret), "-once", "-nevershared",
+            "-dontdisconnect", "-noxdamage", stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
         await asyncio.sleep(0.5)
         if self.vnc.returncode is not None:
+            await self.close_login()
             raise RouterError("login_viewer_failed", "Server viewer exited; check display dependencies locally.")
         self.login_port, self.login_until = port, time.time() + ttl
         current = self.vnc
         self.login_timer = asyncio.get_running_loop().call_later(ttl, lambda: asyncio.create_task(self.expire_login(current)))
         return {"status": "pending", "listen": "127.0.0.1", "port": port, "expires_at": self.login_until,
-                "transport": "ssh_forwarded_vnc", "human_login_required": True, "secrets_returned": False}
+                "transport": "ssh_forwarded_vnc", "authentication": "one_time_password", "single_viewer": True,
+                "human_login_required": True, "secrets_returned": False}
 
     async def locator(self, selector, options):
         if not isinstance(selector, str) or len(selector) > 4096:
@@ -299,8 +347,23 @@ class BrowserRuntime:
             raise RouterError("selector_ambiguous" if count else "selector_not_found", "Reviewed selector must identify exactly one element.")
         return target
 
+    def off_origin(self):
+        return self.page.url != "about:blank" and not self.page.url.startswith(ORIGIN + "/")
+
+    async def reset_page(self):
+        """Reopen a closed page and return an off-origin one (a sign-in redirect, an error page)
+        to Tripo Studio before an adapter: most begin with evaluate, which stays origin-bound."""
+        try:
+            if self.page.is_closed():
+                await self.start()
+            if self.off_origin():
+                await self.page.goto(ORIGIN + "/assets", wait_until="domcontentloaded")
+        except Exception:
+            raise RouterError("navigation_failed", "The server browser could not return to Tripo Studio; no adapter was started.") from None
+
     async def rpc(self, method, args):
-        if self.page.url != "about:blank" and not self.page.url.startswith(ORIGIN + "/"):
+        # goto is checked on its destination instead, so an off-origin page cannot wedge the runtime.
+        if method != "goto" and self.off_origin():
             raise RouterError("origin_mismatch", "Tool actions require the Tripo Studio origin; finish human login first.")
         if method == "goto":
             if not args[0].startswith(ORIGIN + "/"):
@@ -357,17 +420,25 @@ class BrowserRuntime:
             raise RouterError("unsupported_method", "Unknown server browser method.")
         return None
 
-    async def run(self, packet):
+    async def run(self, packet, accepted=None):
+        """accepted: the loop time at which the bridge took the run packet (default: now)."""
+        loop = asyncio.get_running_loop()
+        accepted = loop.time() if accepted is None else accepted
         operation, argv = packet["operation"], packet["argv"]
         workspace = Path(packet["workspace"])
         if not workspace.is_absolute():
             raise RouterError("unsafe_path", "Execution workspace must be absolute.")
-        home = self.home.absolute()
+        workspace, home = private_path(workspace), private_path(self.home)
         if workspace == home or workspace.is_relative_to(home) or home.is_relative_to(workspace):
             raise RouterError("unsafe_workspace", "Browser state and its ancestors/descendants must be separate from the execution project.")
         spec = validate_request(operation, argv, workspace)
         if packet.get("bundle") != bundle_digest():
             raise RouterError("definition_changed", "Review and reinstall the changed server runtime bundle.")
+        # One budget from accepting the run: the page's way back to Tripo Studio and the runner
+        # share it, and stop() spends SERVER_MARGIN after it, so the server still reports first.
+        deadline = accepted + spec["command"]["timeout"] - SERVER_MARGIN
+        def left():
+            return max(0, deadline - loop.time())
         if self.lock.locked():
             raise RouterError("runtime_busy", "One browser operation is already active; no request was queued or replayed.")
         async with self.lock:
@@ -375,8 +446,15 @@ class BrowserRuntime:
                 raise RouterError("human_login_active", "Close the temporary login viewer before Agent execution.")
             if router_only(spec):
                 consume_ticket(self.home, packet.get("ticket"), spec, operation, argv, workspace, packet["bundle"])
+            try:
+                await asyncio.wait_for(self.reset_page(), left())
+                in_time = left() > 0
+            except asyncio.TimeoutError:
+                in_time = False
+            if not in_time:
+                raise RouterError("adapter_interrupted", "Server time ran out before the adapter started; nothing was submitted.")
             token = uuid.uuid4().hex
-            self.active = {"token": token, "workspace": workspace}
+            self.active = {"token": token, "workspace": workspace, "calls": set(), "stopping": False}
             env = {k: os.environ[k] for k in ("PATH", "HOME", "LANG", "TMPDIR") if k in os.environ}
             proc = None
             try:
@@ -384,7 +462,7 @@ class BrowserRuntime:
                     stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
                     start_new_session=True, limit=LIMIT)
                 payload = canonical({"socket": self.bridge, "token": token, "operation": operation, "argv": argv})
-                stdout, _ = await asyncio.wait_for(proc.communicate(payload.encode()), spec["command"]["timeout"])
+                stdout, _ = await asyncio.wait_for(proc.communicate(payload.encode()), left())
                 if len(stdout) > LIMIT:
                     raise RouterError("result_limit", "Server result exceeded its bound.", uncertain=True)
                 result = json.loads(stdout)
@@ -395,11 +473,21 @@ class BrowserRuntime:
             except (ValueError, OSError, asyncio.TimeoutError):
                 raise RouterError("adapter_interrupted", "Server adapter was interrupted; reconcile receipts before retry.", uncertain=True) from None
             finally:
-                if proc and proc.returncode is None:
-                    os.killpg(proc.pid, signal.SIGKILL)
-                    await proc.wait()
-                self.active = None
-                self.download_arms.clear()
+                self.active["stopping"] = True  # Its token takes no new browser call from here on.
+                try:
+                    await uncancelled(self.stop(proc, self.active["calls"]))
+                finally:
+                    self.active = None
+                    self.download_arms.clear()
+
+    async def stop(self, proc, calls):
+        """Kill the runner, then let browser calls it already sent settle before the lock is freed:
+        neither the kill nor cancelling them stops a click Playwright is still auto-waiting on."""
+        if proc and proc.returncode is None:
+            os.killpg(proc.pid, signal.SIGKILL)
+            await proc.wait()
+        if calls:
+            await asyncio.wait(set(calls), timeout=RPC_SETTLE)
 
     async def handle(self, reader, writer):
         try:
@@ -410,7 +498,21 @@ class BrowserRuntime:
             packet = json.loads(line)
             method = packet["method"]
             if method == "run":
-                result = await self.run(packet)
+                # ATM SIGKILLs its client at the tool timeout; that hang-up stops the adapter too.
+                # The adapter's budget runs from here, as ATM's clock already runs on its client.
+                accepted = asyncio.get_running_loop().time()
+                run, hangup = asyncio.ensure_future(self.run(packet, accepted)), asyncio.ensure_future(hung_up(reader))
+                try:
+                    await asyncio.wait({run, hangup}, return_when=asyncio.FIRST_COMPLETED)
+                finally:
+                    hangup.cancel()
+                    if not run.done():
+                        run.cancel()  # run() kills the runner process group and frees the lock.
+                        await asyncio.wait({run})
+                if run.cancelled():
+                    raise RouterError("client_disconnected", "Bridge client hung up; the server adapter was stopped. "
+                                      "Reconcile receipts before retry.", uncertain=True)
+                result = run.result()
             elif method == "status":
                 result = {"status": "running", "browser_connected": self.context.browser.is_connected(),
                           "busy": self.lock.locked(), "login_viewer_active": bool(self.vnc and self.vnc.returncode is None),
@@ -420,11 +522,17 @@ class BrowserRuntime:
                 if self.lock.locked():
                     raise RouterError("runtime_busy", "An adapter is active; login entry was left unchanged.")
                 async with self.lock:
-                    result = await self.login(packet.get("ttl", 600), packet.get("port", 5900)) if method == "login" else await self.close_login()
+                    result = (await self.login(packet.get("ttl", 600), packet.get("port", 5900), packet.get("password"))
+                              if method == "login" else await self.close_login())
             elif method == "rpc":
-                if not self.active or packet.get("token") != self.active["token"]:
+                active = self.active
+                if not active or active["stopping"] or packet.get("token") != active["token"]:
                     raise RouterError("unauthorized", "Browser RPC requires an active reviewed adapter invocation.")
-                result = await self.rpc(packet["name"], packet["args"])
+                # run() waits for every call its runner sent before it frees the runtime.
+                call = asyncio.ensure_future(self.rpc(packet["name"], packet["args"]))
+                active["calls"].add(call)
+                call.add_done_callback(active["calls"].discard)
+                result = await asyncio.shield(call)
             else:
                 raise RouterError("unsupported_method", "Unknown runtime request.")
             response = {"result": result}
@@ -436,9 +544,12 @@ class BrowserRuntime:
         try:
             writer.write(canonical(response).encode() + b"\n")
             await writer.drain()
+        except ConnectionError:
+            pass  # The client already hung up; there is nobody to answer.
         finally:
             writer.close()
-            await writer.wait_closed()
+            with contextlib.suppress(ConnectionError):
+                await writer.wait_closed()
 
 
 async def serve(home, *, node, executable=None, headed=False, virtual_display=None, browser_factory=None):

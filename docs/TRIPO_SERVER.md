@@ -11,6 +11,8 @@
 本机 delivery 阶段的 texture_quote、texture、operation_status 尚未加入服务器分派；
 服务器上的 Texture 仍走已审阅的 workspace_prepare / workspace_submit。
 `tripo.server.*` 使用原 `tripo.studio.*` 的 schema、权限、预算和付费回执，旧定义保持原样。
+结果行结构也相同：runner 按 OpenCLI wrapper 逐操作整形，account、assets、quote、generate
+返回 adapter 原行，其余 27 个 `columns: ['result']` 工具返回 `[{"result": …}]`。
 仍使用 Studio 订阅额度；与开发者 API 独立。登录状态不进入 ATM Key 同步。
 
 ## Agent 准备，human 只登录
@@ -25,9 +27,12 @@
 3. Agent 执行 `atm studio install`，核对 bundle SHA256，随后使用相同 SHA
    `--approve SHA --apply --atm-executable /absolute/atm`。只安装服务器命名空间。
    重复相同安装复用，定义变化明确报错，后续通过已有 CAS 审阅更新流程处理。
-4. Agent 执行 `atm studio login --ttl 600`，准备 SSH 本地端口转发与本机 VNC 查看器。
-   人在**服务器浏览器**完成 Tripo 官网登录/验证，不把密码、授权链接或 Key 发到聊天。
-   `atm studio login-close` 关闭查看器；600 秒固定到期也会自动关闭，不静默续期。
+4. Agent 只给出一条命令：人在自己的 SSH 终端（`ssh -L 5900:127.0.0.1:5900 …`）执行
+   `atm studio login --ttl 600`。它为本次查看器生成一次性 VNC 密码，只写到该终端，
+   不进 stdout、Agent 记录或 job；没有终端（Agent 执行）时报 `interactive_required`，不打开查看器。
+   人用本机 VNC 查看器连接后在**服务器浏览器**完成 Tripo 官网登录/验证，不把密码、授权链接或 Key 发到聊天。
+   只接受一个查看器，该查看器断开即关闭；`atm studio login-close` 也可关闭，
+   600 秒固定到期也会自动关闭，不静默续期。
 5. Agent 查询服务器 `account`，验证 login/credits，再执行任务。供应商生成/上传/导出
    继续遵守原工具各自的确认门槛，不复用此前付费批准。
 
@@ -78,11 +83,26 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
   或读取本用户进程环境的恶意程序。Router 与 `studio serve` 须使用同一 `--home`。
 - 每次操作绑定包含 Python 驱动、Node dispatcher 和 20 个原适配源文件的 bundle 摘要
   （含随源码闭包打包、但不分派的 2 份 delivery 源）。
-  一次只运行一个操作；并发报 busy，不排队或重试副作用。
+  一次只运行一个操作；并发报 busy，不排队或重试副作用。从服务器接受该次请求起算，
+  回到 Tripo Studio（见下）与 runner 共用“原工具超时减 25 秒”的预算，runner 到点停止并报
+  `adapter_interrupted`，先于 ATM 超时杀掉客户端；客户端断开（如被 ATM
+  超时 SIGKILL）时立即杀掉 runner 进程组。杀掉 runner 不会撤回它已发出的浏览器调用
+  （Playwright 对点击、填写、导航最多自动等待 15 秒），所以该次调用令牌不再接受新调用，
+  服务器等已发出的调用结束（最多 20 秒）后才释放 busy：释放时已发出的点击已经落下或超时。
+  两者都是 `outcome_uncertain`，先核对回执再重试。
 - 原 paid lock、pre-click receipt、request-key、报价/Private/预算检查不变。
   导出与上传限制在确切项目，不触碰浏览器认证文件。RPC 的 CDP 仅 DOM 上传及原生输入。
+- 除 `goto`（只能去 Tripo Studio）外，RPC 只在 about:blank 或 Tripo Studio 页面上执行，
+  读取脚本绝不在第三方页面运行。每次操作启动 runner 前，若页面已关闭则重开，若停在其它来源
+  （登录跳转、错误页）则先回到 Tripo Studio `/assets`，不会因一次离站而卡住之后以读取开头的操作；
+  回不去时报 `navigation_failed`，未启动 adapter。重开或导航也受上面的预算限制：预算在
+  runner 启动前用尽时报 `adapter_interrupted`（`outcome_uncertain: false`），未启动 adapter、
+  没有提交；被打断的重开不保留缺少 CDP 会话的半成品页面，下一次操作重新打开。
 - 临时 VNC 只监听 127.0.0.1，通过 SSH 使用；专属 Xvfb 配置私有 Xauthority。
-  无公网端口、公开调试端点或网页密码表单。VNC 信任已登录的本机用户，不作多租户隔离。
+  无公网端口、公开调试端点或网页密码表单。同机其他用户和进程也能连到该端口，所以 x11vnc
+  从 0700 状态目录中的 0600 文件读取本次密码并随即删除（`-passwdfile rm:`，不在进程参数中），
+  `-once -nevershared -dontdisconnect`：连接期间拒绝第二个查看器，断开后退出。
+  没有改用 Unix socket：x11vnc 文档说明 `-unixsock` 需要修改并重编译 libvncserver。
 - profile 仅由浏览器打开。Agent 不读取、导出、复制 Cookies、Token 或 profile 内容。
   停机保留 profile、回执、旧 socket。没有自动永久删除/清理。
 - 登录/验证码/站点错误/未知提交明确失败。已绑定并固定哈希的 `atm` 子进程以退出码 2 给出
@@ -117,7 +137,8 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
 专项 JUnit：`/private/tmp/atm-studio-server-final-20261004-o.xml`。
 非浏览器 JUnit：`/private/tmp/atm-studio-server-regression-20261004-n.xml`。
 wheel 核对：`/private/tmp/atm-studio-server-wheel-readback-20261004.json`。
-临时 VNC 的 TTL、loopback、Xauthority 和关闭后保留浏览器为**模拟协议测试**，
+临时 VNC 的 TTL、loopback、一次性密码文件与单查看器参数、Xauthority 和关闭后保留浏览器为**模拟协议测试**
+（x11vnc 参数按其官方选项文档核对，未在真实 x11vnc 上运行），
 没有把 macOS 测试当成 Linux 原生查看器验收。
 
 2026-10-17 Router ticket 补丁（同一假 Tripo 夹具，非供应商验收）：`tests/test_studio_server.py`

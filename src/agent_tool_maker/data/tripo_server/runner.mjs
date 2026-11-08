@@ -37,28 +37,30 @@ function argsOf(argv){const args={};for(let i=0;i<argv.length;i++){
   if(!/^--[a-z-]+$/.test(flag)&&flag!=='-f')throw new StudioError('invalid_argument','Unknown fixed command flag.');
   const key=flag.slice(flag==='-f'?1:2);if(key in args||i+1>=argv.length)throw new StudioError('invalid_argument','Malformed fixed command arguments.');args[key]=argv[++i];
 }return args;}
+// The OpenCLI wrappers with columns ['result'] return each adapter row as {result}; match them.
+const rows=run=>async(p,a)=>(await run(p,a)).map(result=>({result}));
 export const OPERATIONS = {
  account:[checkPin,(p,a)=>account(p)],assets:[checkPin,(p,a)=>assets(p,a.limit)],
  quote:[checkPaidPin,(p,a)=>quote(p)],generate:[checkPaidPin,generate],
- asset:[ext.checkExtendedPin,ext.inspectAsset],asset_resolve:[ext.checkExtendedPin,ext.resolveAsset],
- assets_all:[ext.checkExtendedPin,ext.assetsAll],
- retopo_quote:[ext.checkExtendedPin,(p,a)=>ext.operationQuote(p,{...a,operation:'retopo'})],
- retopo:[ext.checkExtendedPin,(p,a)=>ext.executePaid(p,{...a,operation:'retopo'})],
- rig_quote:[ext.checkExtendedPin,(p,a)=>ext.operationQuote(p,{...a,operation:'rig'})],
- rig:[ext.checkExtendedPin,(p,a)=>ext.executePaid(p,{...a,operation:'rig'})],
- image_quote:[ext.checkExtendedPin,ext.imageQuote],
- image_generate:[ext.checkExtendedPin,(p,a)=>ext.generateImage(p,{...a,image_sha:a['image-sha']})],
- export_quote:[ext.checkExtendedPin,ext.exportQuote],export:[ext.checkExtendedPin,ext.exportModel],
- workspace_inspect:[workspace.checkWorkspacePin,workspace.inspectWorkspace],
- workspace_prepare:[workspace.checkWorkspacePin,workspace.prepareWorkspace],
- workspace_submit:[workspace.checkWorkspacePin,workspace.submitWorkspace],
- assets_query:[query.checkQueryPin,query.queryAssets],image_preview:[query.checkQueryPin,query.previewImage],
- animation_inspect:[ui.checkUIOptionsPin,ui.inspectAnimation],animation_prepare:[ui.checkUIOptionsPin,ui.prepareAnimation],
- export_options:[ui.checkUIOptionsPin,ui.inspectExportOptions],export_prepare:[ui.checkUIOptionsPin,ui.prepareExportOptions],
- viewer_inspect:[viewer.checkViewerPin,viewer.inspectViewer],viewer_prepare:[viewer.checkViewerPin,viewer.prepareViewer],
- viewer_camera:[viewer.checkViewerPin,viewer.cameraViewer],hierarchy_prepare:[viewer.checkViewerPin,viewer.prepareHierarchy],
- hierarchy_transform:[viewer.checkViewerPin,viewer.prepareTransform],
- image_form_inspect:[image.checkImageFormPin,image.inspectImageForm],image_form_prepare:[image.checkImageFormPin,image.prepareImageForm],
+ asset:[ext.checkExtendedPin,rows(ext.inspectAsset)],asset_resolve:[ext.checkExtendedPin,rows(ext.resolveAsset)],
+ assets_all:[ext.checkExtendedPin,rows(ext.assetsAll)],
+ retopo_quote:[ext.checkExtendedPin,rows((p,a)=>ext.operationQuote(p,{...a,operation:'retopo'}))],
+ retopo:[ext.checkExtendedPin,rows((p,a)=>ext.executePaid(p,{...a,operation:'retopo'}))],
+ rig_quote:[ext.checkExtendedPin,rows((p,a)=>ext.operationQuote(p,{...a,operation:'rig'}))],
+ rig:[ext.checkExtendedPin,rows((p,a)=>ext.executePaid(p,{...a,operation:'rig'}))],
+ image_quote:[ext.checkExtendedPin,rows(ext.imageQuote)],
+ image_generate:[ext.checkExtendedPin,rows((p,a)=>ext.generateImage(p,{...a,image_sha:a['image-sha']}))],
+ export_quote:[ext.checkExtendedPin,rows(ext.exportQuote)],export:[ext.checkExtendedPin,rows(ext.exportModel)],
+ workspace_inspect:[workspace.checkWorkspacePin,rows(workspace.inspectWorkspace)],
+ workspace_prepare:[workspace.checkWorkspacePin,rows(workspace.prepareWorkspace)],
+ workspace_submit:[workspace.checkWorkspacePin,rows(workspace.submitWorkspace)],
+ assets_query:[query.checkQueryPin,rows(query.queryAssets)],image_preview:[query.checkQueryPin,rows(query.previewImage)],
+ animation_inspect:[ui.checkUIOptionsPin,rows(ui.inspectAnimation)],animation_prepare:[ui.checkUIOptionsPin,rows(ui.prepareAnimation)],
+ export_options:[ui.checkUIOptionsPin,rows(ui.inspectExportOptions)],export_prepare:[ui.checkUIOptionsPin,rows(ui.prepareExportOptions)],
+ viewer_inspect:[viewer.checkViewerPin,rows(viewer.inspectViewer)],viewer_prepare:[viewer.checkViewerPin,rows(viewer.prepareViewer)],
+ viewer_camera:[viewer.checkViewerPin,rows(viewer.cameraViewer)],hierarchy_prepare:[viewer.checkViewerPin,rows(viewer.prepareHierarchy)],
+ hierarchy_transform:[viewer.checkViewerPin,rows(viewer.prepareTransform)],
+ image_form_inspect:[image.checkImageFormPin,rows(image.inspectImageForm)],image_form_prepare:[image.checkImageFormPin,rows(image.prepareImageForm)],
 };
 try{
  const [check,run]=OPERATIONS[packet.operation]||[];
