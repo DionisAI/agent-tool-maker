@@ -1,0 +1,17 @@
+{
+  "id": "higgsfield.subscription.models",
+  "provider": "higgsfield",
+  "title": "Higgsfield subscription — available models (read-only)",
+  "capabilities": ["subscription", "models"],
+  "adapter": "command",
+  "executable": "higgsfield",
+  "paid": false,
+  "permissions": ["execute_code"],
+  "schema": {"type": "object", "properties": {}, "additionalProperties": false},
+  "example": {},
+  "command": {"argv": ["model", "list", "--json"], "output": "json", "timeout": 60},
+  "sources": ["https://github.com/higgsfield-ai/cli"],
+  "checked_on": "2026-10-02",
+  "notes": "Official logged-in CLI; no API credential injection, arbitrary argv, media upload, or generation.",
+  "completion": "Model catalog returned; no generation submitted."
+}

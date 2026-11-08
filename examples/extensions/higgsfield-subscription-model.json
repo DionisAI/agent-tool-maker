@@ -1,0 +1,22 @@
+{
+  "id": "higgsfield.subscription.model",
+  "provider": "higgsfield",
+  "title": "Higgsfield subscription — model parameters (read-only)",
+  "capabilities": ["subscription", "models"],
+  "adapter": "command",
+  "executable": "higgsfield",
+  "paid": false,
+  "permissions": ["execute_code"],
+  "schema": {
+    "type": "object",
+    "properties": {"model": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,79}$"}},
+    "required": ["model"],
+    "additionalProperties": false
+  },
+  "example": {"model": "nano_banana_2"},
+  "command": {"argv": ["model", "get", {"input": "model"}, "--json"], "output": "json", "timeout": 60},
+  "sources": ["https://github.com/higgsfield-ai/cli"],
+  "checked_on": "2026-10-02",
+  "notes": "Inspect current model defaults before estimating costs. Model aliases are resolved by the official CLI.",
+  "completion": "Model schema returned; no generation submitted."
+}

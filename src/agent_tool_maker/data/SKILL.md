@@ -1,6 +1,6 @@
 ---
 name: agent-tool-maker
-description: Use ATM when a local Claude Code or Codex project needs API Keys, .env configuration, saved credentials, or a local unlock. Open the human window automatically; reuse saved Keys and the current 30-minute session. Never ask for secrets in chat.
+description: Use ATM when a local Claude Code or Codex project needs API Keys, .env configuration, saved credentials, a local unlock, or reviewed logged-in CLI tools such as Higgsfield subscriptions. Open the human window automatically; never ask for secrets in chat.
 ---
 # ATM — let the Agent do the setup
 
@@ -16,6 +16,34 @@ Never move/reset an existing vault, clear existing credentials, or read token/pr
 The registered runtime block below takes precedence over PATH for daily commands.
 
 ## Daily workflow — execute these steps yourself, not a checklist for the human
+
+### Higgsfield subscription credits — a separate login route
+
+When the user wants their Higgsfield subscription/plan credits, use the official
+`higgsfield` CLI OAuth route, not the `higgsfield` API credential slot or built-in
+`higgsfield.generate` developer API action. Those are separate billing systems.
+Discover installed `higgsfield.subscription.*` extensions with ATM. Read-only tools
+are `account`, `models`, `model`, and text-only default-parameter `cost`; they use
+the CLI's own login and selected billing workspace, with no credential injection.
+No ATM vault unlock is needed for this route. ATM lock does not log out the CLI.
+
+Only install reviewed official software and reviewed extension digests. Bind the
+actual binary explicitly; review and rebind upgrades. If login is missing, start
+one official browser OAuth login and let the human handle login/consent. Never
+read CLI auth files, use `auth token`, copy plugin tokens, or operate consent UI.
+For `No workspace selected`, list available workspace metadata first; select the
+unambiguous user-owned workspace or ask which billing workspace to use.
+
+For read-only extension runs, use the registered ATM prefix with `run TOOL --input
+JSON_FILE --workspace CURRENT_PROJECT --request-key STABLE --allow-code` only
+within the owner's requested CLI scope. Keep strict broker profiles unchanged.
+Print plan/credits/status, not email or raw authentication data. CLI output is
+process acceptance, not finished media. Cost estimates with media paths may upload
+files; the installed cost extension deliberately accepts text only. Generation,
+upload, or publication is a separate action: confirm actual parameters and cost,
+then preserve task IDs and reconcile uncertain submissions before any retry.
+
+### API credentials
 
 1. Identify the CURRENT project and exact credential needed. Use `atm keys find NAME`
    for metadata only. Resolve an ambiguous production/development choice with the
