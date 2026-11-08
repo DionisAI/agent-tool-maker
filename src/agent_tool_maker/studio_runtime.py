@@ -261,7 +261,7 @@ class BrowserRuntime:
         self.bridge = None
 
     async def start(self):
-        if self.page is None:
+        if self.page is None or self.page.is_closed():
             self.page = await self.context.new_page()
         self.page.set_default_timeout(ACTION_TIMEOUT * 1000)
         self.page.on("download", self._download)
@@ -343,9 +343,23 @@ class BrowserRuntime:
             raise RouterError("selector_ambiguous" if count else "selector_not_found", "Reviewed selector must identify exactly one element.")
         return target
 
+    def off_origin(self):
+        return self.page.url != "about:blank" and not self.page.url.startswith(ORIGIN + "/")
+
+    async def reset_page(self):
+        """Reopen a closed page and return an off-origin one (a sign-in redirect, an error page)
+        to Tripo Studio before an adapter: most begin with evaluate, which stays origin-bound."""
+        try:
+            if self.page.is_closed():
+                await self.start()
+            if self.off_origin():
+                await self.page.goto(ORIGIN + "/assets", wait_until="domcontentloaded")
+        except Exception:
+            raise RouterError("navigation_failed", "The server browser could not return to Tripo Studio; no adapter was started.") from None
+
     async def rpc(self, method, args):
         # goto is checked on its destination instead, so an off-origin page cannot wedge the runtime.
-        if method != "goto" and self.page.url != "about:blank" and not self.page.url.startswith(ORIGIN + "/"):
+        if method != "goto" and self.off_origin():
             raise RouterError("origin_mismatch", "Tool actions require the Tripo Studio origin; finish human login first.")
         if method == "goto":
             if not args[0].startswith(ORIGIN + "/"):
@@ -420,6 +434,7 @@ class BrowserRuntime:
                 raise RouterError("human_login_active", "Close the temporary login viewer before Agent execution.")
             if router_only(spec):
                 consume_ticket(self.home, packet.get("ticket"), spec, operation, argv, workspace, packet["bundle"])
+            await self.reset_page()
             token = uuid.uuid4().hex
             self.active = {"token": token, "workspace": workspace, "calls": set(), "stopping": False}
             env = {k: os.environ[k] for k in ("PATH", "HOME", "LANG", "TMPDIR") if k in os.environ}

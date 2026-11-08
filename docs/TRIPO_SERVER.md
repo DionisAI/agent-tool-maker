@@ -91,6 +91,10 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
   两者都是 `outcome_uncertain`，先核对回执再重试。
 - 原 paid lock、pre-click receipt、request-key、报价/Private/预算检查不变。
   导出与上传限制在确切项目，不触碰浏览器认证文件。RPC 的 CDP 仅 DOM 上传及原生输入。
+- 除 `goto`（只能去 Tripo Studio）外，RPC 只在 about:blank 或 Tripo Studio 页面上执行，
+  读取脚本绝不在第三方页面运行。每次操作启动 runner 前，若页面已关闭则重开，若停在其它来源
+  （登录跳转、错误页）则先回到 Tripo Studio `/assets`，不会因一次离站而卡住之后以读取开头的操作；
+  回不去时报 `navigation_failed`，未启动 adapter。
 - 临时 VNC 只监听 127.0.0.1，通过 SSH 使用；专属 Xvfb 配置私有 Xauthority。
   无公网端口、公开调试端点或网页密码表单。同机其他用户和进程也能连到该端口，所以 x11vnc
   从 0700 状态目录中的 0600 文件读取本次密码并随即删除（`-passwdfile rm:`，不在进程参数中），

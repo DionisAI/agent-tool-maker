@@ -243,7 +243,7 @@ def test_server_adapter_stops_before_atm_kills_its_client(tmp_path, monkeypatch)
     definitions = runtime.index()
     definitions["account"]["command"]["timeout"] = atm_timeout
     monkeypatch.setattr(runtime, "index", lambda: definitions)
-    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[SimpleNamespace(url="about:blank")]), stalled_runner(tmp_path))
+    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[SimpleNamespace(url="about:blank", is_closed=lambda: False)]), stalled_runner(tmp_path))
     async def client():
         return await asyncio.wait_for(browser.run(account_run(project)), atm_timeout - 2)
     with pytest.raises(RouterError) as interrupted:
@@ -256,7 +256,7 @@ def test_client_hangup_kills_the_server_adapter_and_frees_the_runtime(tmp_path):
     home, project = tmp_path / "state", tmp_path / "project"
     home.mkdir()
     project.mkdir()
-    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[SimpleNamespace(url="about:blank")]), stalled_runner(tmp_path))
+    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[SimpleNamespace(url="about:blank", is_closed=lambda: False)]), stalled_runner(tmp_path))
     pid_file = project / "runner.pid"
     async def scenario():
         server = await asyncio.start_unix_server(browser.handle, path=str(tmp_path / "s"))
@@ -382,6 +382,52 @@ def test_wait_for_sent_calls_is_bounded_and_outlasts_a_second_cancel(tmp_path, m
             return held, run.cancelled(), waited, released
     held, cancelled, waited, released = asyncio.run(scenario())
     assert held and cancelled and released and 1 <= waited < 5 and browser.active is None
+
+
+def test_run_returns_a_closed_or_off_origin_page_to_tripo_first(tmp_path):
+    class Page:
+        """Readers start with evaluate; this page answers with the URL it read on."""
+        def __init__(self, url, closed=False):
+            self.url, self.closed, self.visited = url, closed, []
+        def is_closed(self): return self.closed
+        def set_default_timeout(self, ms): pass
+        def on(self, event, handler): pass
+        async def goto(self, url, **kwargs):
+            assert not self.closed
+            self.visited.append(url)
+            self.url = url
+        async def evaluate(self, expression, arg):
+            assert not self.closed
+            return [{"read_on": self.url}]
+    class Context:
+        def __init__(self, page):
+            self.pages, self.opened = [page], []
+        async def new_page(self):
+            self.opened.append(Page("about:blank"))
+            return self.opened[-1]
+        async def new_cdp_session(self, page): return SimpleNamespace(page=page)
+    home, project = tmp_path / "state", tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    reader = rpc_runner(tmp_path, "evaluate", ["function readLocation(){return location.href}", []])
+    async def run(browser):
+        browser.bridge = str(tmp_path / "s")
+        server = await asyncio.start_unix_server(browser.handle, path=browser.bridge)
+        async with server:
+            return await browser.run(account_run(project))
+    foreign = Page("https://accounts.example.com/sign-in")
+    browser = runtime.BrowserRuntime(home, Context(foreign), reader)
+    assert asyncio.run(run(browser)) == [{"read_on": runtime.ORIGIN + "/assets"}]  # A read-only reader succeeds.
+    assert foreign.visited == [runtime.ORIGIN + "/assets"]
+    foreign.url = "https://accounts.example.com/next"
+    with pytest.raises(RouterError) as refused:  # Readers still never run on a third-party page.
+        asyncio.run(browser.rpc("evaluate", ["function readLocation(){return location.href}", []]))
+    assert refused.value.code == "origin_mismatch"
+    closed = Page(runtime.ORIGIN + "/assets", closed=True)
+    context = Context(closed)
+    browser = runtime.BrowserRuntime(home, context, reader)
+    assert asyncio.run(run(browser)) == [{"read_on": "about:blank"}]
+    assert browser.page is context.opened[0] and browser.cdp.page is context.opened[0]
 
 
 def test_login_viewer_fixed_ttl_loopback_and_preserved_browser(tmp_path, monkeypatch):
@@ -554,7 +600,7 @@ def test_server_refuses_router_only_operation_without_ticket_before_spawn(operat
     async def spawn(*command, **kwargs):
         raise Spawned()
     monkeypatch.setattr(asyncio, "create_subprocess_exec", spawn)
-    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[SimpleNamespace(url="about:blank")]), "node")
+    browser = runtime.BrowserRuntime(home, SimpleNamespace(pages=[SimpleNamespace(url="about:blank", is_closed=lambda: False)]), "node")
     packet = {"method": "run", "operation": operation, "argv": argv[7:], "workspace": str(project), "bundle": runtime.bundle_digest()}
     for forged in (None, job["id"] + "." + "0" * 64):
         with pytest.raises(RouterError) as refused:
@@ -895,3 +941,49 @@ def test_real_driver_dom_upload_and_download_primitives(tmp_path):
             finally:
                 await context.close()
     asyncio.run(probe())
+
+
+@pytest.mark.browser
+@pytest.mark.integration
+def test_real_run_returns_a_closed_or_off_origin_page_to_tripo(tmp_path):
+    pytest.importorskip("playwright")
+    from playwright.async_api import async_playwright
+    chromium = os.environ.get("ATM_CHROMIUM")
+    if not chromium:
+        pytest.skip("Isolated Chromium required")
+    home, project = tmp_path / "state", tmp_path / "project"
+    project.mkdir()
+    reader = "function readLocation(){return [location.href, document.title]}"
+    async def probe():
+        async with async_playwright() as manager:
+            context = await manager.chromium.launch_persistent_context(tmp_path / "profile", executable_path=chromium,
+                headless=True, chromium_sandbox=True, artifacts_dir=tmp_path / "artifacts")
+            try:
+                async def route_handler(route):
+                    if route.request.url.startswith((runtime.ORIGIN + "/", "https://accounts.example.com/")):
+                        title = "Tripo fixture" if route.request.url.startswith(runtime.ORIGIN) else "Foreign sign-in"
+                        await route.fulfill(body=f"<!doctype html><title>{title}</title>", content_type="text/html")
+                    else:
+                        await route.abort()
+                await context.route("**/*", route_handler)
+                browser = runtime.BrowserRuntime(home, context, rpc_runner(tmp_path, "evaluate", [reader, []]))
+                await browser.start()
+                browser.bridge = str(tmp_path / "s")
+                await browser.page.goto("https://accounts.example.com/sign-in")  # As a sign-in redirect leaves it.
+                with pytest.raises(RouterError) as refused:
+                    await browser.rpc("evaluate", [reader, []])
+                assert refused.value.code == "origin_mismatch"  # Readers never run on the foreign page.
+                server = await asyncio.start_unix_server(browser.handle, path=browser.bridge)
+                async with server:
+                    reset = await browser.run(account_run(project))
+                    closed = browser.page
+                    await closed.close()
+                    reopened = await browser.run(account_run(project))
+                    document = await browser.rpc("cdp", ["DOM.getDocument", {"depth": 0}])
+                return reset, reopened, closed.is_closed(), browser.page.is_closed(), document
+            finally:
+                await context.close()
+    reset, reopened, old_closed, new_closed, document = asyncio.run(probe())
+    assert reset == [runtime.ORIGIN + "/assets", "Tripo fixture"]
+    assert reopened == ["about:blank", ""] and old_closed and not new_closed
+    assert document["root"]["nodeId"]  # The reopened page has its own CDP session.
