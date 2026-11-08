@@ -405,11 +405,14 @@ class ReaderPage:
 class ReaderContext:
     """Reopens a closed page as a fresh about:blank ReaderPage with its own CDP session."""
     def __init__(self, page):
-        self.pages, self.opened = [page], []
+        self.pages, self.opened, self.cdp_stall = [page], [], False
     async def new_page(self):
         self.opened.append(ReaderPage("about:blank"))
         return self.opened[-1]
-    async def new_cdp_session(self, page): return SimpleNamespace(page=page)
+    async def new_cdp_session(self, page):
+        if self.cdp_stall:
+            await asyncio.sleep(60)
+        return SimpleNamespace(page=page)
 
 
 def test_run_returns_a_closed_or_off_origin_page_to_tripo_first(tmp_path):
@@ -524,6 +527,25 @@ def test_runner_never_starts_once_the_budget_is_spent(tmp_path, monkeypatch, lan
     assert answer["error"]["code"] == "adapter_interrupted" and not answer["error"]["outcome_uncertain"]
     assert spawned == [] and not (project / "runner.pid").exists()
     assert not browser.lock.locked() and browser.active is None
+
+
+def test_a_reopen_cut_by_the_budget_is_redone_whole(tmp_path, monkeypatch):
+    atm_timeout = 5
+    scaled_budget(monkeypatch, atm_timeout, settle=1, margin=3)
+    home, project = tmp_path / "state", tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    context = ReaderContext(ReaderPage(runtime.ORIGIN + "/assets", closed=True))
+    context.cdp_stall = True  # The new page opens, its CDP session does not in time.
+    browser = runtime.BrowserRuntime(home, context, rpc_runner(tmp_path, "evaluate", ["function readLocation(){return location.href}", []]))
+    browser.bridge = str(tmp_path / "s")
+    cut = asyncio.run(bridge_run(browser, account_run(project), atm_timeout - 2))
+    assert cut["error"]["code"] == "adapter_interrupted" and not cut["error"]["outcome_uncertain"]
+    assert not (project / "runner.pid").exists()
+    context.cdp_stall = False
+    assert asyncio.run(bridge_run(browser, account_run(project), atm_timeout - 2)) == {"result": [{"read_on": "about:blank"}]}
+    # The cut reopen was never half kept: the page in use has its own CDP session.
+    assert browser.page is context.opened[-1] and browser.cdp.page is browser.page
 
 
 def test_login_viewer_fixed_ttl_loopback_and_preserved_browser(tmp_path, monkeypatch):

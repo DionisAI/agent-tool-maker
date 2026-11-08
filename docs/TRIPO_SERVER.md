@@ -97,7 +97,7 @@ Headless smoke：`atm studio serve --node /absolute/node --chromium /absolute/ch
   （登录跳转、错误页）则先回到 Tripo Studio `/assets`，不会因一次离站而卡住之后以读取开头的操作；
   回不去时报 `navigation_failed`，未启动 adapter。重开或导航也受上面的预算限制：预算在
   runner 启动前用尽时报 `adapter_interrupted`（`outcome_uncertain: false`），未启动 adapter、
-  没有提交。
+  没有提交；被打断的重开不保留缺少 CDP 会话的半成品页面，下一次操作重新打开。
 - 临时 VNC 只监听 127.0.0.1，通过 SSH 使用；专属 Xvfb 配置私有 Xauthority。
   无公网端口、公开调试端点或网页密码表单。同机其他用户和进程也能连到该端口，所以 x11vnc
   从 0700 状态目录中的 0600 文件读取本次密码并随即删除（`-passwdfile rm:`，不在进程参数中），

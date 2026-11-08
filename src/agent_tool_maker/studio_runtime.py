@@ -261,11 +261,15 @@ class BrowserRuntime:
         self.bridge = None
 
     async def start(self):
-        if self.page is None or self.page.is_closed():
-            self.page = await self.context.new_page()
-        self.page.set_default_timeout(ACTION_TIMEOUT * 1000)
-        self.page.on("download", self._download)
-        self.cdp = await self.context.new_cdp_session(self.page)
+        page = self.page
+        if page is None or page.is_closed():
+            page = await self.context.new_page()
+        page.set_default_timeout(ACTION_TIMEOUT * 1000)
+        page.on("download", self._download)
+        cdp = await self.context.new_cdp_session(page)
+        # Kept only whole: a reopen cut off by the run's budget leaves the closed page in place,
+        # so the next run reopens again instead of using a page without its CDP session.
+        self.page, self.cdp = page, cdp
 
     def _download(self, download):
         self.downloads.append(download)
