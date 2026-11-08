@@ -4,8 +4,10 @@ from __future__ import annotations
 import asyncio
 import fcntl
 import hashlib
+import hmac
 import json
 import os
+import secrets
 import signal
 import socket
 import stat
@@ -24,6 +26,8 @@ DATA = Path(__file__).parent / "data" / "tripo_server"
 LIMIT = 2 * 1024 * 1024
 CDP_METHODS = {"DOM.getDocument", "DOM.querySelector", "DOM.setFileInputFiles",
                "Input.dispatchKeyEvent", "Input.dispatchMouseEvent"}
+TICKET_ENV = "ATM_STUDIO_TICKET"
+TICKET_TTL = 60
 
 
 def private_path(path: Path, *, directory=False):
@@ -95,7 +99,8 @@ def validate_request(operation, argv, workspace):
                 source = private_path(Path(actual))
                 if not source.is_absolute() or not source.is_relative_to(workspace) or not source.is_file():
                     raise RouterError("unsafe_path", "Upload input must be an explicit file within this project.")
-    # Const confirmation flags are fixed by the original manifest, not inferred.
+    # The static --confirm stands for the const confirmation the Router already validated
+    # on the real inputs; run() executes such operations only with that Router's ticket.
     for field, schema in spec["schema"]["properties"].items():
         if schema.get("const") is True and "--confirm" in template:
             values[field] = True
@@ -105,6 +110,53 @@ def validate_request(operation, argv, workspace):
     if not workspace.is_dir() or workspace == Path("/"):
         raise RouterError("unsafe_path", "Use an existing absolute project directory.")
     return spec
+
+
+def router_only(spec):
+    """Paid or human-confirmed operations; the server never grants that consent itself."""
+    return spec["paid"] or any(field.get("const") is True for field in spec["schema"]["properties"].values())
+
+
+def _ticket_binding(operation, argv, workspace, bundle):
+    return {"tool": "tripo.server." + operation, "argv_sha256": hashlib.sha256(canonical(argv).encode()).hexdigest(),
+            "workspace": str(workspace), "bundle": bundle}
+
+
+def issue_ticket(state, job, argv, workspace):
+    """Router side, after paid/permission/broker gates and the job claim: bind ONE server call.
+
+    argv is the installed manifest's full command: --home H studio adapter --bundle PIN OP ARGS..."""
+    spec = index().get(argv[6]) if argv[2:5] == ["studio", "adapter", "--bundle"] and len(argv) > 6 else None
+    if not spec or not router_only(spec):
+        return {}
+    secret = secrets.token_hex(32)
+    ticket = {"sha256": hashlib.sha256(secret.encode()).hexdigest(), "expires_at": time.time() + TICKET_TTL,
+              **_ticket_binding(argv[6], argv[7:], workspace, argv[5])}
+    # Only the hash is stored; the secret reaches the adapter process environment alone.
+    state.update_job(job["id"], job["status"], studio_ticket=ticket)
+    return {TICKET_ENV: job["id"] + "." + secret}
+
+
+def consume_ticket(home, ticket, spec, operation, argv, workspace, bundle):
+    """Server side: accept a router-only call once, for its exact Router job, argv, project and bundle."""
+    from .storage import State
+    job_id, _, secret = ticket.partition(".") if isinstance(ticket, str) else ("", "", "")
+    binding = _ticket_binding(operation, argv, workspace, bundle)
+    digest = hashlib.sha256(secret.encode()).hexdigest().encode()
+    with State(home).db() as c:
+        c.execute("BEGIN IMMEDIATE")
+        row = c.execute("SELECT tool,status,data FROM jobs WHERE id=?", (job_id,)).fetchone()
+        data = json.loads(row["data"]) if row else {}
+        record = data.get("studio_ticket") or {}
+        if not (row and secret and row["tool"] == binding["tool"] and row["status"] == "submitting"
+                and (data.get("paid_granted") is True or not spec["paid"]) and "consumed_at" not in record
+                and time.time() < record.get("expires_at", 0) and all(record.get(k) == v for k, v in binding.items())
+                and hmac.compare_digest(str(record.get("sha256")).encode(), digest)):
+            raise RouterError("router_ticket_required", "Paid or human-confirmed server operations run only through atm studio run "
+                              "or atm run, which issue a single-use ticket after their gates; nothing was submitted.")
+        record["consumed_at"] = time.time()
+        c.execute("UPDATE jobs SET data=?,updated=? WHERE id=?", (canonical({**data, "studio_ticket": record}), record["consumed_at"], job_id))
+        c.execute("INSERT INTO events(job_id,kind,at) VALUES (?,?,?)", (job_id, "studio_ticket_consumed", record["consumed_at"]))
 
 
 def same_user(writer):
@@ -318,6 +370,8 @@ class BrowserRuntime:
         async with self.lock:
             if self.vnc and self.vnc.returncode is None:
                 raise RouterError("human_login_active", "Close the temporary login viewer before Agent execution.")
+            if router_only(spec):
+                consume_ticket(self.home, packet.get("ticket"), spec, operation, argv, workspace, packet["bundle"])
             token = uuid.uuid4().hex
             self.active = {"token": token, "workspace": workspace}
             env = {k: os.environ[k] for k in ("PATH", "HOME", "LANG", "TMPDIR") if k in os.environ}

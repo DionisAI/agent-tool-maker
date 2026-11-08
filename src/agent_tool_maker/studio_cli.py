@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .errors import RouterError
 from .storage import atomic_write, canonical
-from .studio_runtime import DATA, bundle_digest, index, private_path, request, serve, studio_dir
+from .studio_runtime import DATA, TICKET_ENV, bundle_digest, index, private_path, request, serve, studio_dir
 
 
 def add_commands(sub):
@@ -37,10 +37,12 @@ def add_commands(sub):
     runner.add_argument("--request-key", required=True)
     for flag in ("code", "write", "paid"):
         runner.add_argument("--allow-" + flag, action="store_true")
-    adapter = commands.add_parser("adapter", help=argparse.SUPPRESS)
+    # Router-only entry. help=SUPPRESS would print "==SUPPRESS==", so list public operations instead.
+    adapter = commands.add_parser("adapter")
     adapter.add_argument("--bundle", required=True)
     adapter.add_argument("tool")
     adapter.add_argument("argv", nargs=argparse.REMAINDER)
+    commands.metavar = "{" + ",".join(name for name in commands.choices if name != "adapter") + "}"
 
 
 def manifests(home):
@@ -120,6 +122,7 @@ def dispatch(args, router):
     if operation == "adapter":
         if args.bundle != bundle_digest():
             raise RouterError("definition_changed", "Review and reinstall the changed server runtime bundle.")
+        # Paid/confirmed operations need the single-use ticket only the Router's execution sets.
         return asyncio.run(request(home, {"method": "run", "operation": args.tool, "argv": args.argv,
-                               "workspace": str(Path.cwd()), "bundle": args.bundle}))
+                               "workspace": str(Path.cwd()), "bundle": args.bundle, "ticket": os.environ.get(TICKET_ENV)}))
     raise RouterError("invalid_argument", "Unknown server operation.")
