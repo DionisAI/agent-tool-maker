@@ -1,0 +1,16 @@
+# Agent renders the absolute executable paths; this template is not installed automatically.
+[Unit]
+Description=ATM independent Tripo Studio browser
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=ATM_EXECUTABLE --home ATM_STATE_HOME studio serve --node NODE_EXECUTABLE --virtual-display :99
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=40
+KillMode=mixed
+UMask=0077
+
+[Install]
+WantedBy=default.target

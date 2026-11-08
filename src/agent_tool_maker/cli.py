@@ -104,6 +104,8 @@ def parser():
     secrets_commands(sub)
     from .oauth_cli import add_commands as oauth_commands
     oauth_commands(sub)
+    from .studio_cli import add_commands as studio_commands
+    studio_commands(sub)
     return p
 
 
@@ -121,6 +123,9 @@ def load_input(value):
 
 def dispatch(args,router):
     cmd=args.command
+    if cmd == "studio":
+        from .studio_cli import dispatch as studio_dispatch
+        return studio_dispatch(args, router)
     if cmd == "oauth":
         from .oauth_cli import dispatch as oauth_dispatch
         return oauth_dispatch(args, router)
