@@ -22,8 +22,8 @@ def test_viewer_definition_source_and_permissions(op):
     assert set(tool['permissions'])==({'execute_code'} if op=='viewer_inspect' else {'execute_code','external_write'})
     assert b.viewer_digest() in tool['command']['argv']
     assert 'outputs' not in tool['command'] and 'credential_env' not in tool['command']
-    assert b.workspace_digest()=='cdffba5c270ad94a4cbf0ce8ea690bfea3bade5cc02d0dec5db66ee577edd9f5'
-    assert b.ui_options_digest()=='a9585f467b952009eeb539f4369d3fb97e46bf80e5465bb8acb4ebd1e14214a5'
+    assert b.workspace_digest()=='059ef9e699c78f1859c4cd487451732c7a9fb550680e1fd00a35869826c95c4b'
+    assert b.ui_options_digest()=='be34c1f2736caec3c0de5b121d6d8d12f13e47f3244e52fcaf210c2708324813'
 
 
 @pytest.mark.parametrize('op',b.VIEWER_OPERATIONS)

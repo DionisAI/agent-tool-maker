@@ -24,7 +24,7 @@ test('same-UUID Texture submission recognizes the exact observed HUD phrase, not
   progress.closest=()=>null;progress.innerText='Generating an unrelated task';assert.equal(readWorkspaceSubmissionDOM('texture',ID).kind,'pending');
 });
 const temp=()=>mkdtempSync(join(TMP, 'atm-tripo-workspace-'));
-const FORM={kind:'ready',module:'segment',asset_id:ID,heading:'Segmentation',quoted_credits:40,credits:100,button_enabled:true,action_label:'Start Segmenting 40',warnings:[],settings:{detail_level:'Balanced'}};
+const FORM={kind:'ready',module:'segment',asset_id:ID,heading:'Segmentation',quoted_credits:40,credits:100,button_enabled:true,action_label:'Start Segmenting 40',action_nth:0,warnings:[],settings:{detail_level:'Balanced'}};
 function fixturePage(form=FORM,{available=true,clickError=false}={}) {
   const data=structuredClone(form),calls=[];let route=MODULES[data.module][1];
   const page={data,calls,evaluate:async(fn,...values)=>{
@@ -170,6 +170,34 @@ test('DOM signed queries are stripped and zero-height navigation is unavailable'
   const link={innerText:'Animate',closest:()=>null,getBoundingClientRect:()=>({width:40,height:0}),getAttribute:n=>n==='href'?'/workspace/animate/'+ID:null};
   globalThis.document={querySelectorAll:()=>[link]};globalThis.getComputedStyle=()=>({visibility:'visible',display:'flex'});
   assert.equal(readWorkspaceLinkDOM('Animate').available,false);
+});
+function hiddenPanelFixture(){
+  // A hidden second panel repeats the document-wide action selector before the verified one.
+  const f=domFixture('segment'),action=f.buttons.at(-1),hiddenAction={...action,getBoundingClientRect:()=>({width:0,height:0})};
+  const hiddenPanel={...f.panel,getClientRects:()=>[],querySelectorAll:s=>s==='button'?[hiddenAction]:[]};
+  let documentActions=[hiddenAction,action];
+  globalThis.document={...globalThis.document,querySelectorAll:s=>s==='div.rounded-r-5:has(h2) button.animate-button'?documentActions:[hiddenPanel,f.panel]};
+  return{setDocumentActions:value=>{documentActions=value;}};
+}
+function domPage(){
+  const p=fixturePage(),original=p.evaluate;
+  p.evaluate=async(fn,...values)=>fn===readWorkspaceDOM?fn(...values):original(fn,...values);
+  return p;
+}
+test('paid workspace click targets the verified priced action, not a hidden panel repeating its selector',async()=>{
+  hiddenPanelFixture();const quote=workspaceQuoteHash(readWorkspaceDOM('segment'));
+  const p=domPage(),out=(await submitWorkspace(p,execution({quote})))[0];
+  assert.equal(out.status,'submitted');
+  assert.deepEqual(p.calls,[['click','div.rounded-r-5:has(h2) button.animate-button',{nth:1}]]);
+  // The positional index binds the click only; inspect output stays unchanged.
+  assert.equal((await inspectWorkspace(domPage(),{module:'segment',asset:ID}))[0].action_nth,undefined);
+});
+test('an unaddressable verified action fails before the claim, leaving no stuck paid lock',async()=>{
+  const f=hiddenPanelFixture();const quote=workspaceQuoteHash(readWorkspaceDOM('segment'));f.setDocumentActions([]);
+  const args=execution({quote}),p=domPage();
+  await assert.rejects(submitWorkspace(p,args),e=>e.code==='workspace_action_changed');assert.deepEqual(p.calls,[]);
+  const dir=join(args.ledger,'.atm/tripo-studio-paid');
+  assert.equal(existsSync(join(dir,'active.lock')),false);assert.equal(readdirSync(dir).some(n=>n.endsWith('.json')),false);
 });
 test('animation preset list is separate from primary controls, with real rig prerequisite warning',()=>{
   const f=domFixture('animate',{price:'20',disabled:true});
