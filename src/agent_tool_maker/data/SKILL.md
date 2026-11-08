@@ -392,8 +392,11 @@ For `No workspace selected`, list available workspace metadata first; select the
 unambiguous user-owned workspace or ask which billing workspace to use.
 
 For read-only extension runs, use the registered ATM prefix with `run TOOL --input
-JSON_FILE --workspace CURRENT_PROJECT --request-key STABLE --allow-code` only
-within the owner's requested CLI scope. Keep strict broker profiles unchanged.
+JSON_FILE --workspace CURRENT_PROJECT --request-key NEW_KEY --allow-code` only
+within the owner's requested CLI scope. Use a fresh request key for every read-only
+query: a same-key rerun returns the earlier job, including a cached failure or
+submission_unknown, never a new balance. Reuse a key only to dedupe a side-effecting
+action. Keep strict broker profiles unchanged.
 Print plan/credits/status, not email or raw authentication data. CLI output is
 process acceptance, not finished media. Cost estimates with media paths may upload
 files; the installed cost extension deliberately accepts text only. Generation,
