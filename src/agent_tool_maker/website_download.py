@@ -400,19 +400,26 @@ def status(workspace,request_key):
 def add_commands(sub):
     p=sub.add_parser('delivery',help='Existing website output delivery; no generation or authentication export')
     commands=p.add_subparsers(dest='operation',required=True)
-    d=commands.add_parser('xyq-image',help='One confirmed existing image download and complete local decoding')
+    # Router-only entry: it clicks Download in the logged-in browser, so it is reached through the
+    # compiled xyq.web.result_download after Router.run checked its execute_code/external_write
+    # grants. No help (help=SUPPRESS would print "==SUPPRESS=="); the metavar lists the rest.
+    d=commands.add_parser('xyq-image')
     d.add_argument('--workspace',required=True);d.add_argument('--settings',required=True)
     for name in ('bridge','bridge-sha256','adapter-pin','download-root','pin'):d.add_argument('--'+name,required=True)
     # Required by download(), not the parser: definitions compiled before it still reach the
     # --pin check and get a definite definition_changed instead of a usage error.
-    d.add_argument('--adapter-dir')
+    d.add_argument('--adapter-dir');d.add_argument('--allow-write',action='store_true')
     s=commands.add_parser('status',help='Read the original delivery receipt and verify its selected completed local artifact')
     s.add_argument('--workspace',required=True);s.add_argument('--request-key',required=True);s.add_argument('--pin',required=True)
     u=commands.add_parser('record-unknown',help='Record exact metadata of a pre-existing unknown native download; never permits another click')
     for name in ('workspace','thread-id','result-id','request-key','pin'):u.add_argument('--'+name,required=True)
+    commands.metavar='{'+','.join(name for name in commands.choices if name!='xyq-image')+'}'
 
 def dispatch(args):
     if args.pin!=source_digest():fail('definition_changed','Review changed website download pipeline source.')
+    if args.operation=='xyq-image' and not args.allow_write:
+        fail('permission_required','Explicit authorization required: external_write. Run the installed xyq.web.result_download '
+             'through atm run with --allow-code --allow-write; nothing was claimed, locked or sent to the browser.')
     if args.operation=='status':return [{'result':status(args.workspace,args.request_key)}]
     if args.operation=='record-unknown':return [{'result':record_unknown(args.workspace,args.thread_id,args.result_id,args.request_key)}]
     return [{'result':download(args.workspace,args.settings,args.bridge,args.bridge_sha256,args.adapter_pin,args.download_root,args.adapter_dir)}]

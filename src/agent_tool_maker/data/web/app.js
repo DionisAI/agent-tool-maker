@@ -79,19 +79,21 @@ const errorText = e => {
 };
 // The owner's Fake-IP option (GET /api/overview "network"); only POST /api/settings/network changes it.
 const fakeIpOn = () => T.fakeIpOn(data);
-function report(e) {
+// `mine`: the dialog token taken when the failed request started. Its dialog gets the alert while it is still the one
+// on screen; once it was closed (or another opened), the error is a background result.
+function report(e, mine=modalToken()) {
   if (e?.gated) return;
-  if ($('#modal').open) showAlert(errorText(e), {error: e});
+  if (ownsModal(mine)) showAlert(errorText(e), {error: e});
   // A failed refresh already shows the page banner (its documented channel); it is not said twice.
   else if (!e?.bannered) toast(errorText(e), true);
 }
 // A busy button is disabled for the request, which drops its focus to <body>. When the request ends and
 // nothing else took the focus, it returns to that button, or to its re-rendered counterpart.
 const action = fn => async event => {
-  const b=event?.currentTarget, button=b?.tagName==='BUTTON'?b:null;
+  const b=event?.currentTarget, button=b?.tagName==='BUTTON'?b:null, mine=modalToken();
   const hadFocus=Boolean(button)&&document.activeElement===button, key=button?.dataset?.key||'';
   if (button) button.disabled=true;
-  try { await fn(event); } catch(e) { report(e); }
+  try { await fn(event); } catch(e) { report(e, mine); }
   finally {
     if (button?.isConnected) button.disabled=false;
     if (hadFocus&&(!document.activeElement||document.activeElement===document.body)&&!$('#modal').open&&$('#gate').hidden) {
@@ -224,10 +226,24 @@ async function refresh() {
 // The control that opened a dialog. action() disables (and so blurs) the clicked button, hence lastFocus.
 let modalReturn=null, modalReturnKey='', modalPending=false, lastFocus=null, modalReopen=null;
 document.addEventListener('focusin',e=>{if(!$('#modal').contains(e.target))lastFocus=e.target;});
+// Every dialog shares the one #modal. Opening it gives the dialog a token; the dialog's own reopens while it stays open
+// (fuller content, its next step, C6 and back) keep it. Escape, closeModal() and the next opening end it. A request
+// takes the token when it starts and checks it when it answers: a late answer for a dialog that is gone refreshes
+// the page and toasts, and never writes into the dialog on screen.
+let modalSeq=0;
+const modalToken = () => modalSeq;
+const ownsModal = mine => mine===modalSeq && $('#modal').open;
+const closeOwn = (mine, successor=null) => { if(!ownsModal(mine))return; if(successor)ui.successor=successor; closeModal(); };
+const alertOwn = (mine, message, opts) => ownsModal(mine) ? showAlert(message, opts) : toast(message, true);
+// A different dialog opened from inside an open one (C6 from an alert's 允许) takes a new token, so the first
+// dialog's late answers are rejected. Its way back rebuilds that dialog under the new token.
+const handOver = () => ++modalSeq;
 
 // ---- Dialog kit ----
+// Returns the dialog's token (the same one when it reopens itself).
 function openModal({title, steps=null, body=[], actions=[], focus=null, wide:isWide=false, reopen=null}) {
   const m=$('#modal');
+  if(!m.open)modalSeq++;
   modalReopen=reopen;
   $('#modal-title').textContent=title;
   renderSteps(steps);
@@ -243,6 +259,7 @@ function openModal({title, steps=null, body=[], actions=[], focus=null, wide:isW
   const target = focus || m.querySelector('#modal-body input:not([type=hidden]):not([disabled]):not([hidden]), #modal-body select, #modal-body textarea')
     || m.querySelector('#modal-actions .primary') || m.querySelector('#modal-body .primary') || $('#modal-close');
   target?.focus();
+  return modalSeq;
 }
 function renderSteps(steps) {
   const list=$('#modal-steps');
@@ -262,7 +279,7 @@ function restoreFocus() {
   else if(byKey(key)) byKey(key).focus();
   else if(!focusCredit(creditFocus(node))) (ui.successor.map(byKey).find(Boolean)||$('#main .page-title h1'))?.focus({preventScroll:true});
 }
-function closeModal() {$('#modal').close();$('#modal-body').replaceChildren();$('#modal-actions').replaceChildren();clearAlert();restoreFocus();}
+function closeModal() {modalSeq++;$('#modal').close();$('#modal-body').replaceChildren();$('#modal-actions').replaceChildren();clearAlert();restoreFocus();}
 function showAlert(message, {field=null, error=null}={}) {
   const n=$('#modal-alert');
   n.classList.remove('ok');
@@ -272,7 +289,7 @@ function showAlert(message, {field=null, error=null}={}) {
   else if(error&&code&&(!T.knownError(code)||T.keepsDetail(code))&&error.detail) n.append(el('details',{},el('summary',{},'技术信息'),el('p',{},error.detail)));
   // Only a refusal caused by the proxy's Fake-IP answers offers the owner's switch; it never retries anything.
   if(T.fakeIpHint(code,error?.hint)&&!fakeIpOn()){const back=modalReopen;
-    n.append(el('span',{class:'alert-actions'},el('button',{type:'button',class:'secondary','data-key':'fake-ip:allow',onclick:()=>fakeIpConfirm({back,error})},T.network.allow)));}
+    n.append(el('span',{class:'alert-actions'},el('button',{type:'button',class:'secondary','data-key':'fake-ip:allow',onclick:()=>{handOver();fakeIpConfirm({back,error});}},T.network.allow)));}
   n.setAttribute('role','alert'); n.hidden=false;
   if(field){field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby','modal-alert');field.focus();}
 }
@@ -392,7 +409,7 @@ function tick() {
   pill.style.setProperty('--lease', String(Math.min(1, left/1800)));
   const minute = Math.ceil(left/60);
   if (minute!==lastMinute) { lastMinute=minute; $('#lease-minutes').textContent=zh`Key 已解锁，还剩 ${minute} 分钟`; }
-  if (!left && !expiredOnce) { expiredOnce=true; refresh().then(()=>announce('30 分钟到了，Key 已自动锁定。'),report); }
+  if (!left && !expiredOnce) { expiredOnce=true; const mine=modalToken(); refresh().then(()=>announce('30 分钟到了，Key 已自动锁定。'),e=>report(e,mine)); }
 }
 setInterval(tick, 1000);
 $('#session-action').addEventListener('click', action(async () => {
@@ -603,9 +620,10 @@ function cycleDialog(p) {
     if(invalid)input.setAttribute('aria-invalid','true');else input.removeAttribute('aria-invalid');
   };
   const save=async day=>{
+    const mine=modalToken();
     try{const r=await api('/api/credits/cycle',{provider:p.provider,day});updateCredit(r);}
-    catch(e){if(!e.gated)reportDay(errorText(e));return;}
-    closeModal();drawCredits();toast(day===null?'已清除续期日。':'续期日已保存。');
+    catch(e){if(!e.gated){if(ownsModal(mine))reportDay(errorText(e));else toast(errorText(e),true);}return;}
+    closeOwn(mine);drawCredits();toast(day===null?'已清除续期日。':'续期日已保存。');
   };
   const submit=btn('保存',async()=>{
     const day=Number(input.value);
@@ -762,6 +780,7 @@ function toolSwitch(v) {
   node.addEventListener('click',async()=>{
     if(node.getAttribute('aria-busy')==='true')return;
     node.setAttribute('aria-busy','true');
+    const mine=modalToken();
     try{
       await api('/api/tools/toggle',{tool:v.id,enabled:!on,expected_enabled:on});
       await refresh();
@@ -770,8 +789,8 @@ function toolSwitch(v) {
       if(node.isConnected&&$('#modal').contains(node)&&model.tools.get(v.id))node.replaceWith(toolSwitch(model.tools.get(v.id)));
       announce(message);toast(message);
     }catch(e){
-      if(e.code==='state_changed'){await refresh().catch(report);toast('这个工具的状态刚被别处改过，已刷新。请再试一次。');}
-      else report(e);
+      if(e.code==='state_changed'){await refresh().catch(x=>report(x,mine));toast('这个工具的状态刚被别处改过，已刷新。请再试一次。');}
+      else report(e,mine);
     }finally{if(node.isConnected)node.removeAttribute('aria-busy');}
   });
   return node;
@@ -1085,8 +1104,9 @@ function fakeIpSwitch() {
     if(node.getAttribute('aria-busy')==='true')return;
     if(!on){fakeIpConfirm();return;}
     node.setAttribute('aria-busy','true');
+    const mine=modalToken();
     try{await api('/api/settings/network',{fake_ip_tunnel:false,expected:true});await refresh();announce(N.off);toast(N.off);}
-    catch(e){if(e.code==='state_changed'){await refresh().catch(report);toast(T.error.state_changed);}else report(e);}
+    catch(e){if(e.code==='state_changed'){await refresh().catch(x=>report(x,mine));toast(T.error.state_changed);}else report(e,mine);}
     finally{if(node.isConnected)node.removeAttribute('aria-busy');}
   });
   return node;
@@ -1119,18 +1139,20 @@ function unlockBlock(onDone) {
   const pk=data.passkeys||{}, creds=(pk.credentials||[]).filter(c=>!c.disabled);
   const passkeyOk=creds.length&&pk.available&&window.ATM_PASSKEY?.supported();
   const vault=vaultInfo(), nodes=[el('p',{},'解锁后 30 分钟内，这个管理台和你批准的项目里的 Claude Code / Codex 可以使用已保存的 Key。到时自动锁定，不会因为使用而延长。由管理台解锁的会话，会在管理台进程结束时一起结束。')];
-  const done=async message=>{await refresh();await onDone(message);};
-  const unlock=async body=>{
+  // `mine`: the dialog's token from the click. Unlocked after its dialog is gone, the result is only a toast.
+  const done=async(message,mine)=>{await refresh();if(ownsModal(mine))await onDone(message);else toast(message);};
+  const unlock=async(body,mine)=>{
     try{await api('/api/session/unlock',body);}
-    catch(e){if(e.code==='session_already_unlocked'){await done('Key 已经是解锁状态。');return;}
-      if(e.code==='vault_locked'){showAlert('ATM 主密码不正确，Key 仍是锁定的。',{field:$('#modal-body input[type=password]')});return;}throw e;}
-    await done('Key 已解锁 30 分钟。');
+    catch(e){if(e.code==='session_already_unlocked'){await done('Key 已经是解锁状态。',mine);return;}
+      if(e.code==='vault_locked'){alertOwn(mine,'ATM 主密码不正确，Key 仍是锁定的。',{field:$('#modal-body input[type=password]')});return;}throw e;}
+    await done('Key 已解锁 30 分钟。',mine);
   };
   if(passkeyOk){
     const select=creds.length>1?field('选择 Passkey',el('select',{},...creds.map(c=>el('option',{value:c.id},c.label)))):null;
     const usePasskey=btn('用 Passkey 解锁 30 分钟',async()=>{
+      const mine=modalToken();
       let proof=await window.ATM_PASSKEY.authenticate(api,'/api/passkeys/auth/begin',{credential_id:select?select.input.value:creds[0].id},'/api/passkeys/cancel');
-      try{await unlock({passkey:proof});}finally{proof=null;}
+      try{await unlock({passkey:proof},mine);}finally{proof=null;}
     },'primary');
     nodes.push(el('div',{class:'field'},select?select.node:el('small',{class:'quiet'},'将使用：'+creds[0].label),
       el('div',{class:'actions'},usePasskey)),el('div',{class:'divider'},'或者'));
@@ -1141,11 +1163,11 @@ function unlockBlock(onDone) {
     const submit=btn('用主密码解锁',async()=>{
       let secret=pass.input.value;
       if(!secret){showAlert('请输入 ATM 主密码。',{field:pass.input});return;}
-      try{await unlock({ttl:'30m',passphrase:secret});}finally{secret=null;pass.input.value='';}
+      try{await unlock({ttl:'30m',passphrase:secret},modalToken());}finally{secret=null;pass.input.value='';}
     },passkeyOk?'secondary':'primary');
     nodes.push(el('form',{onsubmit:e=>{e.preventDefault();submit.click();}},pass.node,el('div',{class:'actions'},submit)));
   } else if(vault.backend==='keyring'){
-    nodes.push(el('p',{},'将使用系统钥匙串解锁，系统可能会请你确认。'),el('div',{class:'actions'},btn('用系统钥匙串解锁',()=>unlock({ttl:'30m'}),'primary')));
+    nodes.push(el('p',{},'将使用系统钥匙串解锁，系统可能会请你确认。'),el('div',{class:'actions'},btn('用系统钥匙串解锁',()=>unlock({ttl:'30m'},modalToken()),'primary')));
   }
   if(!creds.length&&pk.available&&window.ATM_PASSKEY?.supported())nodes.push(el('div',{},el('button',{type:'button',class:'plain',onclick:()=>{closeModal();go('settings/keys');}},'还没有 Passkey？去设置')));
   return nodes;
@@ -1167,7 +1189,7 @@ function vaultBlock(onDone) {
   const box=el('div',{hidden:true},first.node,second.node);
   const sync=()=>{box.hidden=!pass.checked;};keyring.addEventListener('change',sync);pass.addEventListener('change',sync);
   const submit=btn('确认设置',async()=>{
-    const backend=pass.checked?'passphrase':'keyring';
+    const backend=pass.checked?'passphrase':'keyring', mine=modalToken(), message='Key 保管方式已设置。';
     let a=first.input.value,b=second.input.value;
     try{
       if(backend==='passphrase'){
@@ -1176,7 +1198,7 @@ function vaultBlock(onDone) {
       }
       await api('/api/vault/init',{backend,...(backend==='passphrase'?{passphrase:a}:{})});
     }finally{a=null;b=null;first.input.value='';second.input.value='';}
-    await refresh();await onDone('Key 保管方式已设置。');
+    await refresh();if(ownsModal(mine))await onDone(message);else toast(message);
   },'primary');
   return {submit,body:[el('p',{},'只需要设置一次。以后不要重新设置：已保存的 Key 会一直保留。'),
     el('fieldset',{},el('legend',{},'保管方式'),choice(keyring,'系统钥匙串（推荐）','由系统保管主密钥，平时不用输入密码；使用 Key 时系统可能请你确认。'),
@@ -1218,6 +1240,7 @@ function keyDialog({mode='add', name=null, picker=false, intro=null, laterToast=
     const replaceNote=el('p',{hidden:mode!=='replace'},replaceText());
     nodes.push(secret.node,expiry.node,pass?pass.node:null,replaceNote);
     const save=btn('加密保存',async()=>{
+      const mine=modalToken();
       if(!name){showAlert('请选择 Key 名称。',{field:select?.input});return;}
       let value=secret.input.value, password=pass?.input.value||'';
       try{
@@ -1227,10 +1250,10 @@ function keyDialog({mode='add', name=null, picker=false, intro=null, laterToast=
         if(password)body.passphrase=password;
         const r=await api('/api/connections/save',body);
         body.value='';delete body.passphrase;
-        if(r.status==='already_configured'){showAlert('这个 Key 已经保存过，没有改动。要换新的，请用“更换”。');return;}
+        if(r.status==='already_configured'){alertOwn(mine,'这个 Key 已经保存过，没有改动。要换新的，请用“更换”。');return;}
       }finally{value=null;password=null;secret.input.value='';if(pass)pass.input.value='';}
-      ui.successor=['route:key:'+name+':更换','route:key:'+name+':更换 API Key','key:replace:'+name,'slot:'+name];
-      closeModal();await refresh();toast(zh`已加密保存 ${serviceNameOf(name)} 的 API Key。`);
+      closeOwn(mine,['route:key:'+name+':更换','route:key:'+name+':更换 API Key','key:replace:'+name,'slot:'+name]);
+      await refresh();toast(zh`已加密保存 ${serviceNameOf(name)} 的 API Key。`);
     },'primary');
     openModal({title:titleFor(),steps,body:nodes,actions:[closer(),save]});
   };
@@ -1252,9 +1275,10 @@ function removeDialog(name) {
     go_.addEventListener('click',action(async()=>{
       if(confirm.input.value!==name){showAlert(zh`请输入 ${name} 确认。`,{field:confirm.input});return;}
       let password=pass?.input.value||'';
+      const mine=modalToken();
       try{await api('/api/connections/remove',withSecret({provider:name,confirm:confirm.input.value},{value:password}));}finally{password=null;if(pass)pass.input.value='';}
-      ui.successor=['route:key:'+name+':添加 API Key','keys:add'];
-      closeModal();await refresh();toast(zh`已移除本机保存的 ${svc} Key。`);
+      closeOwn(mine,['route:key:'+name+':添加 API Key','keys:add']);
+      await refresh();toast(zh`已移除本机保存的 ${svc} Key。`);
     }));
     openModal({title:zh`移除 ${svc} 的 API Key`,steps,body:[el('p',{},zh`只删除这台电脑上保存的 ${name}，不会在 ${svc} 那边作废它。备份里可能还有加密副本。`),confirm.node,pass?pass.node:null,reason],actions:[cancel(),go_]});
   };
@@ -1262,8 +1286,9 @@ function removeDialog(name) {
   else fill(null);
 }
 async function verifyDialog(name) {
-  const svc=serviceNameOf(name);
+  const svc=serviceNameOf(name), opened=modalToken();
   const plan=await api('/api/verify',{provider:name});
+  if(opened!==modalToken())return;  // Another dialog opened while the plan was read: the click is stale.
   const done=()=>el('button',{type:'button',class:'primary',onclick:()=>closeModal()},'完成');
   if(plan.status!=='planned'){
     openModal({title:zh`联网测试 ${svc} 的 Key`,body:[el('p',{},plan.status==='unsupported_probe'?zh`${svc} 暂时没有安全的联网测试方法。Key 是否有效，只能在 Agent 实际使用时确认。`:T.errorText(plan.status)),raw('verify-plan',plan)],actions:[done()]});
@@ -1273,20 +1298,23 @@ async function verifyDialog(name) {
   const pass=perRequestPassword()?masterPasswordField('只用于这一次请求，不写入文件。'):null;
   const start=btn('开始联网测试',async()=>{
     let password=pass?.input.value||'';
+    const mine=modalToken();
     let r;try{r=await api('/api/verify',withSecret({provider:name,allow_network:true},{value:password}));}finally{password=null;if(pass)pass.input.value='';}
     await refresh();
-    openModal({title:zh`联网测试 ${svc} 的 Key`,body:[el('p',{},'测试结果：'+T.verifyText(r.status)+(r.http_status?`（HTTP ${r.http_status}）`:'')),raw('verify-result',r)],actions:[done()]});
+    const result='测试结果：'+T.verifyText(r.status)+(r.http_status?`（HTTP ${r.http_status}）`:'');
+    if(!ownsModal(mine)){toast(result);return;}
+    openModal({title:zh`联网测试 ${svc} 的 Key`,body:[el('p',{},result),raw('verify-result',r)],actions:[done()]});
   },'primary');
   openModal({title:zh`联网测试 ${svc} 的 Key`,body:[el('p',{},zh`ATM 会联网向 ${svc} 发送一次只读的账户检查请求，确认这个 Key 是否有效。不会生成内容，也不会扣费；服务商的限流可能适用。通过也不代表所有工具都能用。`),
     facts([['请求',`${plan.method||'GET'} ${host}`]]),pass?pass.node:null,raw('verify-plan',plan)],actions:[cancel(),start]});
 }
 async function toolDialog(id) {
   const v=model.tools.get(id);
-  openModal({title:v?.title||id,body:[el('p',{class:'quiet'},'正在读取…')],actions:[],wide:true});
+  const mine=openModal({title:v?.title||id,body:[el('p',{class:'quiet'},'正在读取…')],actions:[],wide:true});
   let d;
   try{d=await api('/api/tools/'+encodeURIComponent(id));}
-  catch(e){if(e.gated)return;if(!$('#modal').open)return;$('#modal-body').replaceChildren(el('p',{},e.status===404||e.code==='not_found'||e.code==='unknown_tool'?'这个工具已不在目录中。':errorText(e)));return;}
-  if(!$('#modal').open)return;
+  catch(e){if(e.gated||!ownsModal(mine))return;$('#modal-body').replaceChildren(el('p',{},e.status===404||e.code==='not_found'||e.code==='unknown_tool'?'这个工具已不在目录中。':errorText(e)));return;}
+  if(!ownsModal(mine))return;
   const view=model.tools.get(id)||v, s=view?model.byKey.get(view.serviceKey):null, route=s?.routes.find(r=>r.tools.includes(view));
   const needs=[];
   for(const n of [...(d.credentials||[]),...(d.optional_credentials||[])]){const k=model.keys.get(n);needs.push(el('li',{},zh`${n} 的 API Key · ${k?.word||'待设置'}`,' ',el('button',{type:'button',class:'plain',onclick:()=>{closeModal();openRoute({service:view.serviceKey,kind:'key',id:n,anchor:'route-key-'+T.slug(n)});}},k?.state==='ready'?'查看':'去设置')));}
@@ -1316,11 +1344,13 @@ function declareDialog() {
   const name=field('Key 名称',el('input',{placeholder:'例如 acme.production',autocomplete:'off'}),'小写字母开头，2–80 个字符，只能用小写字母、数字和 . _ -');
   const label=field('显示名称（可选）',el('input',{placeholder:'例如 Acme 生产环境',autocomplete:'off'}));
   const submit=btn('登记名称',async()=>{
-    const value=name.input.value.trim();
+    const value=name.input.value.trim(), mine=modalToken();
     if(!/^[a-z][a-z0-9_.-]{1,79}$/.test(value)){showAlert('Key 名称格式不对。小写字母开头，只能用小写字母、数字和 . _ -。',{field:name.input});return;}
     await api('/api/credentials/declare',{name:value,label:label.input.value.trim()||value,apply:true});
     await refresh();
-    keyDialog({mode:'add',name:value,intro:zh`已登记 ${value}。现在保存它的 Key 吗？`,laterToast:zh`已登记 ${value}。之后可以在“设置 › Key 保管”里填写 Key。`});
+    const later=zh`已登记 ${value}。之后可以在“设置 › Key 保管”里填写 Key。`;
+    if(!ownsModal(mine)){toast(later);return;}
+    keyDialog({mode:'add',name:value,intro:zh`已登记 ${value}。现在保存它的 Key 吗？`,laterToast:later});
   },'primary');
   openModal({title:'添加自定义 Key',body:[el('p',{},'给 ATM 还不认识的服务（例如公司内部 API）登记一个 Key 名称。只登记名称，不需要先有工具定义。'),name.node,label.node],actions:[cancel(),submit]});
 }
@@ -1336,8 +1366,10 @@ function extensionDialog() {
   file.input.addEventListener('change',()=>{const f=file.input.files[0];if(!f)return;const reader=new FileReader();reader.onload=()=>{input.input.value=String(reader.result);reset();};reader.readAsText(f);});
   const parse=()=>{try{return JSON.parse(input.input.value);}catch(e){showAlert('不是有效的 JSON：'+e.message,{field:input.input});return null;}};
   const check=btn('检查定义',async()=>{
-    reset();const manifest=parse();if(!manifest)return;
-    const value=await api('/api/extensions/validate',{manifest});approved=value;
+    reset();const manifest=parse(), mine=modalToken();if(!manifest)return;
+    const value=await api('/api/extensions/validate',{manifest});
+    if(!ownsModal(mine))return;
+    approved=value;
     const view={...manifest,health:{state:'configured_not_verified'}};
     summary.replaceChildren(el('dl',{class:'summary'},...[['工具',value.id],['服务',brandOf(manifest.provider,manifest.id).name],['运行方式',T.kinds[MODEL.routeKindOf(view)]],
       ['权限',(value.permissions||[]).map(p=>MODEL.say(T.permission,p,'{code}')+'（'+p+'）').join('、')||'只读'],['可能扣费',value.paid?'是':'否'],['会访问的网站',(value.origins||[]).join('、')||'无'],
@@ -1347,9 +1379,9 @@ function extensionDialog() {
   });
   apply.addEventListener('click',action(async()=>{
     if(!approved){$('#install-reason').focus?.();status('先检查定义，通过后才能安装。');return;}
-    const manifest=parse();if(!manifest)return;
+    const manifest=parse(), mine=modalToken();if(!manifest)return;
     await api('/api/extensions/install',{manifest,approved_sha256:approved.sha256,...(approved.previous_sha256?{expected_sha256:approved.previous_sha256}:{})});
-    const id=approved.id;closeModal();await refresh();toast(zh`已安装 ${id}。它还没有真正运行过，也没有在真实网站上验收。`);
+    const id=approved.id;closeOwn(mine);await refresh();toast(zh`已安装 ${id}。它还没有真正运行过，也没有在真实网站上验收。`);
   }));
   openModal({title:'安装工具定义',wide:true,body:[el('p',{},'粘贴 Agent 起草的工具定义（JSON，不含任何 Key）。ATM 先检查结构，你确认后才安装。修改定义会让旧的受限授权失效。'),input.node,file.node,summary,reason],actions:[cancel(),check,apply]});
 }
@@ -1364,10 +1396,11 @@ function setupDialog({agents=[], clis=[], replace=false}) {
   const apply=el('button',{type:'button',class:'primary'},cliMode?'确认绑定':'确认安装');
   const reason=el('p',{class:'reason',id:'setup-reason',hidden:true});
   const block=text=>{apply.setAttribute('aria-disabled','true');apply.setAttribute('aria-describedby','setup-reason');reason.textContent=text;reason.hidden=false;};
+  // seq: the latest preview of this dialog wins; own: this dialog must still be the one on screen.
   const preview=async()=>{
-    const mine=++seq;plan=null;block('正在生成计划…');out.replaceChildren(el('p',{class:'quiet'},'正在生成计划…'));
-    let p;try{p=await api('/api/setup/preview',body());}catch(e){if(mine===seq){out.replaceChildren();report(e);}return;}
-    if(mine!==seq||!$('#modal').open)return;
+    const mine=++seq, own=modalToken();plan=null;block('正在生成计划…');out.replaceChildren(el('p',{class:'quiet'},'正在生成计划…'));
+    let p;try{p=await api('/api/setup/preview',body());}catch(e){if(mine===seq){out.replaceChildren();report(e,own);}return;}
+    if(mine!==seq||!ownsModal(own))return;
     plan=p;$('#modal-title').textContent=title();
     const items=[];
     for(const s of p.skills||[]){
@@ -1390,12 +1423,14 @@ function setupDialog({agents=[], clis=[], replace=false}) {
   apply.addEventListener('click',action(async()=>{
     if(apply.getAttribute('aria-disabled')==='true'){reason.focus?.();announce(reason.textContent);return;}
     if(apply.textContent==='完成'){closeModal();return;}
+    const mine=modalToken();
     try{await api('/api/setup/apply',{...body(),approved_sha256:plan.plan_sha256});}
     catch(e){
-      if(e.code==='setup_changed'){await preview();showAlert('计划在你确认前变了（文件或程序刚被改动）。已重新生成，请再看一遍。');return;}
+      // Its dialog gone, a changed plan is only reported (as a background result); it is not previewed again.
+      if(e.code==='setup_changed'&&ownsModal(mine)){await preview();alertOwn(mine,'计划在你确认前变了（文件或程序刚被改动）。已重新生成，请再看一遍。');return;}
       throw e;
     }
-    closeModal();await refresh();
+    closeOwn(mine);await refresh();
     toast(cliMode?zh`已绑定 ${clis.join('、')}。`:zh`已安装到 ${chosen().map(n=>labels[n]).join('和')}。在新会话里生效。`);
   }));
   for(const b of Object.values(boxes))b.addEventListener('change',()=>{$('#modal-title').textContent=title();preview();});
@@ -1409,15 +1444,16 @@ function passkeyDialog(){
   openModal({title:'绑定 Passkey',body:[el('p',{},'接下来浏览器会请你保存一个 Passkey 并确认加密扩展（PRF）。请选择 1Password（或其他支持 PRF 的 Passkey）并亲自确认。没有 PRF 时不会绑定，ATM 主密码照常可用。'),label.node,pass?pass.node:null],
     actions:[cancel(),btn('开始绑定',async()=>{
       let password=pass?pass.input.value:'';if(pass)pass.input.value='';
-      try{await window.ATM_PASSKEY.register(api,password,label.input.value);closeModal();await refresh();toast('Passkey 已绑定。原有加密的 Key 保持不变。');}
+      const mine=modalToken();
+      try{await window.ATM_PASSKEY.register(api,password,label.input.value);closeOwn(mine);await refresh();toast('Passkey 已绑定。原有加密的 Key 保持不变。');}
       finally{password=null;if(pass)pass.input.value='';}
     },'primary')]});
 }
 function disablePasskeyDialog(credential){
   const pass=data.connections.vault.backend==='passphrase'?masterPasswordField('','ATM 主密码（确认停用）'):null;
   openModal({title:'停用 '+credential.label,body:[el('p',{},'停用后不能再用它解锁；ATM 主密码照常可用。1Password 里的 Passkey 和已经解锁的会话不受影响；需要马上停止新的 Key 使用时，点右上角的“立即锁定”。'),pass?pass.node:null],
-    actions:[cancel(),btn('确认停用',async()=>{let password=pass?pass.input.value:'';if(pass)pass.input.value='';
-      try{await api('/api/passkeys/disable',{credential_id:credential.id,confirm:credential.id,...(password?{passphrase:password}:{})});ui.successor=['passkey:bind'];closeModal();await refresh();toast(zh`已停用 ${credential.label}。`);}
+    actions:[cancel(),btn('确认停用',async()=>{let password=pass?pass.input.value:'';if(pass)pass.input.value='';const mine=modalToken();
+      try{await api('/api/passkeys/disable',{credential_id:credential.id,confirm:credential.id,...(password?{passphrase:password}:{})});closeOwn(mine,['passkey:bind']);await refresh();toast(zh`已停用 ${credential.label}。`);}
       finally{password=null;}
     },'primary danger')]});
 }
@@ -1435,11 +1471,12 @@ function oauthDialog({keep=false, replace=false, allowed=false, error=null}={}) 
     o.status!=='missing'?el('label',{class:'check'},replaceBox,'替换已有的 ATM 登录（higgsfield 程序的登录不受影响）'):null,pass?pass.node:null],
     actions:[cancel(),btn('打开官方登录页面',async()=>{
       let password=pass?pass.input.value:'';
+      const mine=modalToken();
       try{
         const r=await api('/api/oauth/login',{provider:o.provider,keep_login:keepBox.checked,replace:replaceBox.checked,...(password?{passphrase:password}:{})});
         await refresh();
-        if(r.status==='pending'){oauthPending(o.provider,r.browser_opened===true);return;}
-        closeModal();
+        if(r.status==='pending'&&ownsModal(mine)){oauthPending(o.provider,r.browser_opened===true);return;}
+        closeOwn(mine);
         toast(r.browser_opened?'请在打开的官方页面完成登录和授权，然后点“刷新状态”。':'登录窗口没有打开，或者已有一个登录在进行。请查看 Higgsfield 的“ATM 登录”状态。');
       }finally{password=null;if(pass)pass.input.value='';}
     },'primary')],
@@ -1458,16 +1495,17 @@ const OAUTH_FOCUS=provider=>['route:oauth:oauth:刷新状态','inbox:oauth-pendi
 function oauthPending(provider, opened) {
   const O=T.oauth;
   openModal({title:'登录 Higgsfield（ATM 登录）',body:[el('p',{},opened?O.opened:O.notOpened),el('p',{class:'quiet'},O.refused)],
-    actions:[btn(O.cancel,()=>cancelLogin(provider)),btn('刷新状态',async()=>{await refresh();ui.successor=OAUTH_FOCUS(provider);closeModal();announce('已刷新');},'primary')]});
+    actions:[btn(O.cancel,()=>cancelLogin(provider)),btn('刷新状态',async()=>{const mine=modalToken();await refresh();closeOwn(mine,OAUTH_FOCUS(provider));announce('已刷新');},'primary')]});
   ui.successor=OAUTH_FOCUS(provider);  // Escape: the login button that opened D11 is gone now.
 }
 // 取消登录 (D11, the ATM 登录 route, the 首页 line): ends the pending login at once; nothing is sent to Higgsfield.
 async function cancelLogin(provider) {
+  const mine=modalToken();  // D11's, or no dialog's when the route or the 首页 line cancels.
   const r=await api('/api/oauth/cancel',{provider});
   await refresh();
   const next=['route:oauth:oauth:重新登录','inbox:oauth:needs_login',...OAUTH_FOCUS(provider)];
-  if($('#modal').open){ui.successor=next;closeModal();}
-  else if(!document.activeElement||document.activeElement===document.body)(next.map(byKey).find(Boolean)||$('#main .page-title h1'))?.focus({preventScroll:true});
+  if(ownsModal(mine)){ui.successor=next;closeModal();}
+  else if(!$('#modal').open&&(!document.activeElement||document.activeElement===document.body))(next.map(byKey).find(Boolean)||$('#main .page-title h1'))?.focus({preventScroll:true});
   toast(r.action!=='cancelled'?T.oauth.ended:r.status==='ready'?T.oauth.restored:T.oauth.cancelled);
 }
 // Copy text with ATM's literal names (hosts, proxy options) as unbreakable code.
@@ -1486,46 +1524,47 @@ function fakeIpConfirm({back=null, error=null, next=''}={}) {
     focus:undo,
     actions:[undo,btn(N.confirm,async()=>{
       let stale=null;
+      const mine=modalToken();
       try{await api('/api/settings/network',{fake_ip_tunnel:true,expected:false});}
       catch(e){if(e.code!=='state_changed')throw e;stale=e;}
       await refresh();
       // 409: changed elsewhere meanwhile (another tab). Turned on there is the same result; anything else is reported.
       if(stale&&!fakeIpOn())throw stale;
-      if(back){back({allowed:true});return;}
+      if(back&&ownsModal(mine)){back({allowed:true});return;}
       // The allow button is gone after the refresh: the focus moves to the login it unblocked.
-      if(next)ui.successor=['route:oauth:oauth:'+next];
-      closeModal();
+      closeOwn(mine,next?['route:oauth:oauth:'+next]:null);
       const done=next?T.allowedNext(next):N.done;toast(done);announce(done);
     },'primary')]});
 }
 function confirmDialog({title, body, label, danger=true, run, detail=null}) {
-  openModal({title,body:[detail,el('p',{},body)],actions:[cancel(),btn(label,async()=>{await run();},danger?'primary danger':'primary')]});
+  openModal({title,body:[detail,el('p',{},body)],actions:[cancel(),btn(label,()=>run(modalToken()),danger?'primary danger':'primary')]});
 }
 const unregisterConfirm=(agent,label)=>confirmDialog({title:zh`从 ${label} 移除 ATM？`,body:zh`会把 ATM 说明文件改名备份，不删除任何 Key 或工具。之后新开的 ${label} 会话不再加载 ATM。`,label:'移除',
-  run:async()=>{await api('/api/agents/unregister',{agent,confirm:agent});ui.successor=['agent:'+agent+':安装到 '+label];closeModal();await refresh();toast(zh`已从 ${label} 移除 ATM；Key 和工具没有改变。`);}});
+  run:async mine=>{await api('/api/agents/unregister',{agent,confirm:agent});closeOwn(mine,['agent:'+agent+':安装到 '+label]);await refresh();toast(zh`已从 ${label} 移除 ATM；Key 和工具没有改变。`);}});
 const revokeDeviceConfirm=p=>confirmDialog({title:zh`撤销对 ${p.card.name} 的信任？`,body:'之后不再和它同步。它已经收到的 Key 无法收回；担心泄露的话，请到对应服务那边更换 Key。',label:'撤销信任',
-  run:async()=>{await api('/api/sync/revoke',{device:p.card.id,confirm:p.card.id});ui.successor=['sync:trust'];closeModal();await refresh();toast(zh`已撤销对 ${p.card.name} 的信任。`);}});
+  run:async mine=>{await api('/api/sync/revoke',{device:p.card.id,confirm:p.card.id});closeOwn(mine,['sync:trust']);await refresh();toast(zh`已撤销对 ${p.card.name} 的信任。`);}});
 // The dialog names the grant (title, its lines and id), so the owner can confirm the target among several.
 const revokeConfirm=g=>confirmDialog({title:zh`撤销「${g.title}」？`,
   detail:el('div',{class:'grant-detail'},...g.lines.map(l=>el('span',{},l)),g.kind==='project_session'?mono(g.workspace,'path'):null,el('span',{},'授权 ID ',el('code',{title:g.id},g.short)),el('span',{},g.time)),
   body:g.kind==='project_session'?zh`项目 ${g.title.replace(/^项目 /,'').replace(/ · 由授权窗口批准$/,'')} 会立刻停止取用 Key。已经在运行的程序可能仍持有取到的 Key。`:zh`${g.agentLabel} 将不能再用这份授权调用工具。已经提交的任务不会被取消。`,
-  label:'撤销授权',run:async()=>{await api('/api/access/revoke',{id:g.id,confirm:g.id});ui.successor=['grants:new'];closeModal();await refresh();toast('授权已撤销。');}});
+  label:'撤销授权',run:async mine=>{await api('/api/access/revoke',{id:g.id,confirm:g.id});closeOwn(mine,['grants:new']);await refresh();toast('授权已撤销。');}});
 function stopRenewConfirm(){
   const o=(data.connections?.oauth||[])[0]||{};
   confirmDialog({title:'停止 Higgsfield 自动续期？',body:zh`当前登录到期（${o.expires_at?T.datetime(o.expires_at):'到期时'}）后需要你重新登录。`,label:'停止自动续期',
-    run:async()=>{await api('/api/oauth/keep-login',{provider:o.provider||'higgsfield',enabled:false});closeModal();await refresh();toast('已停止自动续期。');}});
+    run:async mine=>{await api('/api/oauth/keep-login',{provider:o.provider||'higgsfield',enabled:false});closeOwn(mine);await refresh();toast('已停止自动续期。');}});
 }
 // Switch a group of tools one at a time; stops at the first error.
 function bulkDialog(tools, enable, routeTitle, serviceName) {
   const list=tools.filter(v=>v.enabled!==enable);
   const go_=btn(enable?'全部允许':'全部停用',async()=>{
     let i=0;
+    const mine=modalToken();
     for(const v of list){
-      i++;status(`${i} / ${list.length}`);
+      i++;if(ownsModal(mine))status(`${i} / ${list.length}`);
       try{await api('/api/tools/toggle',{tool:v.id,enabled:enable,expected_enabled:!enable});}
-      catch(e){if(e.gated)return;await refresh().catch(()=>{});showAlert(zh`有工具的状态刚被改动，已停在第 ${i} 个。已完成的改动保留，请刷新后再试。`);return;}
+      catch(e){if(e.gated)return;await refresh().catch(()=>{});alertOwn(mine,zh`有工具的状态刚被改动，已停在第 ${i} 个。已完成的改动保留，请刷新后再试。`);return;}
     }
-    closeModal();await refresh();const message=enable?zh`已允许 ${list.length} 个工具。`:zh`已停用 ${list.length} 个工具。`;toast(message);announce(message);
+    closeOwn(mine);await refresh();const message=enable?zh`已允许 ${list.length} 个工具。`:zh`已停用 ${list.length} 个工具。`;toast(message);announce(message);
   },enable?'primary':'primary danger');
   // Enabling paid tools says how many may charge (S9: 可能扣费 wherever a paid tool is listed).
   const paid=enable?list.filter(v=>v.paid).length:0;
@@ -1536,8 +1575,8 @@ function downloadJson(value,name){const blob=new Blob([JSON.stringify(value,null
 const syncPassword=()=>vaultInfo().backend==='passphrase'?masterPasswordField('只用于这一次请求，不写入文件。'):null;
 function deviceDialog(){
   const name=field('设备名称',el('input',{placeholder:'例如 laptop 或 build-server',maxLength:80})),pass=syncPassword();
-  openModal({title:'生成本机同步身份',body:[name.node,pass?pass.node:null],actions:[cancel(),btn('生成本机身份',async()=>{let p=pass?.input.value||'';
-    try{await api('/api/sync/init',{name:name.input.value,...(p?{passphrase:p}:{})});}finally{p=null;if(pass)pass.input.value='';}closeModal();await refresh();toast('已生成本机同步身份。');},'primary')]});
+  openModal({title:'生成本机同步身份',body:[name.node,pass?pass.node:null],actions:[cancel(),btn('生成本机身份',async()=>{let p=pass?.input.value||'';const mine=modalToken();
+    try{await api('/api/sync/init',{name:name.input.value,...(p?{passphrase:p}:{})});}finally{p=null;if(pass)pass.input.value='';}closeOwn(mine);await refresh();toast('已生成本机同步身份。');},'primary')]});
 }
 function publicDialog(device){
   const copy=el('button',{type:'button',class:'secondary'},'复制');copy.addEventListener('click',()=>copyText(JSON.stringify(device,null,2),copy,null));
@@ -1559,30 +1598,30 @@ function trustDialog(){
     view.replaceChildren(el('p',{},zh`${r.peer?.card?.name||v.card.name||''} · 指纹 ${String(r.peer?.fingerprint||v.fingerprint).slice(0,16)}… · 发给它：${v.send.join('、')||'无'} · 接收它发来的：${v.receive.join('、')||'无'}`),
       el('p',{},{planned:'将新增这个配对',unchanged:'已经是这样，不会改变',trusted:'已配对'}[r.status]||String(r.status||'')),raw('trust',r));
     apply.setAttribute('aria-disabled','false');reason.hidden=true;});
-  apply.addEventListener('click',action(async()=>{const v=values();if(!v)return;if(!reviewed||JSON.stringify(v)!==reviewed){changed();return;}
-    await api('/api/sync/trust',{...v,apply:true});closeModal();await refresh();toast(zh`已配对 ${v.card.name||''}。`);}));
+  apply.addEventListener('click',action(async()=>{const v=values(),mine=modalToken();if(!v)return;if(!reviewed||JSON.stringify(v)!==reviewed){changed();return;}
+    await api('/api/sync/trust',{...v,apply:true});closeOwn(mine);await refresh();toast(zh`已配对 ${v.card.name||''}。`);}));
   // Any edit after the check needs a new check (listeners live on this dialog's own form only).
   const form=el('div',{class:'dialog-form'},card.node,fp.node,send.node,receive.node);
   form.addEventListener('input',changed);form.addEventListener('change',e=>{if(e.target.type==='checkbox')changed();});
   openModal({title:'配对另一台设备',wide:true,body:[form,view,reason],actions:[cancel(),check,apply]});
 }
 function exportDialog(peer){const pass=syncPassword();
-  openModal({title:'导出给 '+peer.card.name,body:[el('p',{},'只包含允许发给它的 Key 的当前版本、冲突和删除标记。加密包只有这台设备能解开。'),pass?pass.node:null],actions:[cancel(),btn('生成并下载加密包',async()=>{let p=pass?.input.value||'';
-    try{const r=await api('/api/sync/export',{device:peer.card.id,...(p?{passphrase:p}:{})});downloadJson(r.encrypted_packet,'atm-'+r.encrypted_packet.header.packet+'.atmsync');closeModal();toast('加密包已下载。');}finally{p=null;if(pass)pass.input.value='';}},'primary')]});}
+  openModal({title:'导出给 '+peer.card.name,body:[el('p',{},'只包含允许发给它的 Key 的当前版本、冲突和删除标记。加密包只有这台设备能解开。'),pass?pass.node:null],actions:[cancel(),btn('生成并下载加密包',async()=>{let p=pass?.input.value||'';const mine=modalToken();
+    try{const r=await api('/api/sync/export',{device:peer.card.id,...(p?{passphrase:p}:{})});downloadJson(r.encrypted_packet,'atm-'+r.encrypted_packet.header.packet+'.atmsync');closeOwn(mine);toast('加密包已下载。');}finally{p=null;if(pass)pass.input.value='';}},'primary')]});}
 function importDialog(){
   const file=field('选择加密同步包（.atmsync）',el('input',{type:'file',accept:'.atmsync,.json'})),pass=syncPassword(),view=el('div',{});let packet=null;
   const apply=el('button',{type:'button',class:'primary','aria-disabled':'true','aria-describedby':'import-reason'},'批准导入');
   const reason=el('p',{class:'reason',id:'import-reason'},'先检查内容。');
   file.input.addEventListener('change',()=>{packet=null;apply.setAttribute('aria-disabled','true');reason.hidden=false;view.replaceChildren();});
-  const check=btn('检查内容',async()=>{const f=file.input.files[0];if(!f||f.size>8*1024*1024){showAlert('请选择不超过 8 MiB 的加密包。',{field:file.input});return;}
+  const check=btn('检查内容',async()=>{const f=file.input.files[0],mine=modalToken();if(!f||f.size>8*1024*1024){showAlert('请选择不超过 8 MiB 的加密包。',{field:file.input});return;}
     let p=pass?.input.value||'';
-    try{packet=JSON.parse(await f.text());}catch{showAlert('不是有效的加密包。',{field:file.input});return;}
+    try{packet=JSON.parse(await f.text());}catch{alertOwn(mine,'不是有效的加密包。',{field:file.input});return;}
     let r;try{r=await api('/api/sync/import',{packet,...(p?{passphrase:p}:{})});}finally{p=null;}
     view.replaceChildren(el('p',{},'来自 '+String(r.sender||r.from||'').slice(0,16)+'…'),
       el('ul',{},...(r.changes||[]).map(c=>el('li',{},zh`${serviceNameOf(c.provider)}（${c.provider}）：${c.changed?(c.state==='conflict'?'冲突（相关调用会暂停）':c.state==='deleted'?'将删除':'将更新'):'没有变化'}`))),raw('import',r));
     apply.setAttribute('aria-disabled','false');reason.hidden=true;});
-  apply.addEventListener('click',action(async()=>{if(!packet){announce('先检查内容。');return;}let p=pass?.input.value||'';
-    try{const r=await api('/api/sync/import',{packet,apply:true,...(p?{passphrase:p}:{})});closeModal();await refresh();toast(r.conflicts?'存在冲突：已保留两个版本，并暂停相关调用。':'加密的 Key 已合并到本机。');}finally{p=null;if(pass)pass.input.value='';}}));
+  apply.addEventListener('click',action(async()=>{if(!packet){announce('先检查内容。');return;}let p=pass?.input.value||'';const mine=modalToken();
+    try{const r=await api('/api/sync/import',{packet,apply:true,...(p?{passphrase:p}:{})});closeOwn(mine);await refresh();toast(r.conflicts?'存在冲突：已保留两个版本，并暂停相关调用。':'加密的 Key 已合并到本机。');}finally{p=null;if(pass)pass.input.value='';}}));
   openModal({title:'导入加密同步包',body:[file.node,pass?pass.node:null,view,reason],actions:[cancel(),check,apply]});
 }
 function resolveDialog(provider){
@@ -1593,10 +1632,10 @@ function resolveDialog(provider){
   const apply=el('button',{type:'button',class:'primary','aria-disabled':'true','aria-describedby':'resolve-reason'},'使用这个版本');
   const reason=el('p',{class:'reason',id:'resolve-reason'},'先选择一个版本。');
   radios.forEach(([,r])=>r.addEventListener('change',()=>{apply.setAttribute('aria-disabled','false');reason.hidden=true;}));
-  apply.addEventListener('click',action(async()=>{const choice=radios.find(([,r])=>r.checked);if(!choice){announce('先选择一个版本。');return;}let p=pass?.input.value||'';
+  apply.addEventListener('click',action(async()=>{const choice=radios.find(([,r])=>r.checked);if(!choice){announce('先选择一个版本。');return;}let p=pass?.input.value||'';const mine=modalToken();
     try{await api('/api/sync/resolve',{provider,choose:choice[0].revision,expected:record.expected,apply:true,...(p?{passphrase:p}:{})});}finally{p=null;if(pass)pass.input.value='';}
-    ui.successor=['route:key:'+provider+':更换','key:replace:'+provider];
-    closeModal();await refresh();toast(zh`已选择 ${svc} 的 Key 版本，相关工具恢复使用。`);}));
+    closeOwn(mine,['route:key:'+provider+':更换','key:replace:'+provider]);
+    await refresh();toast(zh`已选择 ${svc} 的 Key 版本，相关工具恢复使用。`);}));
   openModal({title:zh`${svc} 的 Key 选哪个版本？`,body:[el('p',{},'选择的是这个 Key 的一个完整版本，不能拼接。不会按时间自动选择；如果这期间又收到新的修改，这次选择会被拒绝。'),
     el('fieldset',{},el('legend',{},'版本'),...radios.map(([h,r])=>choice(r,zh`来自 ${String(h.author).slice(0,10)} · 修订 ${String(h.revision).slice(0,12)}`,h.deleted?'删除这个 Key':'保留这个 Key'))),pass?pass.node:null,reason],
     actions:[cancel(),apply]});
@@ -1629,15 +1668,15 @@ function grantDialog(){
   const changed=()=>{if(reviewed)status('内容已变化，请重新检查。');reviewed=null;apply.setAttribute('aria-disabled','true');reason.hidden=false;};
   const check=btn('检查授权内容',async()=>{
     if(missing().length){announce(unknown.textContent);tools.input.focus();return;}
-    const v=values();let r;
+    const v=values(),mine=modalToken();let r;
     try{r=await api('/api/access/grant',v);}
-    catch(e){if(e.code==='profile_exists'){showAlert(zh`${agentLabel()} 已经有一份受限授权的配置文件，旧授权被保留。先在“正在生效的授权”里撤销那一份再新建；如果两份都要保留，请在终端用 atm access grant 为新授权指定另一个配置文件位置。`);return;}throw e;}
+    catch(e){if(e.code==='profile_exists'){alertOwn(mine,zh`${agentLabel()} 已经有一份受限授权的配置文件，旧授权被保留。先在“正在生效的授权”里撤销那一份再新建；如果两份都要保留，请在终端用 atm access grant 为新授权指定另一个配置文件位置。`);return;}throw e;}
     reviewed=JSON.stringify(v);hash=r.approval_sha256;
     view.replaceChildren(el('p',{},zh`${agentLabel()} 可以在 ${v.workspace} 中使用 ${v.tools.length} 个工具：${v.tools.join('、')}，到 ${r.expires_at?T.datetime(r.expires_at):T.datetime(Date.now()/1000+v.ttl_hours*3600)} 失效；${v.allow_paid?'会':'不会'}消耗额度。`),
       el('p',{},'授权指纹 ',el('code',{},String(hash).slice(0,12))),raw('grant',r));
     apply.setAttribute('aria-disabled','false');reason.hidden=true;});
-  apply.addEventListener('click',action(async()=>{const v=values();if(!reviewed||JSON.stringify(v)!==reviewed){changed();return;}
-    await api('/api/access/grant',{...v,apply:true,approved_sha256:hash});closeModal();await refresh();toast(zh`已创建 ${agentLabel()} 的受限授权。`);}));
+  apply.addEventListener('click',action(async()=>{const v=values(),mine=modalToken();if(!reviewed||JSON.stringify(v)!==reviewed){changed();return;}
+    await api('/api/access/grant',{...v,apply:true,approved_sha256:hash});closeOwn(mine);await refresh();toast(zh`已创建 ${agentLabel()} 的受限授权。`);}));
   const form=el('div',{class:'dialog-form'},el('fieldset',{},el('legend',{},'给哪个 Agent'),...agents.map(([a,r])=>el('label',{class:'check'},r,a==='claude'?'Claude Code':'Codex'))),
     tools.node,known,unknown,workspace.node,ttl.node,hours.node,
     el('fieldset',{},el('legend',{},'额外权限（只勾选所选工具需要的）'),...perms.map(([,b,l])=>el('label',{class:'check'},b,l))),
@@ -1689,13 +1728,14 @@ $('#modal').addEventListener('close',restoreFocus);
 // 刷新 is never disabled, so keyboard focus stays on it; aria-busy marks the request and a second press waits.
 $('#refresh').onclick=async()=>{
   if(ui.refreshing)return;
-  try{await refresh();announce('已刷新');}catch(e){report(e);}
+  const mine=modalToken();
+  try{await refresh();announce('已刷新');}catch(e){report(e,mine);}
 };
 $('#lock').onclick=()=>forget();
 $('#session-form').onsubmit=action(async e=>{e.preventDefault();typed=token=$('#session-token').value;$('#session-token').value='';await refresh();typed='';tabToken.set(token);});
 wide.addEventListener('change',()=>{if(data)render();});
 document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible'&&data&&Date.now()-ui.lastFetch>30000&&!ui.refreshing&&$('#gate').hidden)refresh().catch(report);
+  if(document.visibilityState==='visible'&&data&&Date.now()-ui.lastFetch>30000&&!ui.refreshing&&$('#gate').hidden){const mine=modalToken();refresh().catch(e=>report(e,mine));}
 });
 async function start() {
   if (launchCode) {

@@ -876,3 +876,101 @@ empty/append、exact-form、单文件intent和回读；无新增权限/工具ID/
 upload_rejected/draft_changed，不是上传成功。零原生文件输入/intent，同键同job，
 原音频节点/WAV/token与空首页完整摘要前后保持，生产ATM/用户级Skill未升级。
 安装、真实链路、失败诊断和最新回执均见 MP3参考合同末节；实际附件和媒体生成交付仍待。
+
+## 自 Agent Skill 移出的验收记录（历史证据）
+
+以下记录原写在 SKILL.md，是2026-10一台测试机上的分阶段验收日志，2026-11-08移到此处；
+Skill 只保留行为规则。它们不是当前安装状态或可复用的许可；个人积分余额读数已删去，
+提交 pin 与回执仍以各功能合同为准。原英文措辞保留。
+
+- Tripo: the approved Retopo40/Texture30 test used its full70 credits; neither paid
+  request is repeated and Auto-rig was not resumed (docs/TRIPO_DELIVERY_CONTRACT.md).
+- The three conversation-image tools results, result_inspect and result_download_quote
+  were installed; --include-results plus delivery compiled 23, not 23 installed. The
+  original manual download stays unknown and is never repeated because of a wait timeout.
+- Installed App download lifecycle was separately verified with one pure native CLI
+  click of a synthetic loopback PNG, then exact SHA/full decode. This validates App
+  fields, not the provider CDN/Blob source association or tool installation.
+- The explicit bound audio reader passed generated-CLI -> isolated ATM -> installed
+  OpenCLIApp acceptance. Installed OpenCLI retains the two reviewed audio read
+  registrations; the old loader is preserved. App-window manual handoff is no longer
+  a gate for that audio route.
+- The approved test canvas was manually created/edited through CUA and verified in a
+  fresh page; that is separate from installed CLI acceptance. Installed upload,
+  generation and delivery remained pending at that stage.
+- Real-source CUA mode_choices passed on the known empty home audio draft: all four
+  menu titles were read, only the owning menu was closed, and the complete draft
+  digest stayed unchanged. This is not installed CLI or mode_prepare acceptance.
+  Separately approved temporary image/video mode_prepare and default form_choices
+  passed on the empty homepage; the complete original audio draft was restored.
+- Five reviewed home registrations are loaded separately. The previous four-entry
+  snapshot's generated CLI -> isolated ATM -> installed App -> the bound empty homepage
+  passed eight phases: audio state, mode choices, image mode/default choices, video
+  mode/default choices, audio restoration and final state. The original complete draft
+  digest and the displayed credit balance stayed unchanged; final request-key reuse
+  returned the same job. No upload or generation occurred. The human closed an existing
+  menu before continuation; the run resumed after a fresh read confirmed no existing
+  layer. The initial unknown read is preserved as historical failure. One acceptance
+  helper expected ready instead of mode_prepare's prepared: the completed job and
+  independent readback were reconciled and the applied mode input was not repeated.
+- The added bound form_prepare is reviewed, loaded and isolated-tested. Generated CLI ->
+  new isolated ATM -> installed App passed its exact-digest-only no-op: ready,
+  prepared=true, zero completed_steps and null options; before/after full draft reads
+  agree, and request-key reuse returns the same job. This is no real parameter/prompt
+  write acceptance. Installed home sources then matched the new five-entry pin; the
+  complete old four-entry snapshot is preserved.
+- Staged MP3 pins are new transitive audio closures. The one explicit upload
+  registration was upgraded at f33eecb, with all nine preceding c70aa32 source files
+  preserved in a verified backup; the other thirteen registrations retain their older
+  pins. Staged definitions were not all deployed. Generated CLI -> isolated ATM ->
+  installed App passed MP3 stale-digest preflight only: upload_rejected/draft_changed,
+  zero native input/intent and same-key same-job. The consumed WAV approval does not
+  cover a new MP3.
+- The later user-confirmed synthetic MP3 append at c70aa32 returned submission_unknown;
+  its original request, intent and active lock are preserved. Independent readback
+  still showed the original WAV/token, not successful MP3 attachment. The f33eecb
+  bridge's code upgrade does not reconcile that unknown operation. Production ATM and
+  user-level Skills had not been upgraded for MP3 intake at that time.
+- audio_choices real-source CUA discovery passed; native fixture preparation is
+  separate from real setting changes and installed CLI acceptance. The real
+  synthetic-WAV CUA upload and source DOM read passed; native fixture prompt/token
+  preparation and real-source zero-input mention validation passed.
+- Three reviewed audio read entries (including the explicit bound rate query) and five
+  explicit home state/menu/mode/prepare entries are loaded, not generation tools. The
+  original adapter's last real check reported origin_mismatch on its separate owned
+  surface; the explicit bound reader passed exact-project generated-CLI / isolated-ATM /
+  installed-App acceptance, so its App test-panel handoff is no longer pending.
+  Production ATM installation, other CLI reads/writes, homepage uploads/MP3, real
+  multiple references, voice effects, generation, tasks and downloads remained pending.
+- The evaluate-only audio-quote-bound registration passed generated CLI -> new isolated
+  ATM -> installed App -> exact synthetic-WAV test draft, with stable-key reuse of the
+  completed job. Full before/after form and rate digests agree; 1 credit per 3 seconds
+  stays an estimated unit rate. Original audio/home sources, registrations, third-party
+  App and production ATM are preserved. The retained job is historical.
+- Three reviewed audio preparation registrations are loaded in their own directory; no
+  generation registration is loaded. The public native bridge and semantic
+  settings/reference contracts passed isolated native fixtures. Generated CLI ->
+  isolated ATM -> installed App passed an already-mentioned reference no-op on the exact
+  synthetic-WAV draft: zero steps, unchanged full form/prompt digests, same-job reuse and
+  an unchanged displayed balance. This is not real menu/field/prompt/append acceptance.
+- One reviewed upload registration is loaded; the previous eleven registrations, their
+  source closures, App and production ATM/vault remain intact. Generated CLI ->
+  isolated ATM -> installed App passed a deliberately stale-hash preflight stop on the
+  original test draft, with same-job request reuse and unchanged full form/prompt and
+  displayed balance. No new file was transmitted. Native isolated fixtures passed actual
+  attachment/append/replacement cases; real CLI attachment, multiple references,
+  persistence and voice effect acceptance remained pending.
+- One reviewed home_quote registration is loaded separately; real default-mode CLI
+  acceptance and final restored-draft evidence are recorded in its contract.
+- One reviewed project_history_state registration is loaded separately, preserving the
+  previous thirteen registrations and seventeen bundle definitions. Generated CLI ->
+  isolated ATM -> installed App passed open-empty and closed views, with same-job reuse
+  of the open query and independent full original audio/home-form restoration. CUA
+  closed only this test's own history panel; the CLI itself performed zero input. The
+  displayed balance differed from the previous stage's reading, so that earlier reading
+  is not unchanged-balance evidence for this run. No uploads or generation were sent.
+  Actual task-row IDs/status/results and validated downloads remained pending.
+- The source added atm media inspect and a separate generated xyq.media.artifact_inspect
+  bundle; production ATM and user-level Skills were not upgraded at that stage.
+  Source-ATM/generated-CLI acceptance of six synthetic formats is separate from
+  installed production ATM and real provider task/download acceptance.

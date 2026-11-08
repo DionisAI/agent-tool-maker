@@ -33,7 +33,9 @@ def manifest(operation,bridge=None,download_root=None,adapter_dir=None):
                 'human_confirmed':{'type':'boolean','const':True}}
         props={'settings':{'type':'object','properties':fields,'required':list(fields),'additionalProperties':False}}
         argv+=['--settings',{'json':'settings'},'--bridge',str(bridge),'--bridge-sha256',hashlib.sha256(bridge.read_bytes()).hexdigest(),
-               '--adapter-pin',bundle_digest(DOWNLOAD_FILES),'--adapter-dir',str(adapter),'--download-root',str(root)]
+               '--adapter-pin',bundle_digest(DOWNLOAD_FILES),'--adapter-dir',str(adapter),'--download-root',str(root),
+               # Router.run checked the execute_code/external_write grants before this argv runs.
+               '--allow-write']
     else:argv+=['--request-key',{'input':'request_key'}]
     return validate_manifest({'id':'xyq.web.'+operation,'provider':'xyq','title':'小云雀交付 · '+operation,
         'capabilities':['website','media-delivery',operation],'adapter':'command','executable':'atm','paid':False,

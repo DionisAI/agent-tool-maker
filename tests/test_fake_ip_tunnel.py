@@ -110,6 +110,25 @@ def test_plain_global_is_stricter_than_is_global():
         assert not plain_global(ipaddress.ip_address(ip)), ip
 
 
+def _older_tables(ip):
+    """An IPv6 address as an interpreter before 3.11.10 / 3.12.4 / 3.13 judges it: its special-purpose table lacks
+    6to4 and local-use NAT64, so is_global says True. The rejection must not depend on the running interpreter."""
+    import ipaddress
+
+    class Older(ipaddress.IPv6Address):
+        is_global = property(lambda self: True)
+    return Older(ip)
+
+
+@pytest.mark.parametrize('ip', ['2002:c612:1::1', '2002:5db8:d822::1', '2001:0:4136:e378:8000:63bf:3fff:fdd2', '2001::1',
+                                '64:ff9b:1::5db8:d822', '64:ff9b:1:ffff:ffff:ffff:ffff:ffff'])
+def test_plain_global_refuses_6to4_teredo_and_local_nat64_without_is_global(ip):
+    address = _older_tables(ip)
+    assert address.is_global  # The fixture really stands for the older tables.
+    assert not plain_global(address), ip
+    assert plain_global(_older_tables('2606:4700::1'))  # Ordinary global unicast still passes.
+
+
 @pytest.mark.parametrize('ips,off,on', [
     (('198.18.0.1', '10.0.0.1'), ('unsafe_download', None), ('unsafe_download', None)),
     (('198.18.0.1', '127.0.0.1'), ('unsafe_download', None), ('unsafe_download', None)),
