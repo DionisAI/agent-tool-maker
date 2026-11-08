@@ -1,0 +1,59 @@
+{
+  "tripo_studio": {
+    "provider": "tripo_studio",
+    "label": "Tripo Studio",
+    "brand": "tripo",
+    "billing": "website subscription",
+    "sources": [
+      "tripo.studio.account",
+      "tripo.server.account"
+    ],
+    "installed": true,
+    "source": "tripo.studio.account",
+    "source_kind": "website",
+    "status": "error",
+    "credits": 6396,
+    "plan": null,
+    "unit": "credits",
+    "checked_at": 1799740800,
+    "last_ok_at": 1799568000,
+    "error": {
+      "code": "login_required",
+      "message": "Not logged in: the website showed its login page in the browser OpenCLIApp uses (OpenCLI exit 77). Log in there, then refresh. No balance was read."
+    },
+    "next_cycle": null,
+    "cycle_day": null,
+    "next_source": "tripo.studio.account",
+    "next_source_kind": "website",
+    "next_executable": "opencliapp",
+    "bound": true
+  },
+  "higgsfield": {
+    "provider": "higgsfield",
+    "label": "Higgsfield",
+    "brand": "higgsfield",
+    "billing": "CLI subscription",
+    "sources": [
+      "higgsfield.subscription.account"
+    ],
+    "installed": true,
+    "source": "higgsfield.subscription.account",
+    "source_kind": "cli",
+    "status": "error",
+    "credits": 1234,
+    "plan": "pro",
+    "unit": "credits",
+    "checked_at": 1799740800,
+    "last_ok_at": 1799568000,
+    "error": {
+      "code": "cli_failed",
+      "message": "CLI exited with code 1; stderr suppressed. Check its login/status directly."
+    },
+    "next_cycle": null,
+    "cycle_day": null,
+    "next_source": "higgsfield.subscription.account",
+    "next_source_kind": "cli",
+    "next_executable": "higgsfield",
+    "bound": true
+  }
+}

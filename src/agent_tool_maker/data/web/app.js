@@ -401,7 +401,7 @@ $('#session-action').addEventListener('click', action(async () => {
   else if (state==='locked') unlockDialog();
   else if (state==='unlocked') {
     await api('/api/session/lock',{}); await refresh();
-    toast('Key 已锁定。新的 Key 使用已停止；已经在运行的程序可能仍持有取到的 Key。'); announce('Key 已锁定');
+    toast(MODEL.keyLock(data, Date.now()/1000).toast); announce('Key 已锁定');
   }
 }));
 
@@ -459,7 +459,7 @@ function renderOverview() {
   else if (m.inbox.length) out.push(pageTitle(zh`有 ${m.inbox.length} 件事需要你处理`, zh`只列出会让 Agent 用不了的问题，处理后会自动消失。${ready} 个服务可以使用。`));
   else if (live.length) out.push(pageTitle('有 Agent 在等你确认', '在授权窗口里确认后，Agent 会继续。'));
   else out.push(pageTitle('一切正常', zh`${ready} 个服务可以使用。` + (!vault.backend ? '还没设置 Key 保管方式。' : session.unlocked
-    ? zh`Key 已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定。` : 'Key 已锁定：Agent 需要 Key 时会打开授权窗口请你确认。')));
+    ? zh`Key 已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定。` : MODEL.keyLock(data, Date.now()/1000).home)));
   if (m.requests.length) out.push(requestsSection('home-requests'));
   if (m.firstRun.show) out.push(firstRunSection());
   if (!(m.firstRun.show && !m.inbox.length)) out.push(inboxSection());
@@ -644,14 +644,14 @@ function creditCard(p) {
       el('p',{class:'quiet'},zh`还不能读取：先在“${name}”页完成设置。`,' ',go_({label:'去设置',kind:'nav',target:'services/'+key})),cycle,el('div',{class:'card-actions'},cycleButton));
   const stale=p.last_ok_at&&Date.now()/1000-p.last_ok_at>86400;
   const amount=typeof p.credits==='number'?creditNumber(p.credits):'—';
-  const site=T.sites[key], exe=sourceTool?.tool.executable||p.next_executable;
-  const login=p.status==='error'&&p.error?.code==='login_required';
+  const site=T.sites[key];
+  const login=p.status==='error'&&p.error?.code==='login_required';  // Only a website source is recorded as signed out.
   return el('article',{class:'credit-card'+(creditsBusy.has(p.provider)?' busy':''),'data-provider':p.provider},head,
     el('strong',{class:'credit-amount'+(amount.length>12?' long':'')},amount,el('small',{},' 积分')),
     el('div',{class:'credit-meta'},p.plan?el('span',{class:'badge'},p.plan):null,el('small',{},p.last_ok_at?'上次读取 '+relativeTime(p.last_ok_at):'尚未读取'),
       stale?el('span',{class:'badge warn'},'超过 24 小时，可能已变化'):null,
       p.status==='error'&&p.error?creditError(p.error):null),
-    login?el('p',{class:'quiet'},'需要登录：'+(p.source_kind==='cli'?zh`用 ${exe} 自己的登录命令登录`:zh`在 Chrome 里登录 ${site?.name||name}`),' ',go_({...routeOf(),label:'怎么登录'})):null,
+    login?el('p',{class:'quiet'},zh`需要登录：在 Chrome 里登录 ${site?.name||name}`,' ',go_({...routeOf(),label:'怎么登录'})):null,
     p.bound?null:el('p',{class:'quiet'},zh`还不能读取：需要先绑定 ${p.next_executable} 程序。`,' ',go_(routeOf())),
     cycle,
     el('div',{class:'card-actions'},p.bound?creditsButton('刷新',[p.provider],'secondary','refresh',p.provider):null,
@@ -862,10 +862,10 @@ function toolRow(v) {
 // ---- Agent 与权限 ----
 function renderAgents() {
   const m=model, vault=vaultInfo(), session=sessionInfo(), out=[];
-  out.push(pageTitle('Agent 与权限','Claude Code 和 Codex 只能用你允许的工具和 Key。需要 Key 时，Agent 会在本机打开授权窗口请你确认；Agent 不能自己批准，管理台也不能替它批准。'));
+  out.push(pageTitle('Agent 与权限','Claude Code 和 Codex 只能调用你允许的工具。Agent 要把 Key 交给项目里的程序时，会在本机打开授权窗口请你确认；Agent 不能自己批准，管理台也不能替它批准。'));
   const projects=m.grants.active.filter(g=>g.kind==='project_session');
   out.push(el('section',{id:'reach'},el('div',{class:'section-head'},el('div',{},el('h2',{},'Agent 现在能用什么'))),el('div',{class:'reach'},facts([
-    ['Key',!vault.backend?'还没设置 Key 保管方式。':session.unlocked?zh`已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定。获准的项目可以使用 Key。`:'已锁定。Agent 现在拿不到任何 Key；需要时会打开授权窗口请你确认。'],
+    ['Key',!vault.backend?'还没设置 Key 保管方式。':session.unlocked?zh`已解锁，到 ${T.time(Date.now()/1000+leaseLeft())} 自动锁定。获准的项目可以使用 Key。`:MODEL.keyLock(data, Date.now()/1000).agents],
     ['项目',projects.length?zh`${projects.length} 个项目获准使用 Key：${projects.map(g=>g.title.replace(/^项目 /,'').replace(/ · 由授权窗口批准$/,'')).join('、')}`:'还没有获准的项目'],
     ['工具',el('span',{},zh`${m.counts.toolsEnabled} / ${m.counts.toolsTotal} 个工具允许使用 `,el('button',{type:'button',class:'plain','data-key':'reach:disabled',onclick:()=>{Object.assign(serviceFilters,{view:'tools',status:'off',q:'',route:'',paidOnly:false});go('services');}},'查看已停用的工具'))],
     ['扣费',zh`其中 ${m.counts.toolsPaidEnabled} 个可能扣费。每次扣费都要 Agent 在调用时明确声明；ATM 不设金额上限。`]]))));
@@ -878,7 +878,7 @@ function renderAgents() {
       el('div',{class:'actions'},...a.actions.map(x=>actionButton(x,x.primary?'primary':x.danger?'plain danger':'secondary','agent:'+a.agent+':'+x.label))))))));
   const g=m.grants;
   out.push(el('section',{id:'grants'},el('div',{class:'section-head'},el('div',{},el('h2',{},'正在生效的授权 · '+g.active.length)),btn('新建受限授权',()=>grantDialog(),'secondary',{'data-key':'grants:new'})),
-    rows(...(g.active.length?g.active.map(x=>grantRow(x,true)):[el('li',{class:'empty'},'还没有授权。Agent 第一次需要 Key 时，会在本机打开授权窗口请你确认。')])),
+    rows(...(g.active.length?g.active.map(x=>grantRow(x,true)):[el('li',{class:'empty'},'还没有授权。Agent 第一次要把 Key 交给项目里的程序时，会在本机打开授权窗口请你确认。')])),
     g.ended.length?el('div',{class:'block'},details('ended-grants','已结束的授权 · '+g.ended.length,rows(...g.ended.map(x=>grantRow(x,false))))):null));
   out.push(el('section',{id:'agent-commands'},details('agent-commands','在终端操作',commandBox('atm setup\natm setup --apply\natm agents list\natm doctor --tool ffmpeg.probe'),
     el('p',{},'安装只代表 ATM 说明文件和路径已写入；请在真实客户端的新会话里确认。只对本机同一个系统用户有效，云端会话无法据此访问本机文件或 Key。'),

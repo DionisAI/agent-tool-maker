@@ -111,6 +111,20 @@ def grant_project(router, server, args):
             'seconds_remaining': server.metadata_status()['seconds_remaining'], 'secrets_returned': False}
 
 
+def end_project_grants(state, binding):
+    """Project approvals end with the unlock session they are bound to (SecretSession._authorize already refuses them).
+    Recorded, so `atm access list` and the console list them as ended, not live. An owner's revocation is kept as is."""
+    if not binding:
+        return
+    with state.db() as db:
+        from .sync import _set
+        db.execute('BEGIN IMMEDIATE')
+        for name, value in db.execute("SELECT name, value FROM settings WHERE name LIKE 'access:%'").fetchall():
+            policy = json.loads(value)
+            if policy.get('kind') == 'project_session' and policy.get('session_binding') == binding and not policy.get('revoked'):
+                _set(db, name, {**policy, 'revoked': True, 'revoked_reason': 'session_ended'})
+
+
 def ready(state, workspace, names=()):
     path = profile_path(state, workspace)
     if not path.exists():

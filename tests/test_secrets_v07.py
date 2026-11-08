@@ -197,6 +197,45 @@ def test_lock_revokes_new_use_not_reconfigure(env):
     assert r.state.secret_names()==['fal']
 
 
+def test_session_start_and_lock_leave_a_strict_broker_reported_running(monkeypatch, capsys):
+    # broker_status is the strict broker's record (atm broker serve): the shared session keeps its own, so 立即锁定
+    # still names a strict broker that keeps serving its grants. Every reader sees the same record.
+    import tempfile
+    from agent_tool_maker import multidevice_web
+    from agent_tool_maker.broker import Broker
+    from agent_tool_maker.cli import main
+    monkeypatch.setenv('ATM_VAULT_PASSWORD', 'test-only-passphrase-long')
+    def readers(r):
+        assert main(['--home', str(r.state.home), 'broker', 'status']) == 0
+        cli = json.loads(capsys.readouterr().out)['last_report']
+        return [r.state.setting('broker_status'), multidevice_web.read(r, '/api/access')['broker'], cli]
+    with tempfile.TemporaryDirectory(prefix='atm7-') as tmp:
+        root = Path(tmp)
+        r = Router(root/'state'); r.vault = Vault(r.state, password='test-only-passphrase-long')
+        r.vault.init('passphrase'); r.vault.put('fal', KEY)
+        strict = Broker(r.state.home, socket_file=root/'strict.sock', vault=Vault(r.state, password='test-only-passphrase-long'))
+        st = threading.Thread(target=strict.serve_forever, daemon=True); st.start()
+        try:
+            running = r.state.setting('broker_status')
+            assert running['state'] == 'running' and running['socket'] == str(root/'strict.sock') and 'mode' not in running
+            server = SecretSession(r.state.home, vault=r.vault)
+            t = threading.Thread(target=run_service, args=(server,), daemon=True); t.start()
+            assert status(r.state.home)['unlocked'] is True
+            assert readers(r) == [running] * 3
+            assert owner_call(r.state.home, 'session.lock')['unlocked'] is False
+            t.join(10); assert not t.is_alive()
+            assert readers(r) == [running] * 3
+            # The session's own record says it stopped, on its own socket.
+            ended = r.state.setting('secrets_session_status')
+            assert ended['state'] == 'stopped' and ended['socket'] == str(server.path) != str(root/'strict.sock')
+        finally:
+            strict.shutdown(); st.join(10); strict.server_close()
+        # The strict broker marks its own record stopped.
+        stopped = readers(r)
+        assert stopped[0]['state'] == 'stopped' and stopped[0]['socket'] == str(root/'strict.sock') and stopped == [stopped[0]] * 3
+        r.close()
+
+
 def test_exact_request_key_no_rerun_and_output_not_stored(env):
     r,w,s,_=env;p,_,_=permit(env)
     a=call(p,'exec',request(w));b=call(p,'exec',request(w))

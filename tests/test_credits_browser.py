@@ -219,10 +219,14 @@ def test_credits_refreshes_are_serialized_and_keep_focus(tmp_path, width):
         "provider": "xyq", "status": "error", "credits": 123456789012, "plan": None, "unit": "credits",
         "source": "xyq.web.account", "checked_at": now - 60, "last_ok_at": now - 120,
         "error": {"code": "fixture_new_code", "message": "Fixture message for an unlisted code."}})
-    router.state.set_setting("credits:higgsfield", {
-        "provider": "higgsfield", "status": "error", "credits": 5, "plan": "pro", "unit": "credits",
-        "source": "higgsfield.subscription.account", "checked_at": now - 60, "last_ok_at": now - 120,
-        "error": {"code": "login_required", "message": "Fixture: log in to the CLI first."}})
+    # Higgsfield's error comes from a real refresh: signed out, the CLI fails and ATM keeps only its exit status.
+    fakes.output("higgsfield", {**HIGGSFIELD, "credits": 5})
+    assert credits.refresh(router, "higgsfield", clock=lambda: now - 120)["credits"] == 5
+    (fakes.root / "higgsfield.exit").write_text("1")
+    assert credits.refresh(router, "higgsfield", clock=lambda: now - 60)["error"]["code"] == "cli_failed"
+    (fakes.root / "higgsfield.exit").unlink()
+    (fakes.root / "calls.jsonl").unlink()  # The page's own refreshes are counted below.
+    fakes.output("higgsfield", HIGGSFIELD)
     router.state.set_setting("credits:tripo_studio", {
         "provider": "tripo_studio", "status": "error", "credits": 7, "plan": "toString", "unit": "credits",
         "source": "tripo.studio.account", "checked_at": now - 60, "last_ok_at": now - 120,
@@ -254,8 +258,10 @@ def test_credits_refreshes_are_serialized_and_keep_focus(tmp_path, width):
             # Error badges: a short label (the code for unlisted ones) and the full message as title.
             expect(xyq.locator(".badge.bad")).to_have_text("读取失败 · fixture_new_code")
             expect(xyq.locator(".badge.bad")).to_have_attribute("title", "Fixture message for an unlisted code.")
-            expect(higgsfield.locator(".badge.bad")).to_have_text("需要登录")
-            expect(higgsfield.locator(".badge.bad")).to_have_attribute("title", "Fixture: log in to the CLI first.")
+            expect(higgsfield.locator(".badge.bad")).to_have_text("读取失败")
+            expect(higgsfield.locator(".badge.bad")).to_have_attribute(
+                "title", "CLI exited with code 1; stderr suppressed. Check its login/status directly.")
+            expect(higgsfield).not_to_contain_text("需要登录")  # An exit status names no cause.
             expect(tripo.locator(".badge.bad")).to_have_text("读取失败 · constructor")  # Own keys only.
             expect(tripo.locator(".credit-meta .badge").first).to_have_text("toString")
             expect(xyq.locator(".credit-source")).to_have_text("来自小云雀网站（你的 Chrome 登录）")
@@ -409,6 +415,62 @@ def test_chrome_login_check_on_the_service_page_joins_the_same_queue(tmp_path):
             assert [c["exe"] for c in fakes.calls()] == ["higgsfield", "opencliapp"]
             assert [urlsplit(url).path for method, url in requests if method == "POST"] == ["/api/credits/refresh"] * 2
             assert State(server.home).setting("credits:tripo_studio")["credits"] == 6396
+            assert not errors, errors
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.browser
+def test_a_signed_out_chrome_reads_as_a_login_after_a_real_refresh(tmp_path):
+    """OpenCLIApp exits 77 when the site shows its login wall; the page's own refresh records login_required."""
+    from playwright.sync_api import sync_playwright, expect
+    chrome = chromium()
+    router = Router(tmp_path / "state")
+    fakes = Fakes(tmp_path)
+    install_tool(router, definitions(router.state.home)["tripo.studio.account"])
+    fakes.bind(router, "opencliapp")
+    fakes.output("opencliapp", tripo_row(6396))
+    assert credits.refresh(router, "tripo_studio")["credits"] == 6396  # Signed in once.
+    router.close()
+    server = Console(tmp_path / "state", localhost=True, user_home=tmp_path / "user")
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(executable_path=chrome, headless=True)
+            page = browser.new_page(viewport={"width": 1280, "height": 1000})
+            page.set_default_timeout(15000)
+            expect.set_options(timeout=15000)
+            errors = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server.origin + "/#token=" + server.token)
+            page.get_by_role("heading", name="订阅额度").wait_for()
+            card = page.locator(".credit-card[data-provider=tripo_studio]")
+            expect(card.locator(".credit-amount")).to_contain_text("6,396")
+            (fakes.root / "opencliapp.exit").write_text("77")  # Signed out of the website in Chrome.
+            card.locator("[data-credit-action=refresh]").click()
+            expect(page.locator("#toast")).to_have_text("额度读取失败：Tripo Studio · 需要登录")
+            expect(card.locator(".badge.bad")).to_have_text("需要登录")
+            expect(card.locator(".badge.bad")).to_have_attribute("title", credits.LOGIN_REQUIRED)
+            expect(card).to_contain_text("需要登录：在 Chrome 里登录 Tripo Studio")
+            expect(card.locator(".credit-amount")).to_contain_text("6,396")  # The last good balance stays.
+            stored = State(server.home).setting("credits:tripo_studio")
+            assert stored["error"] == {"code": "login_required", "message": credits.LOGIN_REQUIRED}
+            expect(page.locator("#inbox")).to_contain_text("Tripo Studio 需要重新登录")
+            expect(page.locator("#inbox")).to_contain_text("Chrome 里没有登录 Tripo Studio，读不到积分，相关工具也可能失败。")
+            # The Chrome route on the service page says so, and its check runs the same reviewed refresh.
+            page.evaluate("go('services/tripo')")
+            route = page.locator("li.route[data-kind=chrome]")
+            expect(route).to_contain_text("上次检查时，Chrome 里没有登录 Tripo Studio（刚刚）。登录后点“检查 Chrome 登录”。")
+            expect(route).to_contain_text("需要登录")
+            (fakes.root / "opencliapp.exit").unlink()  # Signed in again.
+            route.locator("[data-credit-action=check]").click()
+            expect(route).to_contain_text("Chrome 已登录 Tripo Studio（刚刚检查）")
+            assert State(server.home).setting("credits:tripo_studio")["error"] is None
+            assert [c["exe"] for c in fakes.calls()] == ["opencliapp"] * 3
             assert not errors, errors
             browser.close()
     finally:

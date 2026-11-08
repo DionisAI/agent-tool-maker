@@ -66,6 +66,31 @@ def test_keyring_mode_with_contract_double(tmp_path):
     assert list(backend.values.values())[0].encode() not in s.path.read_bytes()
 
 
+def test_the_shared_lock_does_not_gate_a_direct_vault_read(tmp_path, monkeypatch):
+    """What the console's 已锁定 copy says (model.js keyLock): atm run opens the vault itself, with no session check."""
+    import io
+    from agent_tool_maker import session
+    class Keyring:
+        def __init__(self): self.values={}
+        def set_password(self,s,a,v): self.values[s,a]=v
+        def get_password(self,s,a): return self.values.get((s,a))
+    monkeypatch.delenv('ATM_VAULT_PASSWORD', raising=False)
+    monkeypatch.setattr('sys.stdin', io.StringIO())  # An Agent's process: no terminal.
+    backend=Keyring(); keyring=State(tmp_path/'k')
+    Vault(keyring,keyring_backend=backend).init('keyring'); Vault(keyring,keyring_backend=backend).put('fal','keyring-test-value')
+    passphrase=State(tmp_path/'p')
+    Vault(passphrase,password='a-long-enough-password').init('passphrase'); Vault(passphrase,password='a-long-enough-password').put('fal','pass-test-value')
+    for state in (keyring, passphrase):
+        assert session.status(state.home)['unlocked'] is False
+    # The keychain: read straight away, locked or not.
+    assert Vault(keyring,keyring_backend=backend).get('fal')=='keyring-test-value'
+    # A passphrase vault: no window and no Key without the password; ATM_VAULT_PASSWORD supplies it.
+    with pytest.raises(RouterError) as error: Vault(passphrase).get('fal')
+    assert error.value.code=='interactive_required'
+    monkeypatch.setenv('ATM_VAULT_PASSWORD','a-long-enough-password')
+    assert Vault(passphrase).get('fal')=='pass-test-value'
+
+
 def test_native_keyring_failure_is_explicit(tmp_path):
     class Broken:
         def set_password(self,*args): raise RuntimeError('do not echo secret')
