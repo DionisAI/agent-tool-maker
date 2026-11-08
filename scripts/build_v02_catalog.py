@@ -1,6 +1,8 @@
 """Build finite reviewed actions. This is NOT a vendor-wide compatibility claim."""
+import argparse
 import json
 from pathlib import Path
+if __name__=='__main__':argparse.ArgumentParser(description='Regenerate src/agent_tool_maker/data/catalog-v02.json in place; takes no options.').parse_args()
 ROOT=Path(__file__).resolve().parents[1]
 DATA=ROOT/'src/agent_tool_maker/data'
 research=json.loads((DATA/'research.json').read_text())

@@ -1,4 +1,4 @@
-import copy,json,shutil,subprocess,os
+import copy,json,shutil,subprocess,os,sys
 from pathlib import Path
 import httpx,pytest
 from agent_tool_maker.catalog import Catalog
@@ -20,6 +20,34 @@ def test_66_research_items_have_explicit_implemented_scope_and_gap():
         assert x['remaining_work'] and x['action_ids'] and x['sources']
         assert not x['native_vendor_live_tested']
         for aid in x['action_ids']:assert aid in catalog
+
+def scratch_checkout(root):
+    # Real generator inputs in a scratch tree, so no run can rewrite this checkout.
+    shutil.copytree(ROOT/'scripts',root/'scripts',ignore=shutil.ignore_patterns('__pycache__'))
+    shutil.copytree(ROOT/'examples/opencli/tripo-studio',root/'examples/opencli/tripo-studio')
+    shutil.copytree(ROOT/'src/agent_tool_maker',root/'src/agent_tool_maker',ignore=shutil.ignore_patterns('__pycache__'))
+    (root/'docs').mkdir();return root
+
+def scratch_env(root):
+    # Import the scratch copy, not whichever ATM happens to be installed.
+    return {**os.environ,'PYTHONPATH':str(root/'src')}
+
+def snapshot(root):
+    return {p.relative_to(root):(p.stat().st_mtime_ns,p.read_bytes()) for p in root.rglob('*') if p.is_file()}
+
+@pytest.mark.parametrize('script',['build_tripo_server.py','build_v02_catalog.py','build_release_docs.py'])
+def test_in_place_generators_answer_help_without_writing(script,tmp_path):
+    root=scratch_checkout(tmp_path);before=snapshot(root)
+    p=subprocess.run([sys.executable,'-B',str(root/'scripts'/script),'--help'],cwd=root,capture_output=True,text=True,env=scratch_env(root))
+    assert p.returncode==0 and p.stdout.startswith('usage: '+script) and 'in place' in p.stdout
+    assert snapshot(root)==before
+
+def test_generated_tool_catalog_matches_and_has_six_column_table(tmp_path):
+    root=scratch_checkout(tmp_path)
+    subprocess.run([sys.executable,'-B',str(root/'scripts/build_release_docs.py')],cwd=root,check=True,capture_output=True,env=scratch_env(root))
+    text=(root/'docs/TOOL_CATALOG.md').read_text();assert text==(ROOT/'docs/TOOL_CATALOG.md').read_text()
+    lines=text.splitlines();i=lines.index('| ID | 适配器 / 实现 | 声明权限 | 可能计费 | 本版动作 | 来源 |')
+    assert lines[i+1]=='|---|---|---|---|---|---|'
 
 def test_legacy_vault_metadata_still_decrypts(router):
     original=router.state.setting('vault');original.pop('service')

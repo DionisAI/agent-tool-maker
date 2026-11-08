@@ -5,7 +5,7 @@
 任何动作的账号、CLI、MCP 服务器或桌面应用仍需用户配置。`atm describe ID` 是输入 schema、例子和权限的可执行来源。
 
 | ID | 适配器 / 实现 | 声明权限 | 可能计费 | 本版动作 | 来源 |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | `elevenlabs.tts` | elevenlabs / native | 按已配置权限读取/本地操作 | 是/未知价格 | ElevenLabs 文字转语音 / narration | [文档1](https://elevenlabs.io/docs/api-reference/text-to-speech/convert) |
 | `fal.generate` | fal / native | 按已配置权限读取/本地操作 | 是/未知价格 | fal 多模型图片、视频、音频、3D | [文档1](https://fal.ai/docs/documentation/model-apis/inference/queue) |
 | `higgsfield.generate` | higgsfield / native | 按已配置权限读取/本地操作 | 是/未知价格 | Higgsfield API 图片 / 视频 | [文档1](https://docs.higgsfield.ai/docs/quickstart) |
