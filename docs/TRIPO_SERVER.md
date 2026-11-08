@@ -11,6 +11,8 @@
 本机 delivery 阶段的 texture_quote、texture、operation_status 尚未加入服务器分派；
 服务器上的 Texture 仍走已审阅的 workspace_prepare / workspace_submit。
 `tripo.server.*` 使用原 `tripo.studio.*` 的 schema、权限、预算和付费回执，旧定义保持原样。
+结果行结构也相同：runner 按 OpenCLI wrapper 逐操作整形，account、assets、quote、generate
+返回 adapter 原行，其余 27 个 `columns: ['result']` 工具返回 `[{"result": …}]`。
 仍使用 Studio 订阅额度；与开发者 API 独立。登录状态不进入 ATM Key 同步。
 
 ## Agent 准备，human 只登录
