@@ -13,7 +13,10 @@ MAX_RESPONSE = 128 * 1024 * 1024
 FAKE_IP = ipaddress.ip_network("198.18.0.0/15")
 # IPv6 forms that carry an IPv4 address (Python's is_global judges the IPv6 form, not the address inside).
 IPV4_TRANSLATED = ipaddress.ip_network("::ffff:0:0:0/96")
-NAT64 = ipaddress.ip_network("64:ff9b::/96")  # 64:ff9b:1::/48 (local-use NAT64) is already non-global.
+NAT64 = ipaddress.ip_network("64:ff9b::/96")
+# Local-use NAT64 (RFC 8215). With 6to4 (2002::/16) and Teredo (2001::/32) it also carries an IPv4 address or relay;
+# is_global rejects them only from Python 3.11.10 / 3.12.4 / 3.13, so plain_global rejects all three itself.
+LOCAL_NAT64 = ipaddress.ip_network("64:ff9b:1::/48")
 NETWORK_SETTING = "network"
 
 
@@ -87,8 +90,9 @@ def fake_ip_answer(address) -> bool:
 
 def plain_global(address) -> bool:
     """Stricter than is_global, for the answers the owner's Fake-IP setting lets through beside 198.18.0.0/15:
-    unicast and not reserved, IPv6 site-local, or an IPv4-mapped, -compatible or -translated IPv6 form. A NAT64
-    address counts only when the IPv4 address inside it would. With the setting off, is_global is used unchanged."""
+    unicast and not reserved, IPv6 site-local, or an IPv4-mapped, -compatible or -translated IPv6 form, nor 6to4,
+    Teredo or local-use NAT64 whatever the interpreter's is_global says. A NAT64 address counts only when the IPv4
+    address inside it would. With the setting off, is_global is used unchanged."""
     if not address.is_global or address.is_multicast:
         return False
     if address.version == 4:
@@ -96,6 +100,7 @@ def plain_global(address) -> bool:
     if address in NAT64:
         return plain_global(ipaddress.IPv4Address(int(address) & 0xFFFFFFFF))
     return not (address.is_reserved or address.is_site_local or address.ipv4_mapped is not None
+                or address.sixtofour is not None or address.teredo is not None or address in LOCAL_NAT64
                 or int(address) >> 32 == 0 or address in IPV4_TRANSLATED)
 
 
