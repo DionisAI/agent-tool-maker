@@ -167,7 +167,7 @@ class Vault:
                     obj = obj.replace(secret, "[REDACTED]")
             return obj
         if isinstance(obj, dict):
-            return {k: ("[REDACTED]" if k.lower() in {"authorization", "api_key", "access_token", "secret", "password"} else self.redact(v)) for k, v in obj.items()}
+            return {k: ("[REDACTED]" if k.lower() in {"authorization", "api_key", "access_token", "refresh_token", "client_secret", "id_token", "code_verifier", "secret", "password"} else self.redact(v)) for k, v in obj.items()}
         if isinstance(obj, list):
             return [self.redact(x) for x in obj]
         return obj

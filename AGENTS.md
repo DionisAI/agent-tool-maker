@@ -16,6 +16,9 @@ list of installation, grant, profile and execution commands.
   it does not claim hostile-code isolation. Old strict scopes remain strict.
 - JSON output reports ready, pending, denied, missing, expired and conflicts distinctly.
   Reuse requests. Never silently extend a lease, expand scope, or resubmit side effects.
+- Owner-managed Higgsfield OAuth is separate from Key slots and CLI login. Encrypt
+  tokens in the existing vault; opt-in native-keyring refresh never extends project
+  leases. Keep consent human, resource/issuer pinned and uncertain rotations unretried.
 
 ## Changes and tests
 

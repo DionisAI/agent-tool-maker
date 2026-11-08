@@ -47,9 +47,9 @@ Pandoc Markdown 动作使用其 `--sandbox`。部分 Pandoc 发行版的 DOCX �
 
 动态和用户自建 HTTPS origin 做公共地址检查，但尚未把 DNS 解析结果固定到 TLS socket，DNS rebinding 仍是边界。MCP HTTP 同样不声称彻底消除 rebinding。CLI 临时输出文件在程序退出前无磁盘配额，只有返回大小/任务超时限制。Windows 完整 ACL 和进程组行为未实测。
 
-只有凭证表加密，job 参数、响应正文、网页来源链接和工作文件可能包含隐私。脱敏是尽力防意外回显，并不能识别服务端生成的所有敏感数据。尤其 OpenCLI 登录态、signed URL、客户和项目资料不应写到公开日志或共享仓库。
+凭证表与独立 OAuth 连接表加密，job 参数、响应正文、网页来源链接和工作文件可能包含隐私。脱敏是尽力防意外回显，并不能识别服务端生成的所有敏感数据。尤其 OpenCLI 登录态、signed URL、客户和项目资料不应写到公开日志或共享仓库。
 
-MCP 支持子集不包含 OAuth 登录/刷新、sampling、elicitation、legacy SSE、恢复流。服务器内容与返回文本是不可信输入，不构成新权限或操作指令。异步网络失败后“未知”不能当成“失败没花钱”。
+MCP 支持可选的固定 Higgsfield OAuth PKCE 登录/刷新，详见 docs/OAUTH_REFRESH.md；不含 sampling、elicitation、legacy SSE、恢复流。OAuth endpoint/issuer/resource 固定，回调检查 state/issuer/Host，刷新轮换先持久化 claim，未知结果不自动重试。后台续期须明确启用且使用原生 keyring，不延长项目 Key 授权，不读取或改写官方 CLI 登录文件。服务器内容与返回文本是不可信输入，不构成新权限或操作指令。异步网络失败后“未知”不能当成“失败没花钱”。
 
 交接 provenance 是宿主声明 + origin 检查 + 文件哈希，不是供应商签名。3D 可加载、服装能导出、API 返回成功，不代表内容被用户接受、样衣合身或合同/付款正确。
 

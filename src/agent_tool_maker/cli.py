@@ -102,6 +102,8 @@ def parser():
     add_commands(sub,mk)
     from .secrets_cli import add_commands as secrets_commands
     secrets_commands(sub)
+    from .oauth_cli import add_commands as oauth_commands
+    oauth_commands(sub)
     return p
 
 
@@ -119,6 +121,9 @@ def load_input(value):
 
 def dispatch(args,router):
     cmd=args.command
+    if cmd == "oauth":
+        from .oauth_cli import dispatch as oauth_dispatch
+        return oauth_dispatch(args, router)
     if cmd in {"keys", "exec", "lock", "session"} or cmd == "access" and args.operation == "permit-exec":
         from .secrets_cli import dispatch as secrets_dispatch
         return secrets_dispatch(args, router)
@@ -288,6 +293,11 @@ def main(argv=None):
             return 2
         if args.command=="setup" and args.apply and value.get("status") in {"needs_review", "needs_dependencies"}:
             return 2
+        if args.command == "oauth" and isinstance(value, dict):
+            if value.get("status") in {"pending", "refreshing"}:
+                return 3
+            if value.get("status") in {"needs_login", "refresh_unknown", "denied", "expired"} or value.get("action") == "paused":
+                return 2
         return 2 if isinstance(value,dict) and value.get("status") in ["failed","submission_unknown","download_failed","delivery_failed","blocked","partial_rejection","login_required"] else 0
     except RouterError as e:
         print(json.dumps({"error":e.as_dict()},ensure_ascii=False,indent=2))

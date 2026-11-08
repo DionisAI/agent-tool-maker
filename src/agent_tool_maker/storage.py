@@ -62,6 +62,8 @@ class State:
             c.executescript('''
                 CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS secrets (name TEXT PRIMARY KEY, nonce BLOB, ciphertext BLOB);
+                CREATE TABLE IF NOT EXISTS oauth_connections (
+                    name TEXT PRIMARY KEY, metadata TEXT NOT NULL, nonce BLOB NOT NULL, ciphertext BLOB NOT NULL);
                 CREATE TABLE IF NOT EXISTS sync_registers (
                     provider TEXT PRIMARY KEY, summary TEXT NOT NULL, nonce BLOB NOT NULL, ciphertext BLOB NOT NULL);
                 CREATE TABLE IF NOT EXISTS jobs (
