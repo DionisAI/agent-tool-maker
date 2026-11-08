@@ -38,11 +38,14 @@ def test_dom_console_flows_and_cli_state_reuse(tmp_path):
                 response=client.request(options.get('method','GET'),path,headers=headers,content=options.get('body'))
                 return {'status':response.status_code,'body':response.json()}
             page.expose_function('_test_atm_http',bridge)
-            html=asset.joinpath('index.html').read_text().replace('<link rel="stylesheet" href="/assets/app.css">','').replace('<script src="/assets/app.js" defer></script>','')
+            html=asset.joinpath('index.html').read_text().replace('<link rel="stylesheet" href="/assets/app.css">','')
+            for script in ['brand-data.js','brands.js','passkeys.js','app.js']:
+                html=html.replace('<script src="/assets/'+script+'" defer></script>','')
             page.set_content(html)
             page.add_style_tag(content=asset.joinpath('app.css').read_text())
             page.evaluate("() => {window.fetch=async(path,options)=>{const r=await window._test_atm_http(path,options);return {ok:r.status>=200&&r.status<300,status:r.status,json:async()=>r.body};};}")
-            page.add_script_tag(content=asset.joinpath('app.js').read_text())
+            for script in ['brand-data.js','brands.js','passkeys.js','app.js']:
+                page.add_script_tag(content=asset.joinpath(script).read_text())
             page.locator('#session-token').fill(server.token)
             page.get_by_role('button',name='连接工作台 →').click()
             page.get_by_role('heading',name='连接一次，持续使用。').wait_for()

@@ -46,7 +46,7 @@ def test_public_shell_contains_no_local_data_or_token(console):
     assert str(server.home) not in r.text and server.token not in r.text
     assert r.headers['Cache-Control']=='no-store' and "frame-ancestors 'none'" in r.headers['Content-Security-Policy']
     assert 'Access-Control-Allow-Origin' not in r.headers
-    for route in ['/assets/app.js','/assets/app.css']:
+    for route in ['/assets/app.js','/assets/app.css','/assets/brands.js','/assets/brand-data.js']:
         r=client.get(route);assert r.status_code==200 and server.token not in r.text
     if os.name=='posix':assert server.token_path.stat().st_mode & 0o777==0o600
 
@@ -241,7 +241,7 @@ def test_response_client_disconnect_is_not_retried(failure,phase):
     assert handler.close_connection is True
 
 
-@pytest.mark.parametrize('route', ['/', '/assets/app.js', '/assets/app.css'])
+@pytest.mark.parametrize('route', ['/', '/assets/app.js', '/assets/app.css', '/assets/brands.js', '/assets/brand-data.js'])
 def test_static_assets_work_with_python311_single_child_traversable(console, monkeypatch, route):
     # CPython 3.11 namespace resources accept exactly one joinpath child.
     # Keep actual files/HTTP execution, replacing only that versioned interface.

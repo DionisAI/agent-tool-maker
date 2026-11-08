@@ -45,6 +45,10 @@ def test_password_once_ui_then_scoped_program(tmp_path):
                 html=asset.joinpath('index.html').read_text().replace('<link rel="stylesheet" href="/assets/app.css">','').replace('<script src="/assets/app.js" defer></script>','')
                 page.set_content(html);page.add_style_tag(content=asset.joinpath('app.css').read_text())
                 page.evaluate("() => {window.fetch=async(path,options)=>{const r=await window._test_atm_http(path,options);return {ok:r.status>=200&&r.status<300,status:r.status,json:async()=>r.body};};}")
+                # Match the shell's real script order, rather than testing app.js
+                # without its reviewed brand/Passkey dependencies on about:blank.
+                for name in ('brand-data.js', 'brands.js', 'passkeys.js'):
+                    page.add_script_tag(content=asset.joinpath(name).read_text())
                 page.add_script_tag(content=asset.joinpath('app.js').read_text())
                 page.locator('#session-token').fill(ui.token);page.get_by_role('button',name='连接工作台 →').click()
                 page.get_by_role('button',name='解锁 30 分钟',exact=True).click()

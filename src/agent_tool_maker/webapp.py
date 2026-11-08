@@ -27,6 +27,8 @@ from .vault import Vault
 MAX_BODY = 65536
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/assets/app.js": ("app.js", "text/javascript; charset=utf-8"),
+          "/assets/brand-data.js": ("brand-data.js", "text/javascript; charset=utf-8"),
+          "/assets/brands.js": ("brands.js", "text/javascript; charset=utf-8"),
           "/assets/passkeys.js": ("passkeys.js", "text/javascript; charset=utf-8"),
           "/assets/app.css": ("app.css", "text/css; charset=utf-8")}
 CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'"
