@@ -44,7 +44,7 @@ MAX_CREDITS = 10**15
 # scripts/build_xyq_web.py (xyq-web) and scripts/build_xyq_runtime.py (xyq-media). A contract test
 # recomputes both from the adapter sources, so drift fails CI until the new pins are reviewed here.
 XYQ_ACCOUNT_PINS = {"xyq-web": "4183404ea6c890635af1a17d96050d6e8d4d7f8253e2ef2fe9a02cde80236f1f",
-                    "xyq-media": "06d6591e8239ed0efa216b242dac86a0900bc6d40df2392fc70809837111fd23"}
+                    "xyq-media": "58471330ad310bd9d0040bc63f1ca2037081fee3b04ecf98776d7277d7c3b381"}
 
 
 def _unreadable():

@@ -214,6 +214,23 @@ def import_openapi(document, operation_id, tool_id, *, credential=None):
         raise RouterError('openapi_unsupported','Malformed or unsupported OpenAPI structure; no network lookup or heuristic fallback was made.') from None
 
 
+BUNDLE_FILES = {"manifest.json", "tool.py", "README.md", "inputs.example.json"}
+
+
+def _existing_bundle_path(dest: Path) -> RouterError:
+    """An existing destination is never reused, overwritten or deleted. pack() writes the lock last, so a
+    directory holding only bundle files (or atomic_write temporaries) and no lock is a failed build's partial bundle."""
+    try:
+        names = {p.name for p in dest.iterdir()} if dest.is_dir() and not dest.is_symlink() else None
+    except OSError:
+        names = None
+    if names is not None and "bundle-lock.json" not in names and \
+            all(n in BUNDLE_FILES or n == ".DS_Store" or n.startswith(".atm-") for n in names):
+        return RouterError("partial_bundle_retained", f"A partial bundle without bundle-lock.json is kept at {dest} from "
+                           "an earlier failed build; it fails check-bundle and is never reused or deleted. Choose a new --out.")
+    return RouterError("file_exists", "Choose a new bundle directory; existing work is preserved.")
+
+
 def pack(tool: dict, directory: Path, catalog=None) -> dict:
     """Compile a manifest into a portable Python CLI; no LLM or credentials needed."""
     tool = validate_manifest(tool, catalog)
@@ -222,7 +239,7 @@ def pack(tool: dict, directory: Path, catalog=None) -> dict:
         if p.is_symlink():
             raise RouterError("unsafe_bundle_path", "Bundle path cannot traverse symlinks.")
     if dest.exists():
-        raise RouterError("file_exists", "Choose a new bundle directory; existing work is preserved.")
+        raise _existing_bundle_path(dest)
     sha = digest(tool)
     from importlib.resources import files
     script = files('agent_tool_maker.data').joinpath('EXTENSION_CLI_TEMPLATE.py').read_text().replace(
@@ -243,7 +260,10 @@ def pack(tool: dict, directory: Path, catalog=None) -> dict:
     # Exclusive mkdir reserves the destination. Write the integrity lock last.
     # A failed build remains inspectable; no directory cleanup or deletion occurs.
     # This also works on systems without macOS Trash. Partial bundles fail check-bundle.
-    dest.mkdir()
+    try:
+        dest.mkdir()
+    except FileExistsError:  # Created by someone else since the check above.
+        raise _existing_bundle_path(dest) from None
     try:
         for name, text in data.items():
             atomic_write(dest / name, text.encode())

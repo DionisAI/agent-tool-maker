@@ -123,8 +123,11 @@ settings.request_key 可沿用。已失败的 job 键只返回原 failed job，�
 当前源码的 pin（取代下文2026-10-08已安装的旧 pin）：
 - 适配器闭包 pin（download.mjs/js 及结果读取闭包）：`9e442f3ced8e674020543867259d8f16383f1c243383c86802c4d60f60eee0dc`
   （旧 `37db8c3f2221abcec61f59a9a48ea1f2c42b0716c6323414951f9a78b6c09164`）。
-- 流水线 source_digest：`3c46e2ff89d76c0f8a9bec4cd8e7f62a5c239a3705c6f6dc07bd1c1d2c6d138e`
-  （旧 `e7b7f94a624272a855202773b707edab4b1e4cceb580c92788d355b43d4a416e`）。
+- 流水线 source_digest：`fa95bcaa6ea478cf72bd185a3f307694bf883870abc7b5d50dc1919826dc0e18`（`delivery xyq-image` 隐藏并要求
+  `--allow-write` 之后）（旧 `d6d80f4e1219cd6622bd09cdb6be4c3065a263bebd5f9a237d602e89c0278261`，main @1652509；更早
+  `3c46e2ff…`、`e7b7f94a…`）。它覆盖 `website_download.py`、`media.py` 与 `errors.py` 三个文件，其中任何一个变化都会
+  改变它：例如 #32 给 `errors.py` 加了 `hint`，所以 #34 分支上的 `3c46e2ff…` 在 main 上不成立。以所装运行时的
+  `source_digest()` 为准，见第2、4步。
 - 三个结果读取工具的闭包 pin 不变（`99e0f848…`）。
 
 新的 `xyq.web.result_download` 定义另含编译固定的 `--adapter-dir`：桥接加载器的 reviewed/ 闭包目录
@@ -135,16 +138,26 @@ settings.request_key 可沿用。已失败的 job 键只返回原 failed job，�
 这只是提前拒绝，从不清除任何锁：桥接实际加载的仍是 OpenCLI 按注册找到的入口，其自身 pin 校验仍是
 最终依据；检查之后、桥接之前闭包若又被替换，结果仍是 delivery_unknown 并保留锁。
 
+`atm delivery xyq-image` 是 Router 专用入口，不出现在 `atm delivery --help`：它会在已登录浏览器里
+点击下载，所以只经已安装的 `xyq.web.result_download`（`atm run … --allow-code --allow-write`，
+由 Router.run 检查 execute_code/external_write）执行。编译定义固定传入 `--allow-write`；
+直接手动调用若缺少该标志，在 pin 检查后返回 `permission_required`（outcome_uncertain=false），
+不建账本、不认领、不启动桥接。status 与 record-unknown 仍是可见的本地命令。
+
 三者必须一起升级，并按此顺序：
 1. 先安装包含新 `website_download.py` 的 ATM 运行时（含 #22 的 cli_adapter）。
 2. 用 `python scripts/build_xyq_download.py --out <新目录> --bridge <已审阅桥接> --download-root <已审阅下载目录> --adapter-dir <加载器>/reviewed`
    重新编译两个包（`--adapter-dir` 须是已存在、无链接的规范绝对目录）；回执中的
-   adapter_sha256 / pipeline_sha256 必须等于上面的新 pin。
+   adapter_sha256 必须等于上面的新闭包 pin，pipeline_sha256 必须等于第1步所装运行时的
+   `source_digest()`。后者可只读核对：
+   `<运行时的 python> -I -c "from agent_tool_maker.website_download import source_digest; print(source_digest())"`
+   （pipx 安装时运行时 python 在 `~/.local/pipx/venvs/agent-tool-maker-local/bin/python`）。
 3. 把新的下载闭包重装到该加载器的 reviewed/，同时用
    `atm make update <包>/manifest.json --approve <新定义SHA> --expected <已安装定义SHA>`
    更新两个定义（首次安装用 `atm make install`）。
-4. `atm describe xyq.web.result_download` 必须显示 `--pin 3c46e2ff…`、`--adapter-pin 9e442f3c…`
-   与第2步的 `--adapter-dir`；`atm describe xyq.web.result_download_status` 必须显示 `--pin 3c46e2ff…`。
+4. `atm describe xyq.web.result_download` 必须显示与运行时 `source_digest()` 相同的 `--pin`（当前为
+   `fa95bcaa…`）、`--adapter-pin 9e442f3c…` 与第2步的 `--adapter-dir`；
+   `atm describe xyq.web.result_download_status` 必须显示同一个 `--pin`。
 5. 第一次下载前运行只读的加载器摘要检查（默认加载器位置；其它位置换成同一 `--adapter-dir`）：
 
    ```sh
@@ -157,7 +170,7 @@ settings.request_key 可沿用。已失败的 job 键只返回原 failed job，�
 
 部分升级时各状态的实际行为：
 - 只换运行时（旧定义）：旧定义的 `--pin` 与新源码不符，ATM 在任何认领前返回 definition_changed。
-  旧定义没有 `--adapter-dir`，参数解析仍会放行到这一 pin 检查。
+  旧定义没有 `--adapter-dir` 和 `--allow-write`，参数解析仍会放行到这一 pin 检查。
 - 新运行时 + 新定义 + 旧闭包（加载器未换）：上述只读检查返回 definition_changed，工作目录没有
   账本或锁，桥接零启动；重装闭包后以新的 job `--request-key` 重跑即可。没有此检查时，旧加载器会在
   读取网页前停止（pin 不符，旧入口也没有 `--download-root`），外层却只见桥接非零退出，记为

@@ -155,9 +155,9 @@ NO_DIST = object()
 PACKAGED_SKILL = files("agent_tool_maker.data").joinpath("SKILL.md").read_bytes()
 
 
-def checkout(root, name="agent-tool-maker-local"):
+def checkout(root, name="agent-tool-maker-local", version=onboarding.__version__):
     (root / "scripts").mkdir(parents=True)
-    (root / "pyproject.toml").write_text(f'[project]\nname = "{name}"\nversion = "0.8.0"\n')
+    (root / "pyproject.toml").write_text(f'[project]\nname = "{name}"\nversion = "{version}"\n')
     (root / "SKILL.md").write_bytes(PACKAGED_SKILL)
     (root / "scripts/build_tripo_studio.py").write_text("")
     return root
@@ -255,6 +255,22 @@ def test_full_skill_requires_this_revision_of_the_skill(monkeypatch, tmp_path):
     root = checkout(tmp_path / "reviewed")
     (root / "SKILL.md").write_bytes(PACKAGED_SKILL + b"\nedited after install\n")
     installed(monkeypatch, tmp_path, {"url": root.as_uri(), "dir_info": {}})
+    assert UNKNOWN in runtime_block(tmp_path)
+
+
+@pytest.mark.parametrize("version", ["0.0.1", onboarding.__version__ + ".post1", None])
+def test_full_skill_requires_this_package_version(monkeypatch, tmp_path, version):
+    # Same Skill bytes and distribution name, but another release (or none): not this package's checkout.
+    root = checkout(tmp_path / "older")
+    if version is None:
+        (root / "pyproject.toml").write_text('[project]\nname = "agent-tool-maker-local"\n')
+    else:
+        (root / "pyproject.toml").write_text(f'[project]\nname = "agent-tool-maker-local"\nversion = "{version}"\n')
+    installed(monkeypatch, tmp_path, {"url": root.as_uri(), "dir_info": {}})
+    block = runtime_block(tmp_path)
+    assert UNKNOWN in block and "Source checkout" not in block and str(root) not in block
+    in_source = checkout(tmp_path / "in-source", version="0.0.1")
+    installed(monkeypatch, tmp_path / "again", NO_DIST, in_source / "src/agent_tool_maker")
     assert UNKNOWN in runtime_block(tmp_path)
 
 
