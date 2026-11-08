@@ -446,6 +446,12 @@ class Handler(BaseHTTPRequestHandler):
             from .oauth_web import login
             return login(router, provider=text(body, "provider"), keep_login=flag(body, "keep_login"),
                          replace=flag(body, "replace"), executable=self.server.executable)
+        if path == "/api/oauth/cancel":
+            # Owner-only, like every console write (bearer, exact Origin and Host). No CLI command cancels a login:
+            # Agents hand the login to the owner and only read its status. Metadata only, so no password is taken.
+            fields(body, ("provider",))
+            from .oauth import OAuth
+            return OAuth(router.state, router.vault, router.net).cancel_login(text(body, "provider"))
         if path == "/api/oauth/keep-login":
             fields(body, ("provider", "enabled"))
             from .oauth import OAuth

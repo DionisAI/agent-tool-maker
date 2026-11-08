@@ -158,6 +158,18 @@
     stateOn: '已开启', onDetail: 'ATM 会连接本机代理给出的 198.18.x.x 地址；直接解析成本机、局域网或其他私有地址的应答仍然拒绝，经代理转发后的真实去向由代理决定。',
   });
   const allowedNext = label => '已允许。再点“' + label + '”。';
+  // A pending ATM login. Higgsfield's authorize step can refuse ATM's own OAuth client (Clerk `authorization_invalid`,
+  // first seen 2026-10-21, docs/OAUTH_REFRESH.md). Two causes are possible, so the copy names both and claims neither.
+  const OAUTH = Object.freeze({
+    refused: '如果浏览器里是 Higgsfield（Clerk）返回的 JSON，含 authorization_invalid 或 “Unauthorized request”，说明 Higgsfield 拒绝了 ATM 客户端的这次登录：可能它只允许部分 OAuth 客户端，也可能你的套餐不含 MCP。可以改用“higgsfield 程序”（官方命令行，用 higgsfield auth login 登录），它提供同样的 Higgsfield 工具。',
+    opened: '已在系统浏览器里打开 Higgsfield 官方页面。请在那里登录并授权，完成后点“刷新状态”。',
+    notOpened: '登录窗口没有打开，或者已有一个登录在进行。',
+    cancel: '取消登录',
+    cancelled: '已取消这次 ATM 登录。可以重新登录，或改用“higgsfield 程序”。',
+    restored: '已取消这次登录，原来的 ATM 登录继续有效。',
+    ended: '这次登录已经结束，不需要取消。状态已刷新。',
+  });
+  const cancelLogin = provider => ({label: OAUTH.cancel, kind: 'oauth-cancel', target: provider});
   // Names in the copy shown as code (never broken at a hyphen or dot).
   const NETWORK_LITERALS = Object.freeze(['mcp.higgsfield.ai', 'clerk.higgsfield.ai', 'fake-ip-filter', 'always-real-ip', 'atm ui', 'SECURITY.md']);
   const FAKE_IP_CODES = new Set(['oauth_dns_policy', 'unsafe_download']);
@@ -202,7 +214,8 @@
     not_found: '找不到这一项，可能已被删除。', socket_path_too_long: '本机状态目录的路径太长，系统无法创建本地连接。请换一个更短的 ATM 目录。',
     sync_not_initialized: '还没有生成本机同步身份。', oauth_busy: '已经有一个登录在进行。', oauth_needs_keyring: '需要用系统钥匙串保管 Key 才能保持登录。',
     oauth_login_timeout: '登录超时，请重新登录。', oauth_conflict: '已经有 ATM 登录。要重新登录，请勾选“替换已有的 ATM 登录”。',
-    oauth_needs_login: '需要重新登录 Higgsfield。', passkey_cancelled: '已取消。',
+    oauth_needs_login: '需要重新登录 Higgsfield。', oauth_cancelled: '你取消了这次登录。',
+    oauth_exchanging: 'Higgsfield 正在确认这次登录，不能再取消。请稍等几秒后点“刷新状态”。', passkey_cancelled: '已取消。',
     passkey_prf_missing: '这个 Passkey 不支持加密扩展（PRF），没有绑定。请换用 1Password 等支持 PRF 的 Passkey。',
     passkey_prf_invalid: '加密扩展返回的数据无效，没有绑定。', passkey_cancel_cleanup_failed: '已取消，但清理本机绑定记录时出错。请刷新后再试。',
     passkey_vault_mismatch: '这个 Passkey 打不开当前的保管库，请改用 ATM 主密码。', passkey_expired: '操作超时，请重试。',
@@ -719,6 +732,7 @@
       state = oState; route.word = word; route.summary = summary;
       const fakeIp = o.last_error === 'oauth_dns_policy' && fakeIpHint(o.last_error, o.last_error_hint) && !fakeIpOn(ctx.data);
       if (fakeIp) route.body.push(NETWORK.oauth);
+      if (status === 'pending') route.body.push(OAUTH.refused);
       if (state === 'ready' && o.keep_login && svc.status !== 'loaded') {
         state = 'attention'; route.word = '自动续期没有运行';
         route.summary = '自动续期没有运行，ATM 登录到期后需要重新登录。';
@@ -726,6 +740,8 @@
       route.state = state;
       if (primary === '刷新状态') route.actions.push({label: '刷新状态', kind: 'refresh', primary: true});
       else if (primary) route.actions.push(dialog(primary, {d: 'oauth', keep: false}, {primary: true}));
+      // Ends the pending login now, so a new one need not wait for its deadline.
+      if (status === 'pending') route.actions.push(cancelLogin(o.provider));
       // C6, then focus and the toast point at this route's login again (`next`); nothing is retried.
       if (fakeIp) route.actions.push(dialog(NETWORK.allow, {d: 'fake-ip', next: primary || '重新登录'}));
       route.facts.push(['有效至', typeof o.expires_at === 'number' ? datetime(o.expires_at, now) : '登录后显示']);
@@ -980,7 +996,9 @@
     const svc = key => services.get(key) || {key, name: key, brand: brandOf(key)};
     const push = (rule, subject, sev, serviceKey, title, detail, action, time = 0) => {
       const s = serviceKey ? svc(serviceKey) : null;
-      items.push({id: rule + ':' + subject, rule, sev, serviceKey, serviceName: s?.name || '', provider: s?.provider || serviceKey || '', title, detail, action, time});
+      const item = {id: rule + ':' + subject, rule, sev, serviceKey, serviceName: s?.name || '', provider: s?.provider || serviceKey || '', title, detail, action, time};
+      items.push(item);
+      return item;
     };
     const toolsOf = name => listTools(keyOf(name).usedBy) || '相关工具';
     for (const c of connList) {
@@ -1031,7 +1049,8 @@
       if (o.keep_login && svcRow.status !== 'loaded')
         push('renew', o.provider, 'warn', key, 'Higgsfield 自动续期没有运行', typeof o.expires_at === 'number' ? zh`ATM 登录将在 ${datetime(o.expires_at, now)} 到期，之后需要你重新登录。` : 'ATM 登录到期后需要你重新登录。', routeAction('查看', key, 'oauth', 'oauth'));
       if (status === 'pending')
-        push('oauth-pending', o.provider, 'info', key, '等你在浏览器里完成 Higgsfield 登录', (typeof o.login_deadline === 'number' ? zh`${datetime(o.login_deadline, now)} 前有效。` : '') + '完成后点“刷新状态”。', {label: '刷新状态', kind: 'refresh'});
+        push('oauth-pending', o.provider, 'info', key, '等你在浏览器里完成 Higgsfield 登录', (typeof o.login_deadline === 'number' ? zh`${datetime(o.login_deadline, now)} 前有效。` : '') + '完成后点“刷新状态”。' + OAUTH.refused,
+          {label: '刷新状态', kind: 'refresh'}).also = [cancelLogin(o.provider)];
     }
     for (const row of creditRows) {
       if (!row?.installed || row.status !== 'error' || row.error?.code !== 'login_required') continue;
@@ -1091,7 +1110,7 @@
   const T = Object.freeze({
     state: STATE_WORDS, job, jobSentence: JOB_SENTENCE, verify: VERIFY, verifyWord, cost, verifyResult: VERIFY_RESULT, verifyText: verifyResult,
     creditErrors: CREDIT_ERRORS, creditReasons: CREDIT_REASONS, creditLabel, creditTitle, vault: VAULT, backend: BACKEND, permission: PERMISSION, tag: TAG, oauthService: OAUTH_SERVICE, error: ERROR, errorText, knownError,
-    keepsDetail, network: NETWORK, allowedNext, networkLiterals: NETWORK_LITERALS, fakeIpHint, fakeIpOn,
+    keepsDetail, network: NETWORK, allowedNext, oauth: OAUTH, networkLiterals: NETWORK_LITERALS, fakeIpHint, fakeIpOn,
     kinds: KIND_TITLES, chips: KIND_CHIPS, kindOrder: KIND_ORDER, sites: SITES, date, time, datetime, fullDate, day, relative, listTools, quote, fill, zh, brandOf, slug,
   });
   W.ATM_MODEL = Object.freeze({derive, T, say, routeKindOf, toolReadiness, serviceKeyOf});

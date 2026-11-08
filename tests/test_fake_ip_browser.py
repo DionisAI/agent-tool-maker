@@ -126,6 +126,9 @@ def test_d11_offers_the_switch_and_never_retries_the_login(browser, tmp_path, mo
         # The owner clicks again: now the pinned OAuth requests are sent (to the fake transport) and the browser opens.
         page.locator('#modal').get_by_label('ATM 主密码', exact=True).fill(fx.PASSWORD)
         page.locator('#modal').get_by_role('button', name='打开官方登录页面', exact=True).click()
+        # D11 stays on the pending login (its refusal line and 取消登录); closing it leaves the login pending.
+        expect(page.locator('#modal').get_by_role('button', name='取消登录', exact=True)).to_be_visible()
+        page.keyboard.press('Escape')
         expect(page.locator('#modal')).to_be_hidden()
         assert len(bodies(log, '/api/oauth/login')) == 2
         assert [str(r.url) for r in provider.requests] == [PROTECTED_METADATA, SERVER_METADATA, ENDPOINTS['registration_endpoint']]
