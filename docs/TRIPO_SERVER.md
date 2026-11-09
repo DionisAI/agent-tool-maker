@@ -26,7 +26,9 @@
    无实体屏幕，但浏览器始终运行，不在登录后更换另一份 profile。
 3. Agent 执行 `atm studio install`，核对 bundle SHA256，随后使用相同 SHA
    `--approve SHA --apply --atm-executable /absolute/atm`。只安装服务器命名空间。
-   重复相同安装复用，定义变化明确报错，后续通过已有 CAS 审阅更新流程处理。
+   重复相同安装复用，定义变化明确报错（`definition_conflict`），不覆盖已安装定义。升级时先预览并核对新的
+   bundle SHA，用 `atm make remove tripo.server.<op> --yes` 移除31个旧定义（回执与锁不受影响），再用新 SHA
+   `--approve … --apply` 安装，并重启 `atm studio serve`。
 4. Agent 只给出一条命令：人在自己的 SSH 终端（`ssh -L 5900:127.0.0.1:5900 …`）执行
    `atm studio login --ttl 600`。它为本次查看器生成一次性 VNC 密码，只写到该终端，
    不进 stdout、Agent 记录或 job；没有终端（Agent 执行）时报 `interactive_required`，不打开查看器。
