@@ -4,6 +4,12 @@
 让 Agent 读取根目录 SKILL.md，注册新版用户级 Skill；已有内容不同时先审阅，
 再用 `atm setup --replace-skills --apply` 备份替换。
 
+## v0.8 → v0.9
+
+vault、Key、项目授权与状态目录照旧，无需迁移数据。小云雀、Tripo Studio 与 `atm studio`
+工具的 pin 变了，已安装的旧定义不会自动更新：按
+[CHANGELOG 的 0.9.0 升级步骤](../CHANGELOG.md#upgrading-to-090)逐项重建、重装，再重启管理台。
+
 ## v0.7 → v0.8
 
 默认新增 `atm start` / `atm use`：一张本地窗口完成解锁和项目授权。

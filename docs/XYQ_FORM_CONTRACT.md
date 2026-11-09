@@ -84,7 +84,7 @@ form_choices 最终经 CUA 原生输入通过：
 默认选项发现仍 all_options=false；其它模型的动态参数、自定义 Seed输入、参数值真实写入
 及安装后 CLI 分开验收。原生假页时长准备成功不代表本次实机修改时长。
 最终回到 Seed Audio 1.0 /44.1kHz，完整 draft SHA 仍 cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf，
-文件0/0已知、无内容/素材、模式及偏好菜单均关闭，积分6396。
+文件0/0已知、无内容/素材、模式及偏好菜单均关闭，积分余额未变。
 回执 /private/tmp/atm-xyq-default-media-receipt-20261007-r3.json（0600）；
 恢复截图 /private/tmp/atm-xyq-default-media-restored-final-20261007-r3.jpg（真实JPEG；早期错扩展名副本保留）。
 最新源码、编译及隔离测试真源为 XYQ_WEB_COVERAGE.md 末节。
@@ -93,7 +93,7 @@ form_choices 最终经 CUA 原生输入通过：
 
 首页显式绑定四入口已通过生成 CLI → 隔离 ATM → 已安装 App → 同一空首页的八阶段链路：
 状态/模式发现、图片默认菜单、视频默认菜单及完整恢复音频。默认菜单结果与上述CUA观察一致；
-独立最终读确认原draft SHA、文件0/0、引用0、菜单关闭、积分6396。
+独立最终读确认原draft SHA、文件0/0、引用0、菜单关闭、积分余额未变。
 此通过范围不含form_prepare、其它模型/参数值、上传、生成或媒体交付。
 详细状态、验收helper断言错误协调及0600回执见 XYQ_HOME_BINDING_CONTRACT.md。
 

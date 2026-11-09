@@ -1,8 +1,9 @@
 # 小云雀网页 CLI 覆盖与验收
 
 2026-10-08，当前分支 `feat/media-cli-delivery-20261007`；较早记录保留原阶段名称。
+本页是作者测试机上的分阶段验收日志（历史证据）：文中“生产 ATM”“已安装 App/OpenCLI”“本轮”指那台机器当时的状态，不是你的安装状态或可复用的许可；个人积分余额读数已删去。
 
-当前默认编译仍为18项。生产 ATM 已安装27项：独立[媒体运行时](XYQ_MEDIA_RUNTIME_CONTRACT.md)
+当前默认编译仍为18项；完整部署共27项：独立[媒体运行时](XYQ_MEDIA_RUNTIME_CONTRACT.md)
 20项、既有3项图片结果和2项下载、2项[首页素材只读发现](XYQ_HOME_MATERIAL_CONTRACT.md)。
 新素材模块549相关Node/14新Python通过，实际生成CLI→ATM→App的格式与菜单查询通过，
 完整首页草稿保持、同键同job；用户许可限定本轮绑定，结束已官方解绑。
@@ -38,7 +39,7 @@ task ID；下载控件计划不是下载完成。显式 --include-results + --in
 
 最新实机：用户确认后，旧 c70aa32 上传入口只执行了一次合成 MP3 追加，
 返回 `submission_unknown`，原 request-key/intent/active.lock 保持；没有观察到新增 MP3 卡片。
-原 WAV、结构化 token、完整音频稿 SHA64b537 与6430积分观察保持。
+原 WAV、结构化 token、完整音频稿 SHA64b537 与积分余额观察保持不变。
 原生只读诊断证明输入定位/同根重查/原稿稳定；原底层错误没有透过 ATM job 返回，
 不把这一未知状态解释为上传成功或确定零传输。
 上传桥现已接入公开文件选择器 API，单入口升级为 f33eecb，254 Node/97受影响Python通过；
@@ -186,7 +187,7 @@ Pippit CLI 的功能清单仅作对照，接入它并不构成网页完整覆盖
 通过首页的创建画布按钮创建**一个**项目；该入口在新标签页打开，首页 URL 保持不变。
 先检查标签页增量而非重复创建。项目命名、文本节点新建和编辑均用原生 UI。
 测试文本 `ATM CLI text-node smoke test`。
-在全新页面用 `canvas.mjs` **实际源码**经 CUA 读取，项目名、节点 ID 和文本 SHA 一致，积分保持 6396。
+在全新页面用 `canvas.mjs` **实际源码**经 CUA 读取，项目名、节点 ID 和文本 SHA 一致，积分余额前后不变。
 这是测试文本持久化证据；工具的 `saving=false` 本身仍不等于保存完成证明。
 截图：`/private/tmp/atm-xyq-text-node-persisted-20261007.jpg`。
 实际源码的 CUA 读取通过，不等于 OpenCLIApp/已安装 CLI 路径通过。
@@ -256,7 +257,7 @@ mode `1f43dd755ba88f1a0ec220e0377d28f70e8589eb58828c8248178ef8c09710c9`；
 audio `b90b0a150403016741e29f8034723ea4fa58db2aa64eff227e6a6fa9c5760250`。
 查询、暂缓画布/文本源码未改。
 
-真实 UI：一次获批1秒合成 WAV，参考音频 0/3→1/3、积分6396保持、无生成/购买。
+真实 UI：一次获批1秒合成 WAV，参考音频 0/3→1/3、积分余额不变、无生成/购买。
 实际源码经 CUA/CDP 仅读已上传卡片和已知空 FileList；不是已安装 CLI 的真实上传验收。
 项目音频 footer 未公开节点关联 ID，第一版只接受恰好一个音频节点；明确报歧义而非猜测。
 
@@ -275,7 +276,7 @@ audio `b90b0a150403016741e29f8034723ea4fa58db2aa64eff227e6a6fa9c5760250`。
 
 真实 UI 的 @ 音频按钮插入数字 Pippit asset token，而非文件名文本。
 准备器绑定确切草稿/参考摘要，原生文末光标后点击一次；已有引用零输入返回。
-真实草稿的一个 token 经实际源码只读验证，模型、采样率、积分6396保留。
+真实草稿的一个 token 经实际源码只读验证，模型、采样率与积分余额保持不变。
 CUA 手工准备、实际源码零输入读取、原生假页写入、已安装 CLI 写入分别记录。
 协议/隐私/草稿保护和详细状态见 [音频合同](XYQ_AUDIO_CONTRACT.md)。
 
@@ -362,7 +363,7 @@ form SHA 与先前完整摘要一致；没有输入、再次上传、生成或�
 
 实际最终源码经 CUA 仅读测试项目返回 quoted_rate / unit_rate_only，显示1积分/3s。
 完整 form SHA 仍为 `64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97`，
-Seed Audio 1.0 / 44.1kHz、WAV 卡片和结构化引用保持，截图积分6396。
+Seed Audio 1.0 / 44.1kHz、WAV 卡片和结构化引用保持，截图中积分余额未变。
 零菜单操作、输入、上传、生成或消费。源码只读不是安装后 CLI 验收。
 最终 mode-600 回执 `/private/tmp/atm-xyq-audio-quote-cua-receipt-20261007-r2.json`，
 截图 `/private/tmp/atm-xyq-audio-quote-readonly-final-20261007.jpg`。
@@ -413,7 +414,7 @@ Python **124 passed / 0 skipped**，42非浏览器、82隔离原生。新增报�
 
 本次当前许可仍仅测试项目音频表单只读。最终更新源码经 CUA 仅读：Seed Audio 1.0 /44.1kHz、
 原一份 WAV 卡片和一个结构化引用，完整 form SHA 仍为
-`64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97`，费率1积分/3s、截图6396积分。
+`64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97`，费率1积分/3s、截图中积分余额未变。
 零输入、菜单、上传、生成或消费。代码追加成功的隔离测试不是实际追加成功。
 0600 回执 `/private/tmp/atm-xyq-audio-append-readonly-receipt-20261007-r2.json`；
 截图 `/private/tmp/atm-xyq-audio-append-readonly-final-20261007-r2.jpg`。
@@ -430,7 +431,7 @@ Python **124 passed / 0 skipped**，42非浏览器、82隔离原生。新增报�
 
 前后空首页完整 draft SHA 相同：
 `cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf`，
-Seed Audio 1.0 /44.1kHz、文件0/0已知、无参考、生成禁用保持；截图积分6396。
+Seed Audio 1.0 /44.1kHz、文件0/0已知、无参考、生成禁用保持；截图中积分余额未变。
 独立 readModeMenuDOM 回读 mode_closed。照片仅空稿主区域，排除历史侧栏。
 最终0600回执 `/private/tmp/atm-xyq-home-mode-choices-live-20261007-r2.json`，
 初轮回执保留；截图 `/private/tmp/atm-xyq-home-mode-choices-live-final-20261007.png`。
@@ -458,7 +459,7 @@ Seed按钮是 aria-pressed 而非 radio，新增纯观察 pressed_buttons，未�
 
 最终恢复的完整空音频 draft SHA 与本次开始及原稿相同：
 cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf。
-Seed Audio 1.0 /44.1kHz、文件0/0已知、无参考、生成禁用保持；模式/偏好菜单关闭，积分6396。
+Seed Audio 1.0 /44.1kHz、文件0/0已知、无参考、生成禁用保持；模式/偏好菜单关闭，积分余额未变。
 最终0600回执 /private/tmp/atm-xyq-default-media-receipt-20261007-r3.json，
 截图 /private/tmp/atm-xyq-default-media-restored-final-20261007-r3.jpg（已核对JPEG格式；错扩展名副本保留）；初轮/r2证据保留。
 这是源码经 CUA 实机验收，不是安装后 CLI 通过。
@@ -509,7 +510,7 @@ browser bind 返回 URL 精确匹配项目/画布；但普通 adapter仍 origin_
 生成 tool.py → 已安装 ATM（仅临时隔离 home）→ 已安装App → 原测试表单也通过，
 同一request-key复用同一job；本机生产 ATM/vault/授权未改动。
 当前 Seed Audio1.0 /44.1kHz、原一个WAV卡片/一个结构化引用，完整form SHA保持
-64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97，独立源码读回一致；截图6396积分。
+64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97，独立源码读回一致；截图中积分余额未变。
 零内容输入、再次上传、生成或消费。此完成状态仅只读，不是供应商媒体生成完成。
 最终回执 /private/tmp/atm-xyq-bound-generated-e2e-receipt-20261007.json（0600）；
 截图 /private/tmp/atm-xyq-bound-read-final-20261007-r2.jpg。先前 App面板手动handoff不再是该路由门槛。
@@ -574,7 +575,7 @@ helper按操作区分ready/prepared并在断言前保存observed-job。
 最终独立CUA前后全表单完全一致，draft SHA
 cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf；
 音频SeedAudio1.0/44.1kHz，空稿/引用0/真实文件0/0已知、开始生成禁用、所有菜单关闭；
-积分6396，零上传/生成/消费。本轮回执目录
+积分余额未变，零上传/生成/消费。本轮回执目录
 /private/tmp/atm-xyq-home-binding-e2e-20261007-r3/，独立终态回执
 /private/tmp/atm-xyq-home-cli-final-cua-20261007.json；恢复截图
 /private/tmp/atm-xyq-home-cli-restored-final-20261007.jpg（真实JPEG/0600）。
@@ -630,7 +631,7 @@ before form_state、仅expected_draft_sha256的form_prepare、after form_state�
 同一准备request-key复用原job。此只验证注册/路由/合同/真实读取，不记为原生参数写入。
 独立CUA前后全表单完全一致，音频SeedAudio1.0/44.1kHz、原SHA
 cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf、参考0、文件0/0已知、
-生成禁用/layers0、积分6396；无菜单/输入/导航/重绑定/上传/生成/消费。
+生成禁用/layers0、积分余额未变；无菜单/输入/导航/重绑定/上传/生成/消费。
 
 真实回执目录 /private/tmp/atm-xyq-home-prepare-noop-e2e-20261007/；
 独立终态 /private/tmp/atm-xyq-prepare-noop-after-20261007.json，截图
@@ -656,7 +657,7 @@ cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf、参考0、文
 before、quote、after三个job completed；quote同请求键复用同job，不重新取价。
 quote job b7f54aaf-d068-48d5-9c45-d079fe6536a7，实际返回 quoted_rate/unit_rate_only、1积分/3s；
 独立CUA前后表单SHA 64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97一致，
-费率摘要一致、合成WAV卡片/结构化引用保留、原首页6396积分。
+费率摘要一致、合成WAV卡片/结构化引用保留、原首页积分余额未变。
 只读费率回执是金额来源；面板截图的费率文字未清晰呈现，不标为文字视觉验收。
 总积分和输出时长仍null，预算/最终账单验证false；零输入、上传、生成、扣分，生产ATM/vault保持。
 
@@ -699,7 +700,7 @@ Node186 / Python231（69非浏览器、162原生隔离），全部通过、零�
 before/prepare/after三个job completed，prepare b59e8962-b3dd-491f-982f-2a0aa8a28566、同键复用同job。
 输入只含原form SHA与reference SHA，无模型/采样率值或文字；prepared、steps=[]，不定位或追加。
 独立CUA前后完整表单SHA 64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97、
-prompt文档摘要一致，仍1个token、SeedAudio1.0/44.1kHz、6396积分；零菜单/输入/上传/生成/消费。
+prompt文档摘要一致，仍1个token、SeedAudio1.0/44.1kHz、积分余额未变；零菜单/输入/上传/生成/消费。
 真实job/产物 /private/tmp/atm-xyq-audio-edit-bound-noop-e2e-20261007/，独立基线与终态
 /private/tmp/atm-xyq-audio-edit-bound-cua-before-20261007.json、
 /private/tmp/atm-xyq-audio-edit-bound-cua-after-20261007.json，最终完整核对
@@ -735,7 +736,7 @@ steps=[]、native_file_input_sent=false、upload_accepted=false、outcome_uncert
 未建active.lock/intent；同键复用同job。completed只表示预检检查完成，不是上传成功。
 新建合成WAV仅本地校验，故意全零旧摘要在input前停止，未使用新的上传许可。
 独立CUA/CLI前后全稿SHA64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97，
-文档/原卡片/单token保持、6396积分；零输入/上传/生成/扣分。
+文档/原卡片/单token保持、积分余额未变；零输入/上传/生成/扣分。
 实机产物 `/private/tmp/atm-xyq-upload-bound-preflight-e2e-20261007/`、前后独立回执
 `/private/tmp/atm-xyq-upload-bound-cua-before-20261007.json`、
 `/private/tmp/atm-xyq-upload-bound-cua-after-20261007.json`，最终核对
@@ -774,7 +775,7 @@ Focused两项隐私失败定位为测试RPC夹带旧读器raw成本调试字段�
 图片6、视频当前600/原780、音频0.33/秒；final-quote
 f32d6942-7594-44f5-b9ee-c2c7b8c69761同键复用同job/result。
 独立CUA与前后CLI完整原稿SHA cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf，
-音频quote SHA6fd62ef76e71c4ef08185541126f47bcfe605d2ff24425c4f48afeade655fe6f保持、6396积分。
+音频quote SHA6fd62ef76e71c4ef08185541126f47bcfe605d2ff24425c4f48afeade655fe6f保持、积分余额未变。
 无文字/参数值/文件输入，零上传/生成/扣分；原空稿/文件0/菜单关闭已恢复。
 真实job/产物 `/private/tmp/atm-xyq-home-quote-e2e-20261007/`，独立终态
 `/private/tmp/atm-xyq-home-quote-cli-cua-after-20261007.json`、截图
@@ -810,7 +811,7 @@ closed jobc952c05b-986f-4f0a-8be0-19f011a429d1返回history_closed/数量null。
 均只授execute_code、paid_granted=false，artifact路径/大小/SHA/JSON逐一通过；CLI零输入。
 独立CUA前后全音频form SHA64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97，
 原合成素材卡/结构化引用/模型/采样率/原稿保持，原首页全稿SHA cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf保持。
-当前两页面显示6430积分，上一阶段6396仅历史读数，原因未查，不当作本轮余额未变证据。
+两页面显示的积分余额与上一阶段读数不同，原因未查；上一阶段读数不当作本轮余额未变证据。
 余额观察器首次将项目页标签用于首页而超时，按实际数字banner按钮定位后成功；
 没有改源契约、生成重提或其它账户调查。本轮零上传/生成/下载/付费提交。
 真实job/产物/private/tmp/atm-xyq-history-e2e-20261007/、独立终态

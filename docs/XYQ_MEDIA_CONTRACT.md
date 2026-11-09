@@ -52,18 +52,20 @@ CLI 应绑定实际可选 ID/名称与当前状态并回读验证。参考上传
 
 ## 阶段记录（2026-10-07）与未完成验收
 
+以下是作者测试机上的分阶段验收日志（历史证据）：文中“生产 ATM”“已安装 App/OpenCLI”“本轮”指那台机器当时的状态，不是你的安装状态或可复用的许可；个人积分余额读数已删去。
+
 - 十八个媒体阶段工具：account / surface / form_inspect / form_options /
   form_state / form_choices / form_prepare / mode_choices / mode_prepare /
   audio_form_state / audio_form_state_bound / audio_reference_upload / audio_prompt_prepare / audio_choices / audio_prepare / audio_quote / home_quote / project_history_state；已实现源码与生成包，
   未安装到生产 ATM。显式绑定读取入口已在隔离 ATM 状态和已安装 OpenCLIApp 上端到端只读通过；
   已安装 OpenCLI 保留原两个音频读取入口，新增显式绑定单位费率入口，另有五个首页显式状态/菜单/模式/准备入口；
   首页四个入口已通过生成 CLI → 隔离 ATM → 已安装 App → 真实首页的八阶段默认菜单链路，
-  原音频稿完整恢复、积分6396、零上传/生成。其它模型和生成交付继续单列，
+  原音频稿完整恢复、积分余额未变、零上传/生成。其它模型和生成交付继续单列，
   详见 XYQ_BOUND_READ_CONTRACT.md 和 XYQ_HOME_BINDING_CONTRACT.md。
 - 当前 `--bound-home` 编译加入既有form_prepare，为五个显式首页定义（home_quote阶段17包，新增history视图后18包）。
   新准备桥的原生模型/radio/时长/画布/纯文本及焦点/选区/逐字回读隔离测试通过；
   实际App现加载五入口新源码，原四入口完整旧快照保留；新准备入口的生成CLI仅摘要零输入通过，
-  ready/prepared=true、完成步骤为空、同job复用，原稿/6396积分保持。参数值真实写入待范围确认。
+  ready/prepared=true、完成步骤为空、同job复用，原稿与积分余额保持。参数值真实写入待范围确认。
   新source pin、number选区未知和真实写入门槛见 XYQ_HOME_PREPARE_CONTRACT.md。
 - 当前表单准备覆盖已有创作模式中的动态模型/radio、视频时长、画布开关和纯文本提示词；
   模式工具绑定已知空草稿，拒绝带附件/提示词的切换并报告模型/画布默认变化。
@@ -75,14 +77,14 @@ CLI 应绑定实际可选 ID/名称与当前状态并回读验证。参考上传
   追加的源码和隔离回归与真实追加验收分开，原批准的单份 WAV 不重复上传。
   显示费率保留每秒单位，总价、单次提交和媒体交付仍待实现。
   显式 `--bound-audio-quote` 保持同一工具ID/缺省路由，新的评估只读入口已通过生成CLI→隔离ATM→
-  已安装App→精确测试音频表单：1积分/3s，前后完整草稿与引用保持、同job复用、原首页6396积分。
+  已安装App→精确测试音频表单：1积分/3s，前后完整草稿与引用保持、同job复用、原首页积分余额未变。
   实机只证明单位费率读取，不代表任何生成/预算/最终账单验收；详见费率合同。
   显式 `--bound-audio-edit` 接通既有音频菜单/参数/提示词引用三路由，新增原生桥隔离测试通过；
   三条注册已加载，生成CLI→隔离ATM→App的已有引用零输入核对通过，原全文/引用/积分保持。
   此路径零菜单/光标/文字/参数输入；实际菜单/改值/引用追加仍待实机验收，见 XYQ_AUDIO_BINDING_CONTRACT.md。
   显式 `--bound-audio-upload` 接通同一既有上传定义，单独加载一条注册，保留原11条及生产ATM。
   隔离原生上传/追加和真实input替换保护通过；生成CLI→隔离ATM→App只验收旧摘要的预检停止，
-  返回 upload_rejected/draft_changed、零原生文件输入，同键复用同job，原完整表单/引用/6396积分保持。
+  返回 upload_rejected/draft_changed、零原生文件输入，同键复用同job，原完整表单/引用/积分余额保持。
   本轮新建WAV只在本地校验，未传到网页；真实CLI上传成功路径与新文件许可另列，
   不把completed预检job解释为上传成功，详见 XYQ_AUDIO_UPLOAD_BINDING_CONTRACT.md。
   空首页模式切换和默认图片/视频参数菜单在独立批准范围内经最终源码 CUA、生成 CLI 链路通过，
@@ -103,7 +105,7 @@ CLI 应绑定实际可选 ID/名称与当前状态并回读验证。参考上传
 - `@引用角色与素材` 按钮会插入 `@` 并打开菜单，不是无副作用的音色列表查询。
   本次在新的空草稿里打开并检查，未选择用户资产；原生键盘撤销工具插入的 `@` 后回读为空。
   CUA 的空 fill 曾保持该字符，记录为后端验收差异，不当作清空成功。
-- 测试节点模型恢复 Seed Audio 1.0 / 44.1kHz，积分保持 6396；一次获批上传，零生成/消费。
+- 测试节点模型恢复 Seed Audio 1.0 / 44.1kHz，积分余额不变；一次获批上传，零生成/消费。
   截图：`/private/tmp/atm-xyq-audio-reference-upload-final-20261007.jpg`；
   mode-600 最终回执：`/private/tmp/atm-xyq-audio-reference-receipt-20261007-r2.json`（初轮保留）。
 - OpenCLIApp 内置 CLI 已运行且桥连通；普通 adapter 的独立页面仍 origin_mismatch。
@@ -114,7 +116,7 @@ CLI 应绑定实际可选 ID/名称与当前状态并回读验证。参考上传
 
 新增只读home_quote把音频单位费率、图像无单位显示金额、视频折扣amount/originalAmount分别读取；
 生成CLI→隔离ATM→App的9阶段默认模式报价链路通过，图片6/视频600与划线780/音频0.33每秒，
-完整原音频稿恢复且余额6396；同键复用同job。单条报价注册加载，原12条和生产ATM保持。
+完整原音频稿恢复且余额未变；同键复用同job。单条报价注册加载，原12条和生产ATM保持。
 详见 XYQ_HOME_QUOTE_CONTRACT.md。绑定完整原稿，报价缺失/忙态与竞态明确区分，
 显示预估不等于最终账单或已验证硬预算，单次提交及付费生成验收保持独立。
 
@@ -122,7 +124,7 @@ CLI 应绑定实际可选 ID/名称与当前状态并回读验证。参考上传
 生成CLI→隔离ATM→App的实际空态/关闭态通过；同键复用同job，原音频节点和空首页全稿保持。
 关闭/加载数量是null，empty只证明当前“全部媒体/成功”筛选可见记录为0；
 task_count=null、all_records=false，任务行所属项目与格式仍待核对，有行时明确停止。
-当前两页面显示6430积分；此前6396是上一阶段读数，不称本轮余额未变。
+两页面显示的积分余额与上一阶段读数不同；上一阶段读数不作本轮余额未变的证据。
 本轮CLI零输入，CUA只关闭自己打开的历史层；没有上传、生成或读取全账户任务。
 新增1条history注册，保留原13条/17定义和生产ATM；18包见generated/xyq-web-history-stage/。
 本页 `generated/xyq-*` 阶段目录都是本机构建输出，未提交到仓库；当前27项按[重建步骤](XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)重建。

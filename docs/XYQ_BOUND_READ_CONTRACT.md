@@ -41,7 +41,7 @@ manifest SHA dd1f09a7db3afd0e2ca5da4d74cedccd47624daa9fd4c0a11ebdb1eda178b3ec。
 不是生成媒体。安装元数据的 authentication:not_verified 是绑定时静态标志，不替代实际表单读取。
 
 完整 form SHA 64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97，
-Seed Audio 1.0 /44.1kHz、一个 WAV卡片与一个结构化引用保持；独立 CUA 源码读回相同，截图6396积分。
+Seed Audio 1.0 /44.1kHz、一个 WAV卡片与一个结构化引用保持；独立 CUA 源码读回相同，截图中积分余额未变。
 最终0600回执 /private/tmp/atm-xyq-bound-generated-e2e-receipt-20261007.json；
 截图 /private/tmp/atm-xyq-bound-read-final-20261007-r2.jpg。
 普通 adapter 仍有独立页面；没有通过改第三方代码、强制改 Page 私有字段或转移浏览器状态让它伪成功。

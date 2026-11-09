@@ -92,7 +92,7 @@ before状态读取、form_prepare仅expected_draft_sha256、after独立状态读
 同一准备request-key复用同一个job；源代码此分支不打开菜单或调用任何原生输入。
 
 独立CUA前后完整表单完全一致：原SHA cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf，
-SeedAudio1.0/44.1kHz、参考0、文件0/0已知、生成禁用、layers=0，积分6396。
+SeedAudio1.0/44.1kHz、参考0、文件0/0已知、生成禁用、layers=0，积分余额未变。
 零上传/生成/消费，没有导航、重绑定、凭证读取或生产ATM授权改动。
 回执目录 `/private/tmp/atm-xyq-home-prepare-noop-e2e-20261007/`，独立读回
 `/private/tmp/atm-xyq-prepare-noop-after-20261007.json`；截图
