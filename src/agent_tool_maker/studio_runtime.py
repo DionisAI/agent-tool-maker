@@ -249,6 +249,7 @@ class BrowserRuntime:
         self.home, self.context, self.node, self.display = Path(home), context, node, display
         self.authority = authority
         self.page = context.pages[0] if context.pages else None
+        self.way_back_pending = False
         self.lock = asyncio.Lock()
         self.active = None
         self.downloads = []
@@ -352,12 +353,19 @@ class BrowserRuntime:
 
     async def reset_page(self):
         """Reopen a closed page and return an off-origin one (a sign-in redirect, an error page)
-        to Tripo Studio before an adapter: most begin with evaluate, which stays origin-bound."""
+        to Tripo Studio before an adapter: most begin with evaluate, which stays origin-bound.
+        A way back the budget cut off is still pending in the browser, and a second navigation on
+        that page can be aborted by it (net::ERR_ABORTED): that page is replaced and the way back redone."""
         try:
+            redo = self.way_back_pending
+            if redo and not self.page.is_closed():
+                await self.page.close()
             if self.page.is_closed():
                 await self.start()
-            if self.off_origin():
+            if redo or self.off_origin():
+                self.way_back_pending = True  # Cleared only once the page is back on Tripo Studio.
                 await self.page.goto(ORIGIN + "/assets", wait_until="domcontentloaded")
+                self.way_back_pending = False
         except Exception:
             raise RouterError("navigation_failed", "The server browser could not return to Tripo Studio; no adapter was started.") from None
 

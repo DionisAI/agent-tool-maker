@@ -400,6 +400,8 @@ class ReaderPage:
     async def evaluate(self, expression, arg):
         assert not self.closed
         return [{"read_on": self.url}]
+    async def close(self):
+        self.closed = True
 
 
 class ReaderContext:
@@ -546,6 +548,39 @@ def test_a_reopen_cut_by_the_budget_is_redone_whole(tmp_path, monkeypatch):
     assert asyncio.run(bridge_run(browser, account_run(project), atm_timeout - 2)) == {"result": [{"read_on": "about:blank"}]}
     # The cut reopen was never half kept: the page in use has its own CDP session.
     assert browser.page is context.opened[-1] and browser.cdp.page is browser.page
+
+
+class PendingWayBack(ReaderPage):
+    """Off Tripo Studio, and its way back never answers. That navigation stays pending in the
+    browser after the budget cuts it off, and Chromium can abort a second one on the same page."""
+    def __init__(self):
+        super().__init__("https://accounts.example.com/sign-in")
+        self.pending = False
+    async def goto(self, url, **kwargs):
+        if self.pending:
+            raise RuntimeError("Page.goto: net::ERR_ABORTED")
+        self.pending = True
+        await asyncio.sleep(60)
+
+
+def test_a_way_back_cut_by_the_budget_is_redone_on_a_fresh_page(tmp_path, monkeypatch):
+    atm_timeout = 5
+    scaled_budget(monkeypatch, atm_timeout, settle=1, margin=3)  # A 2 s budget.
+    home, project = tmp_path / "state", tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    stale = PendingWayBack()
+    context = ReaderContext(stale)
+    browser = runtime.BrowserRuntime(home, context, rpc_runner(tmp_path, "evaluate", ["function readLocation(){return location.href}", []]))
+    browser.bridge = str(tmp_path / "s")
+    cut = asyncio.run(bridge_run(browser, account_run(project), atm_timeout - 2))
+    assert cut["error"]["code"] == "adapter_interrupted" and not cut["error"]["outcome_uncertain"]
+    assert not (project / "runner.pid").exists()
+    again = asyncio.run(bridge_run(browser, account_run(project), atm_timeout - 2))
+    # Never raced against the pending navigation: that page is closed, the way back redone on a new one.
+    assert again == {"result": [{"read_on": runtime.ORIGIN + "/assets"}]}
+    assert stale.closed and browser.page is context.opened[-1] and browser.page.visited == [runtime.ORIGIN + "/assets"]
+    assert browser.cdp.page is browser.page and not browser.way_back_pending
 
 
 def test_login_viewer_fixed_ttl_loopback_and_preserved_browser(tmp_path, monkeypatch):
@@ -1140,15 +1175,18 @@ def test_real_way_back_cut_by_the_budget_leaves_the_next_run_working(tmp_path, m
                 await browser.start()
                 browser.bridge = str(tmp_path / "s")
                 await browser.page.goto("https://accounts.example.com/sign-in")  # As a sign-in redirect leaves it.
+                first = browser.page
                 cut = await bridge_run(browser, account_run(project), atm_timeout - 2)
                 ran_after_cut = [c for c in spawned if c[0] == node]
                 stalled[0] = False
                 again = await bridge_run(browser, account_run(project), atm_timeout - 2)
-                return cut, ran_after_cut, again, len(held)
+                return cut, ran_after_cut, again, len(held), first.is_closed(), browser.page is first
             finally:
                 await context.close()
-    cut, ran_after_cut, again, held_count = asyncio.run(probe())
+    cut, ran_after_cut, again, held_count, first_closed, same_page = asyncio.run(probe())
     # Playwright's own navigation, cut off by the budget: no adapter ran, nothing was submitted.
     assert cut["error"]["code"] == "adapter_interrupted" and not cut["error"]["outcome_uncertain"]
     assert held_count == 1 and ran_after_cut == []
     assert again == {"result": [runtime.ORIGIN + "/assets", "Tripo fixture"]}  # The runtime is not wedged.
+    # The page whose navigation is still pending was replaced, not raced (Chromium can abort a second one).
+    assert first_closed and not same_page
