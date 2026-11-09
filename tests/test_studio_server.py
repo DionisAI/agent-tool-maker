@@ -548,6 +548,44 @@ def test_a_reopen_cut_by_the_budget_is_redone_whole(tmp_path, monkeypatch):
     assert browser.page is context.opened[-1] and browser.cdp.page is browser.page
 
 
+class PendingWayBack(ReaderPage):
+    """Off Tripo Studio, and its first way back never answers: that navigation stays pending in the
+    browser after the budget cuts it off. Chromium drops a second, identical navigation started
+    within 3 s of it (IgnoreDuplicateNavs) with net::ERR_ABORTED; a different one replaces it."""
+    def __init__(self):
+        super().__init__("https://accounts.example.com/sign-in")
+        self.pending = None
+    async def goto(self, url, **kwargs):
+        if url == self.pending:
+            raise RuntimeError("Page.goto: net::ERR_ABORTED")
+        self.visited.append(url)
+        self.pending = url
+        if len(self.visited) == 1:
+            await asyncio.sleep(60)  # Cancelled by the budget, the navigation itself stays pending.
+        self.pending, self.url = None, url
+
+
+def test_a_way_back_cut_by_the_budget_is_replaced_before_it_is_redone(tmp_path, monkeypatch):
+    atm_timeout = 5
+    scaled_budget(monkeypatch, atm_timeout, settle=1, margin=3)  # A 2 s budget.
+    home, project = tmp_path / "state", tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    page = PendingWayBack()
+    context = ReaderContext(page)
+    browser = runtime.BrowserRuntime(home, context, rpc_runner(tmp_path, "evaluate", ["function readLocation(){return location.href}", []]))
+    browser.bridge = str(tmp_path / "s")
+    cut = asyncio.run(bridge_run(browser, account_run(project), atm_timeout - 2))
+    assert cut["error"]["code"] == "adapter_interrupted" and not cut["error"]["outcome_uncertain"]
+    assert not (project / "runner.pid").exists()
+    again = asyncio.run(bridge_run(browser, account_run(project), atm_timeout - 2))
+    # Never a duplicate of the pending navigation: a different one replaces it, then the way back is redone.
+    assert again == {"result": [{"read_on": runtime.ORIGIN + "/assets"}]}
+    assert page.visited == [runtime.ORIGIN + "/assets", "about:blank", runtime.ORIGIN + "/assets"]
+    # The same page throughout: headed Chromium quits once its last page closes.
+    assert browser.page is page and not page.closed and context.opened == [] and not browser.way_back_pending
+
+
 def test_login_viewer_fixed_ttl_loopback_and_preserved_browser(tmp_path, monkeypatch):
     commands = []
     class Process:
@@ -1115,8 +1153,10 @@ def test_real_way_back_cut_by_the_budget_leaves_the_next_run_working(tmp_path, m
     chromium = os.environ.get("ATM_CHROMIUM")
     if not chromium:
         pytest.skip("Isolated Chromium required")
-    atm_timeout = 6
-    scaled_budget(monkeypatch, atm_timeout, settle=1, margin=3)  # A 3 s budget.
+    atm_timeout = 5
+    # A 2 s budget: the next run's way back starts well inside the 3 s in which Chromium drops a
+    # navigation identical to one still pending (IgnoreDuplicateNavs), so the race is not left to timing.
+    scaled_budget(monkeypatch, atm_timeout, settle=1, margin=3)
     spawned = recorded_spawns(monkeypatch)
     home, project = tmp_path / "state", tmp_path / "project"
     project.mkdir()
@@ -1140,15 +1180,18 @@ def test_real_way_back_cut_by_the_budget_leaves_the_next_run_working(tmp_path, m
                 await browser.start()
                 browser.bridge = str(tmp_path / "s")
                 await browser.page.goto("https://accounts.example.com/sign-in")  # As a sign-in redirect leaves it.
+                first = browser.page
                 cut = await bridge_run(browser, account_run(project), atm_timeout - 2)
                 ran_after_cut = [c for c in spawned if c[0] == node]
                 stalled[0] = False
                 again = await bridge_run(browser, account_run(project), atm_timeout - 2)
-                return cut, ran_after_cut, again, len(held)
+                return cut, ran_after_cut, again, len(held), first.is_closed(), browser.page is first
             finally:
                 await context.close()
-    cut, ran_after_cut, again, held_count = asyncio.run(probe())
+    cut, ran_after_cut, again, held_count, first_closed, same_page = asyncio.run(probe())
     # Playwright's own navigation, cut off by the budget: no adapter ran, nothing was submitted.
     assert cut["error"]["code"] == "adapter_interrupted" and not cut["error"]["outcome_uncertain"]
     assert held_count == 1 and ran_after_cut == []
     assert again == {"result": [runtime.ORIGIN + "/assets", "Tripo fixture"]}  # The runtime is not wedged.
+    # The same page, never closed: headed Chromium quits once its last page closes.
+    assert same_page and not first_closed
