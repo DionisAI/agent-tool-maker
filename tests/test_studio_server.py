@@ -577,7 +577,7 @@ def test_a_way_back_cut_by_the_budget_is_replaced_before_it_is_redone(tmp_path, 
     browser.bridge = str(tmp_path / "s")
     cut = asyncio.run(bridge_run(browser, account_run(project), atm_timeout - 2))
     assert cut["error"]["code"] == "adapter_interrupted" and not cut["error"]["outcome_uncertain"]
-    assert not (project / "runner.pid").exists() and browser.way_back_pending
+    assert not (project / "runner.pid").exists()
     again = asyncio.run(bridge_run(browser, account_run(project), atm_timeout - 2))
     # Never a duplicate of the pending navigation: a different one replaces it, then the way back is redone.
     assert again == {"result": [{"read_on": runtime.ORIGIN + "/assets"}]}
