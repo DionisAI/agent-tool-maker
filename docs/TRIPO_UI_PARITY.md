@@ -47,7 +47,7 @@ computer use 的交接约束相同，不由 CLI 自动代人批准。该限制�
 - 已定位零高度链接的真实原因：侧栏子菜单折叠。经原生操作证明先点 Texture
   再进 Edit/Upscale/PBR，先点 Rig 再进 Animate；补齐 CLI 的同样展开路径。
   Animation 面板实际显示 Rig the Model First、Generate 20 禁用，这才是资产前置条件。
-- Generate Image 默认 GPT Image 2.5、4 张、80 数值与 Free 14/1000 同时显示，
+- Generate Image 默认 GPT Image 2.5、4 张、80 数值与 `Free N/1000` 免费额度同时显示，
   无按钮内报价；暂记录未知计费含义，不按文字猜计费并提交。
 - 先补全工作区通用观察/语义准备/有报价提交，逐模块与 computer use 对照；
   继续补齐资产图片网格、管理、导出多格式及查看器/绘制等。完成状态逐项更新，
@@ -72,7 +72,7 @@ computer use 的交接约束相同，不由 CLI 自动代人批准。该限制�
 - 自动化 **81 Node / 28 Python 聚焦检查通过**；包含五类付费模块合成测试、
   持久声明在唯一点击前、报价/源/草稿漂移、同 key 复用、旧上传锁跨工具拦截。
   付费合成测试不是供应商真实结果验收。未把先前全工程 791 项写成本轮重跑。
-- 页面余额 20115，未扣费；本轮输入测试草稿已按其摘要清除，原源提示词保留。
+- 页面余额未变，未扣费；本轮输入测试草稿已按其摘要清除，原源提示词保留。
 - 当前工作区源码摘要：
   `18df6607f853c6add97f000d8e781ad14efb38d13e2a24775ae9371604f67607`。
   证据：`/private/tmp/atm-tripo-extended-20261003/workspace-native-acceptance-round3.json`、
@@ -125,7 +125,7 @@ Evidence: 真实 Image/All、multi-views、Model/My Assets/Collected 卡片及�
   Collected。模型六个范围各限读 10 张（item_limit），不以该数量作完整资产数
   证明。图片安静页尾也保持 partial。未将 r1–r4 失败回执改写为通过。
 - 独立 GUI 对照：实际 Model/Collected active，渲染 20 卡，CLI 限读的前 10 个
-  preview UUID 与独立 DOM 读取一致。余额 20115；每次真实调用均检查原未知上传
+  preview UUID 与独立 DOM 读取一致。余额未变；每次真实调用均检查原未知上传
   receipt/active.lock 字节摘要不变。没有新上传、收费、分享、发布或模型导出。
   证据 asset-query-native-acceptance-r5.json、query-collected-independent-gui.json、
   query-collected-accepted.png。
@@ -146,7 +146,7 @@ query-preview-close-popover.png。临时目录不是永久留存承诺。
 
 末尾恢复报价页：首个只读 workspace_inspect 请求失败并保留回执（本次未证明
 确切根因），浏览器实际已进入空 Workspace；侧栏加载后第二个独立只读请求通过，
-同一蓝色立方体、Generate PBR 5、20115 余额、未提交。query-final-pbr-result.json /
+同一蓝色立方体、Generate PBR 5、余额未变、未提交。query-final-pbr-result.json /
 query-final-pbr-result-r6.json 与 query-pbr-handoff.png 均保留；页面已重新交接，
 不把首个失败抹成成功，也没有为恢复页面解锁或重发任何收费/上传操作。
 
@@ -201,7 +201,7 @@ Rig the Model First 状态。只读取可见 DOM，不读取认证或内部请�
   断言的 6 次失败也保留，经审阅更新精确摘要后复测，未移除断言或安全检查。
 - r11/r12 与直接跨源诊断继续暴露 SPA 路由过渡问题；r13 为该修复后的完整通过，
   不把 r1–r12 失败回执改写成功。图片上传未知及真实付费验收缺口继续独立保留。
-- 最后 GUI 确认同一蓝色立方体 PBR Generator、Generate PBR 5、余额 **20115**，
+- 最后 GUI 确认同一蓝色立方体 PBR Generator、Generate PBR 5、余额未变，
   无浮层、未提交；原用户资产页保留。CLI 人形动画草稿恢复为空/5 秒，人形导出
   恢复 GLB/4k/骨架打开、FBX Blender；立方体恢复 GLB/4k 和 OBJ 顶点颜色关闭。
   人形 OBJ 顶点颜色 true 的测试值可能仍被 UI 记住，未声称全局偏好全部复原；
@@ -324,10 +324,10 @@ Evidence: 生成 CLI → ATM → Chrome 的 r5 全矩阵，以及独立 CUA 截�
   未改，最终摘要不变。本轮没有产品源码变更；前述最终版本 194 Node /
   84 Python 与 29 commands、0 errors/0 warnings 的记录不写成再次全量重跑。
 - 全部真实调用后检查旧 submission_unknown 回执与 active.lock 摘要不变。
-  新鲜截图余额 **20115**；没有新上传、付费、Save 点击、导出下载或发布。
+  新鲜截图余额未变；没有新上传、付费、Save 点击、导出下载或发布。
   整体 12 功能族仍 partial/active，待付费决定与文件/质量缺口保持原合同。
 - 最后用既有 workspace_inspect 恢复同一立方体的 PBR 面板，独立 GUI 确认
-  Generate PBR **5**、余额 20115、正面复位、节点可见，无提交。测试页保留为
+  Generate PBR **5**、余额未变、正面复位、节点可见，无提交。测试页保留为
   既有付费决定的交接页；未重复询问批准、清理未知锁或扩大付费范围。
 
 证据目录 `/private/tmp/atm-tripo-viewer-20261004/`：
@@ -359,7 +359,7 @@ Evidence: Generate Image 当前可见表单、六模型下拉、五比例/四数
   已有参考/文件计数；保存提示词与参考，不接收任意 selectors/URL。提示词
   0–10000、五比例/无选中、数量 1–4、布尔 4K、九模板/清除均为类型化输入。
   模型隐藏未请求选项的可见变化通过 implicit_changes 返回，不伪装原值仍可见。
-- 免费额度 Free 14/1000 与表单旁 0/80 或 0/40 的数字并存，Generate Image
+- 免费额度（`Free N/1000`）与表单旁 0/80 或 0/40 的数字并存，Generate Image
   按钮本身没有明确报价。billing_observation.quoted_credits=null；未按文案猜
   “免费”并点击。已花费的立方体批准、旧未知上传回执/锁继续保持原边界。
 - 初次实现离线 **222 Node / 88 Python passed**，当时新增 Node 28、Python 4，包括
@@ -449,7 +449,7 @@ Evidence: 原测试页的 CUA 命中/滚动、生成 CLI 逐条回执、隔离�
   只核对标题，不操作其它前台登录流程，不取消其调试或变更浏览器策略。
 - 在原选定 Chrome 新建测试页，经 Assets → 蓝色立方体预览 → Edit in
   Workspace → 已渲染 UUID 资产入口 → Image 的可见 SPA 路径进入。
-  新页 CUA 可读且截图正常，余额 20115，Generate Image 禁用；截图
+  新页 CUA 可读且截图正常，余额未变，Generate Image 禁用；截图
   fresh-image-form-baseline.png。它是独立显示证据，不是生成 CLI 完整通过。
 - 最终源码 f956 的 4K smoke r5 再次停在初始 inspect；失败回执/日志保留，
   没有运行完整矩阵或点击 4K/Generate。只对 SDK 自有测试页执行空草稿、
@@ -487,7 +487,7 @@ Strategy: UI_SELECTOR
 Contract: visible-ui
 Evidence: 最终精确源码的生成 CLI/ATM 回执、独立 CUA 画面与恢复回读。
 
-- 人回复“已置前”后，独立原测试页正常，余额仍为 20115；SDK 初次只读清单
+- 人回复“已置前”后，独立原测试页正常，余额未变；SDK 初次只读清单
   没有 Tripo 租约页，诊断明确失败而非伪报空账号。随后 foreground inspect r8
   通过，重新建立的真实 CLI 页为 1885519550，与此前用于显示核对的 1885519519
   是两个标签。最终画面验收绑定 9550，不拿未被 CLI 修改的旧页当结果。
@@ -499,7 +499,7 @@ Evidence: 最终精确源码的生成 CLI/ATM 回执、独立 CUA 画面与恢�
 - **r5 全部 35 项真实表单矩阵通过**：初始检查、六模型/恢复、五比例/清除、
   数量 1–4、4K 开/关、九个当前渲染模板/清除、测试提示词/清除、全设置恢复、
   最终检查和组合准备。每项读取确切 source/draft，核对未上传/未生成/未下载、
-  Free 14/1000 不变及原未知锁/回执 SHA 不变；所有 35 项定义摘要逐项匹配
+  `Free N/1000` 免费额度不变及原未知锁/回执 SHA 不变；所有 35 项定义摘要逐项匹配
   最终 inspect 8e48ab… / prepare 6b92b5…，不是旧版本 18 项成功的合并计数。
 - 独立 CUA 在真实 CLI 页观察到 69 字测试提示词、GPT Image 2.5、1:1、
   单张、4K 开启、Generate 启用。保存原视口与 End 滚动后开关完整可见两张

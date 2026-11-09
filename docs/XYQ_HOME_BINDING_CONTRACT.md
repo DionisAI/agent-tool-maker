@@ -90,7 +90,7 @@ ATM job已经completed且只执行一次mode_input。修正helper为按操作核
 恢复截图 `/private/tmp/atm-xyq-home-cli-restored-final-20261007.jpg`（真实JPEG/0600），
 原音频Seed Audio1.0/44.1kHz，完整SHA
 `cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf`，
-文件0/0已知、引用0、生成禁用、layers=0、模式/偏好菜单关闭、积分6396。
+文件0/0已知、引用0、生成禁用、layers=0、模式/偏好菜单关闭、积分余额未变。
 原已有菜单截图 `/private/tmp/atm-xyq-home-binding-menu-open-20261007.jpg` 保留为历史。
 其它模型参数、Seed值准备、素材、音色效果、预算内生成、任务与下载仍单列。
 
@@ -100,4 +100,4 @@ ATM job已经completed且只执行一次mode_input。修正helper为按操作核
 根/包内 Skill一致，保留原未知读取。
 本轮最终核对 `/private/tmp/atm-xyq-home-cli-final-verification-20261007.json`（0600）
 另验证八个真实completed job/定义/请求键/产物、3次模式输入、同job复用、
-独立原稿恢复与6396积分；16包锁和其它12个定义保持，完整媒体目标仍未完成。
+独立原稿恢复且积分余额未变；16包锁和其它12个定义保持，完整媒体目标仍未完成。

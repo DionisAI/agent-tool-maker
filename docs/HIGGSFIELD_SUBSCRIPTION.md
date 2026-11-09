@@ -74,7 +74,7 @@ task ID。模糊失败先核对上游任务，避免重复消费。本轮只读�
 2026-10-02：官方 CLI 1.1.26，macOS ARM64 手动发行安装，原下载包保留。
 发行包 SHA-256：`a0bff511a16833f32ea288e9f894ee1404326eb1414168397db8836ccdceed9b`。
 实际二进制 SHA-256：`e94d147e08fa1afef5bfdcac3f98facd33ad7c567c619f2f732ba776beed2f91`。
-浏览器 OAuth 命令完成；处理工作区选择后，直接 CLI 已返回 Pro 工作区 10.56 credits，
+浏览器 OAuth 命令完成；处理工作区选择后，直接 CLI 已返回 Pro 工作区及其真实积分余额，
 `nano_banana_2` 模型参数、纯文字默认参数费用估算 2 credits。未创建生成任务。
 四个工具已按规范化摘要安装，绑定上述真实二进制；Codex 与 Claude 用户级 Skills
 已备份更新，两份新 Skill SHA-256 均为
@@ -94,7 +94,7 @@ task ID。模糊失败先核对上游任务，避免重复消费。本轮只读�
 
 独立 Agent 复用既有 OAuth 登录与已选工作区，未索取密码或 API Key。
 模型目录返回 100 项；`nano_banana_2` 别名解析为 `nano_banana_pro`（Nano Banana Pro）。
-两组账户查询均为 Pro / 10.56 credits，费用预估均为 2 credits，`paid_granted:false`。
+两组账户查询返回相同的 Pro 计划与积分余额，费用预估均为 2 credits，`paid_granted:false`。
 账户首次沙箱执行得到 `local_failure` 且无 job ID；按正常 require_escalated /
 auto-review 路径执行同一只读请求后成功。没有修改沙箱或 broker 策略，也没有重试已提交生成。
 
@@ -113,7 +113,7 @@ auto-review 路径执行同一只读请求后成功。没有修改沙箱或 brok
 
 - 上游任务：`e9b5bf18-68b9-44dd-a608-1c12eac8888d`，`completed`。
 - 官方结果模型：`nano_banana_pro`，Nano Banana Pro。
-- 预估：2 credits；账户余额由 **10.56** 到 **8.56**，观测差额 **2 credits**。
+- 预估：2 credits；生成前后读取账户余额，观测差额 **2 credits**。
 - 已下载并校验 PNG，2048×2048，5,060,722 字节；人工视觉观察为白底蓝色圆圈。
 - 图片 SHA-256：`d47c89dbea4ec4de045b4397053d354bc50664afeb577d0990f657d27bc13f81`。
 - 持久本地输出与回执：`.atm/higgsfield-subscription-test-20261002/test-image.png`、

@@ -181,7 +181,7 @@ Midjourney 隐藏比例、数量、4K 和一个空上传控件。隐藏选项返
 中心点命中，仅命中恢复后单次点击；仍有遮挡则明确失败。
 `resolution_preparation` 记录 viewport_repair、requested 与实际 verified_value。
 读取只关闭自己打开的选择层；既有弹层保持原状，草稿变化明确失败。
-Free 14/1000 与表单旁数值只是计费观察，`quoted_credits=null`；不据此点击生成。
+`Free N/1000` 免费额度与表单旁数值只是计费观察，`quoted_credits=null`；不据此点击生成。
 实际图片生成/编辑/放大/Cutout/多视图、下载文件与画面质量仍分别验收。
 2026-10-04 同一最终源码的 35 项真实表单矩阵、独立画面与原草稿恢复通过；
 原生 4K smoke 另 3 项通过，包含实际 focus_end 视口修复。完整证据与未完成
@@ -272,12 +272,12 @@ manifest 额外固定适配器文件摘要。升级需要重新审阅。哈希�
 
 ## 本地验收 2026-10-02
 
-- 只读真实 CLI → 已安装 ATM → Chrome：account 已登录、20,155 积分；assets
+- 只读真实 CLI → 已安装 ATM → Chrome：account 已登录并返回真实积分余额；assets
   返回 20 个当前已加载卡片。未读取 Key 或导出登录态。
 - 真实报价：H3.1 – Best Quality、Private、parts=false、8K=false、40 积分。
 - 人明确批准单个蓝色立方体，最多 40 积分一次；生成 CLI 实际提交成功，
   资产 ID `6e6198e0-0d74-4522-832f-46a5d49e1d3d`。
-- 原生浏览器回读余额 20,115，差额 40；模型已在 3D 视图显示，Export 控件
+- 原生浏览器回读余额，较提交前少 40；模型已在 3D 视图显示，Export 控件
   可用，Faces 11,550 / Vertices 6,701。已保存 `paid-result.png` 验收截图；未导出。
   这是本次人工界面验收，生成 CLI 本身仍只返回 submitted，不自动等待模型完成。
 - 自动化：24 个 Node 合成测试、7 个 Python 合同/真实假子进程测试通过。
@@ -297,7 +297,7 @@ manifest 额外固定适配器文件摘要。升级需要重新审阅。哈希�
   生成 CLI → ATM → Chrome 另验证面数设置为 500 的回读，以及模型 20 秒有界等待。
 - 真实 GLB/4k Current 导出：0 积分，5085444 bytes、1 mesh，SHA256
   `310c9ff3f13c357abd97ddf3d1c8873bfc34a068075b953d94b9ec91bebc0ea4`。
-  项目产物 `.atm/tripo-blue-cube-export.glb`，同一稳定 key 保留并复用，余额仍为 20115。
+  项目产物 `.atm/tripo-blue-cube-export.glb`，同一稳定 key 保留并复用，余额未变。
 - 原生自动滚动读到 400 个模型卡片、21 轮；安静页尾没有权威总量/结束提示，
   返回 partial、all_assets=false，明确不是完整账号资产数证明。
   生成 CLI → ATM 另验证限额 50 卡片 / 3 轮，正确报告 item_limit；原生详情操作
@@ -305,7 +305,7 @@ manifest 额外固定适配器文件摘要。升级需要重新审阅。哈希�
   旧的 Assets/UUID 冷导航和异步控件挂载失败回执保留；改为可见 SPA 入口并等待
   唯一语义控件挂载，未通过猜测路由或增加收费重试来修复。
 - 人批准仅上传蓝色测试 PNG，image_quote 在 image_upload 阶段返回桥接失败。
-  页面没有图片预览，余额 20115，未点击 Generate。**真实上传尚未验收**。
+  页面没有图片预览，余额未变，未点击 Generate。**真实上传尚未验收**。
   原未知回执/active.lock 保留，该项目的新上传/付费/导出提交被保护性拦截；
   查询、报价和既有成功结果复用仍可用。已请求核对后仅重试上传一次的明确决定，
   不更换 key 或自行清锁重发。失败路径新增脱敏 failure_type/bridge_error_code，

@@ -71,7 +71,7 @@ steps=[]、outcome_uncertain=false、upload_accepted=false、native_file_input_s
 全零expected_form_sha256故意与原稿不同；confirm=true仅此负例schema，不是新上传批准。
 before/after及独立CUA的完整form SHA均
 `64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97`，
-prompt文档一致、原音频卡片/token保留、积分6396；零输入、上传、生成和消费。
+prompt文档一致、原音频卡片/token保留、积分余额未变；零输入、上传、生成和消费。
 
 真实回执/产物目录 `/private/tmp/atm-xyq-upload-bound-preflight-e2e-20261007/`；
 独立前后为 `/private/tmp/atm-xyq-upload-bound-cua-before-20261007.json`、

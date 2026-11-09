@@ -354,7 +354,7 @@ without a Save click: use the approved test asset and restore its exact values.
 `viewer_camera` sends bounded native orbit/pan/zoom/reset input, reports no engine
 pose, and requires separate rendered visual acceptance. No generation, upload,
 export, publication or Delete action is included in these five tools.
-Never reuse the already-spent one-time cube approval for new paid operations.
+A spent one-time paid approval never covers a new paid operation.
 `image_form_inspect` / `image_form_prepare` are the separate Generate Image form,
 not image-to-3D. Inspect visible model/template choices, then bind preparation to
 expected_draft_sha256. Typed prompt (0-10000), ratio/null, count 1-4, 4K and

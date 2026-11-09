@@ -1,6 +1,6 @@
 # Tripo 后处理与交付验收
 
-## 当前安装
+## 安装记录（作者测试机，2026-10-07）
 
 2026-10-07，分支 `feat/media-cli-delivery-20261007`。
 最新34个生成包在 `generated/tripo-studio-delivery-stage-r4/`，34项 ATM 定义和
@@ -26,7 +26,7 @@ Retopo Quad/10000，40积分；Texture 8K，`solid blue matte surface`，30积�
 - Texture报价仍30、8K和固定测试提示词回读一致；仅点一次。
 - 初版观察器漏掉真实HUD `Generating Texture...`，15秒等待后保留
   submission_unknown / paid_click / page_not_ready 及 active.lock，没有重提。
-- 随后只读页面确实显示同一UUID的Generating Texture；余额20115→20075→20045，
+- 随后只读页面确实显示同一UUID的Generating Texture；余额先后下降40与30，
   两次余额变化合计70。余额差是扣分观察，不是美元成本或完成纹理的证明。
 - 根因修复为精确加入已观察文案，并排除 Assets tabpanel 内其它模型的processing。
   旧网格和Export可用不再覆盖正在生成纹理的状态；没有删断言或扩展成宽泛词匹配。

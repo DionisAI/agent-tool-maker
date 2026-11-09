@@ -40,7 +40,7 @@
 保留`/private/tmp/atm-xyq-home-quote-restore-first-20261007.json`，原草稿SHA当时已经一致。
 之后明确等待实际价格控件出现，稳定观察与最终完整音频原稿均核对；没有重复提交任何生成。
 原完整SHA cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf，
-余额6396，零提示词/参数值写入、上传、生成和消费；默认模式临时切换后全部恢复。
+余额未变，零提示词/参数值写入、上传、生成和消费；默认模式临时切换后全部恢复。
 真实快照：`/private/tmp/atm-xyq-home-quote-image-stable-20261007.json`、
 `/private/tmp/atm-xyq-home-quote-video-stable-20261007.json`、
 `/private/tmp/atm-xyq-home-quote-observed-restored-20261007.json`；
@@ -75,7 +75,7 @@ before状态、音频报价、图片默认模式/报价、视频默认模式/报
 `f32d6942-7594-44f5-b9ee-c2c7b8c69761`，同请求键返回同job/result。
 before/final及独立CUA的完整音频原稿相同，报价SHA
 `6fd62ef76e71c4ef08185541126f47bcfe605d2ff24425c4f48afeade655fe6f`保持，
-余额6396、空稿/附件0/菜单关闭，零上传/生成/消费。
+余额未变、空稿/附件0/菜单关闭，零上传/生成/消费。
 
 真实job/产物目录 `/private/tmp/atm-xyq-home-quote-e2e-20261007/`；
 独立源码只读 `/private/tmp/atm-xyq-home-quote-real-source-20261007.json`，终态

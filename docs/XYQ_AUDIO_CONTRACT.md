@@ -58,7 +58,7 @@
 - 菜单参考音频 **0/3 → 1/3**，参考图 0/1；实际卡片 title/type/mention-remove object-id 一致。
 - 真实 FileList 已清空，卡片保留；这促使首页表单摘要增加附件 rail，防止漏判已有参考。
 - `audio.mjs` 实际源码通过 CUA/CDP 仅读 DOM：已知空 FileList、无其它层、空提示词，
-  Seed Audio 1.0 / 44.1kHz 保留，生成按钮 disabled，积分 6396 保持。
+  Seed Audio 1.0 / 44.1kHz 保留，生成按钮 disabled，积分余额不变。
 - 本次 filechooser 返回耗时较长，后续只读核对已出现卡片，没有再次上传。
   LV 上传菜单的 Escape 未关闭，通过该菜单自己的加号 toggle 关闭后回读 layers=0。
 - 截图 `/private/tmp/atm-xyq-audio-reference-upload-final-20261007.jpg`。
@@ -88,7 +88,7 @@
 - 原生隔离测试验证中文、多行、首尾空格、结构化 token、幂等和失败路径。
   真实 CUA 草稿手工准备了“ATM 音频引用测试：”及一个 token，实际 asset ID 为
   `10536312462092`。随后实际源码经 CUA/CDP 执行已有引用零输入检查：
-  `completed_steps=[]`，模型 Seed Audio 1.0、44.1kHz、额度 6396 保留。
+  `completed_steps=[]`，模型 Seed Audio 1.0、44.1kHz 与积分余额保持不变。
   此证据是源码只读执行，尚非已安装 CLI 的提示词/引用写入验收。
 - 最终 mode-600 回执：`/private/tmp/atm-xyq-audio-prompt-readonly-receipt-20261007-r2.json`。
   初轮额度探针选到风格库，初轮回执保留；最终版用唯一 `积分余额` aria-label 校正。
@@ -141,7 +141,7 @@ OpenCLI 注册（`audio-choices` 与 `audio-choices-bound`）同样声明 `acces
   原生夹具分别验证局部/完全遮挡、菜单关联错误、额外弹层、输入未生效与富引用保留。
 - 最终源码经 CUA 的原生点击/Escape 完成真实菜单发现，模型、44.1kHz、
   提示词/token/参考卡片的完整 form SHA 保持 `64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97`。
-  未选择新参数，积分显示6396；这里是源码菜单发现，不是已安装 CLI 参数写入验收。
+  未选择新参数，显示的积分余额未变；这里是源码菜单发现，不是已安装 CLI 参数写入验收。
 
 当前14包：`generated/xyq-web-audio-settings-stage-r2/`（本机构建输出，未提交），均完整性有效，未安装到真实 ATM。
 源码 pin：`357d3a6ed5a0795145fa1a9e5e24ed829a37c046aeb17ba826f60912d644b5d6`。
@@ -201,12 +201,12 @@ MP3/首页上传、真实追加、付费生成与完整媒体交付继续单列�
 后续显式 audio-quote-bound 已通过单位费率生成CLI只读链路，见 XYQ_AUDIO_QUOTE_CONTRACT.md。
 音频参数/提示词/引用三个显式绑定路由已接入并加载，详见 XYQ_AUDIO_BINDING_CONTRACT.md；
 隔离原生桥测试通过，真实生成CLI只验收已存在引用的零输入核对，不记为实机字段写入/引用追加。
-原全文、单个token、模型/采样率与6396积分保持，16包和生产ATM状态分列。
+原全文、单个token、模型/采样率与积分余额保持，16包和生产ATM状态分列。
 
 上传的显式绑定桥现已接入，详见 XYQ_AUDIO_UPLOAD_BINDING_CONTRACT.md；缺省上传业务合同保持。
 一条注册已加载，隔离原生上传/追加通过，真实生成CLI仅通过旧摘要的零输入预检停止，
 返回upload_rejected/draft_changed，不记为成功上传。真实账户仍只有原批准的一份测试WAV，
-新文件未传输，原稿/引用/6396积分保持；实际CLI附件、音色效果与持久化继续单独验收。
+新文件未传输，原稿/引用/积分余额保持；实际CLI附件、音色效果与持久化继续单独验收。
 
 ## 音频节点素材菜单：格式声明与实际支持分开
 
@@ -220,7 +220,7 @@ MP3/首页上传、真实追加、付费生成与完整媒体交付继续单列�
 原音频完整 SHA `64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97`、
 Seed Audio 1.0 / 44.1kHz、单个 WAV 卡片和结构化引用保持，两个 FileList 已知为空，layers=0。
 空首页完整 SHA `cabd0fa41945ddc23527d0aaa8fd0a85078c75678b8d43278bc99fc0cbd47ccf`
-与原稿一致，仍为音频模式。当前显示余额6430，旧6396是历史读数。
+与原稿一致，仍为音频模式。显示余额与上一阶段读数不同，上一读数只是历史读数。
 观察回执 `/private/tmp/atm-xyq-audio-upload-menu-observation-20261007.json`（0600），
 恢复截图 `/private/tmp/atm-xyq-audio-upload-menu-restored-20261007.jpg`（0600）。
 本次没有新增适配器、修改 pin 或升级生产 ATM。MP3 附件需独立文件/追加测试许可；

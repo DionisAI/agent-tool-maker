@@ -111,7 +111,7 @@ intent/active.lock已留存，未改请求键重传或清理锁；ATM保留原st
 底层具体错误字串未进入公开job，不声称确定零传输。
 
 独立真实网页回读仍只有原WAV及其结构化token，完整form SHA64b537保持，
-Seed Audio1.0/44.1kHz及6430积分观察保持，没有新增MP3卡片。
+Seed Audio1.0/44.1kHz及积分余额观察保持不变，没有新增MP3卡片。
 公开Page的原生只读诊断确认精确input定位、一次DOM根及同根重查nodeId一致、
 输入前表单/target ready、前后原稿一致。该诊断不执行文件输入。
 实机回执 `/private/tmp/atm-xyq-mp3-live-append-e2e-20261007/`，

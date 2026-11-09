@@ -1,6 +1,6 @@
 # Tripo Studio 覆盖审计与二次调整
 
-此页保留前阶段15/31工具审计；当前34项安装、70积分后处理测试及真实文案修复见
+此页保留前阶段15/31工具审计；34项工具的安装记录、70积分后处理测试及真实文案修复见
 [后处理交付合同](TRIPO_DELIVERY_CONTRACT.md)，查看器/层级见[操作对齐合同](TRIPO_UI_PARITY.md)。整体仍为 partial。
 
 ## 当前覆盖边界 2026-10-04
@@ -119,7 +119,7 @@ End 使用已安装 SDK 支持的完整原生键对（虚拟键码 35），避�
 5. 再由真实生成 CLI 从 Image 分类起步，验证其自动选回 Model / My Assets / All，
    复测读到 400 项，ID 集合与顺序和第一次完全一致，scope_verified=true。
    此次页面复用了已加载网格（1 轮），不是独立重新拉取 21 页的证明；页尾仍空，
-   all_assets=false。原上传未知回执与锁逐字节未变，余额保持 20115。
+   all_assets=false。原上传未知回执与锁逐字节未变，余额保持不变。
 
 本轮扩展摘要：`4cbf6ed9fba0a47f111693772aaa1a71c0ce38934902bfe9a30437c6b47e232d`。
 证据文件在 `/private/tmp/atm-tripo-extended-20261003/`：

@@ -56,7 +56,7 @@
   请求只含原完整 form SHA 与已有 reference SHA，不含文字或模型/采样率值。
   结果prepared、completed_steps=[]、同request-key复用同job；不定位光标或追加 token。
 - 实机完整form SHA `64b537cf8c6252ef53b2aedd0c5783c5e1548a43530c427ffe63f354bf629f97`。
-  独立CUA前后完整表单与prompt文档摘要一致，仍一个token、SeedAudio1.0/44.1kHz、6396积分。
+  独立CUA前后完整表单与prompt文档摘要一致，仍一个token、SeedAudio1.0/44.1kHz、积分余额未变。
   零菜单/输入、上传、生成或扣分，voice_effect_verified/persistence_verified仍false。
   实机回执 `/private/tmp/atm-xyq-audio-edit-bound-noop-e2e-20261007/`，独立基线/终态
   `/private/tmp/atm-xyq-audio-edit-bound-cua-before-20261007.json`、
