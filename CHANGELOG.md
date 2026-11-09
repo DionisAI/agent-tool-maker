@@ -141,7 +141,7 @@ Everything merged after 0.8.0 (#6–#41). Several installed website tools have n
 - The fixes in this release to the Tripo Studio, `atm studio` and 小云雀 paid, submit and download paths (#34, #37,
   #39, #40) were tested offline with fake pages, fake runners and fixtures, not re-run on the live sites. Dated live
   acceptance in the contracts predates them. An unseen live layout fails closed: pending, `submission_unknown` or a
-  refusal. `atm studio` was verified only on macOS, not on Linux Xvfb.
+  refusal. The `atm studio` Linux Xvfb/x11vnc login path and the systemd unit have no real test.
 - Passkey unlock was tested with a CDP virtual authenticator; saving and using a real 1Password Passkey is the owner's
   own check (docs/PASSKEY.md).
 
