@@ -354,15 +354,15 @@ class BrowserRuntime:
     async def reset_page(self):
         """Reopen a closed page and return an off-origin one (a sign-in redirect, an error page)
         to Tripo Studio before an adapter: most begin with evaluate, which stays origin-bound.
-        A way back the budget cut off is still pending in the browser, and a second navigation on
-        that page can be aborted by it (net::ERR_ABORTED): that page is replaced and the way back redone."""
+        A way back the budget cut off stays pending in the browser, and Chromium drops a second,
+        identical navigation started within 3 s of it (IgnoreDuplicateNavs) with net::ERR_ABORTED:
+        a different navigation replaces it first. The page is kept; headed Chromium quits with its last page."""
         try:
-            redo = self.way_back_pending
-            if redo and not self.page.is_closed():
-                await self.page.close()
             if self.page.is_closed():
                 await self.start()
-            if redo or self.off_origin():
+            elif self.way_back_pending:
+                await self.page.goto("about:blank")
+            if self.way_back_pending or self.off_origin():
                 self.way_back_pending = True  # Cleared only once the page is back on Tripo Studio.
                 await self.page.goto(ORIGIN + "/assets", wait_until="domcontentloaded")
                 self.way_back_pending = False
