@@ -249,6 +249,7 @@ class BrowserRuntime:
         self.home, self.context, self.node, self.display = Path(home), context, node, display
         self.authority = authority
         self.page = context.pages[0] if context.pages else None
+        self.way_back_pending = False
         self.lock = asyncio.Lock()
         self.active = None
         self.downloads = []
@@ -352,12 +353,19 @@ class BrowserRuntime:
 
     async def reset_page(self):
         """Reopen a closed page and return an off-origin one (a sign-in redirect, an error page)
-        to Tripo Studio before an adapter: most begin with evaluate, which stays origin-bound."""
+        to Tripo Studio before an adapter: most begin with evaluate, which stays origin-bound.
+        A way back the budget cut off stays pending in the browser, and Chromium drops a second,
+        identical navigation started within 3 s of it (IgnoreDuplicateNavs) with net::ERR_ABORTED:
+        a different navigation replaces it first. The page is kept; headed Chromium quits with its last page."""
         try:
             if self.page.is_closed():
                 await self.start()
-            if self.off_origin():
+            elif self.way_back_pending:
+                await self.page.goto("about:blank")
+            if self.way_back_pending or self.off_origin():
+                self.way_back_pending = True  # Cleared only once the page is back on Tripo Studio.
                 await self.page.goto(ORIGIN + "/assets", wait_until="domcontentloaded")
+                self.way_back_pending = False
         except Exception:
             raise RouterError("navigation_failed", "The server browser could not return to Tripo Studio; no adapter was started.") from None
 
