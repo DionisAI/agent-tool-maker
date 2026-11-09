@@ -922,9 +922,18 @@
     const retry = code === 'download_failed' ? '让 Agent 刷新这个任务重试下载。' : '让 Agent 重新运行。';
     return (code === 'download_failed' ? NETWORK.download : NETWORK.request) + (allowed ? '现在已允许通过本机代理连接：' : '在“设置 › 高级”里允许后，') + retry;
   }
+  // Only a paid tool can double-charge, so only its unknown outcome needs the owner. An unpaid tool's unknown outcome is
+  // a lost answer: it reads nothing back and changes nothing the owner could check on a website. A tool missing from the
+  // catalog is treated as paid.
+  const UNPAID_UNKNOWN = {
+    read: ['结果未知', 'failed', 'setup', '这是只读操作，不会扣费，也不会改动 {服务} 上的内容。结果没有拿到，可以直接重新运行。'],
+    write: ['结果未知', 'failed', 'setup', '这个操作不扣费，但可能改动过 {服务} 网页上的表单或草稿。结果没有拿到，重新运行前可以先看一眼网页。'],
+  };
   function jobView(j, toolViews, services, creditRows, now, allowed = false) {
     const tool = toolViews.get(j.tool), code = str(j.status);
-    const [word, group, state] = own(job, code) ? job[code] : [zh`其他状态（${code}）`, 'running', 'attention'];
+    const unpaid = code === 'submission_unknown' && tool && tool.tool.paid !== true
+      ? UNPAID_UNKNOWN[arr(tool.tool.permissions).some(p => p === 'external_write' || p === 'production') ? 'write' : 'read'] : null;
+    const [word, group, state] = unpaid ? unpaid : own(job, code) ? job[code] : [zh`其他状态（${code}）`, 'running', 'attention'];
     const refreshSources = new Set(creditRows.flatMap(r => arr(r?.sources)));
     const kind = j.kind === 'credits_refresh' || j.kind === 'tool' ? j.kind : refreshSources.has(j.tool) ? 'credits_refresh' : 'tool';
     const serviceKey = tool ? tool.serviceKey : null;
@@ -935,7 +944,8 @@
       status: code, word, group, state, needsYou: group === 'needsYou', kind, created, updated,
       day: day(created, now), time: time(created), full: fullDate(created), updatedText: datetime(updated, now), createdText: datetime(created, now),
       verification: verifyWord(j.verification), cost: cost(j.cost_usd, j.cost_status), files: Number(j.artifact_count) || 0,
-      sentence: fakeIp ? fakeIpSentence(code, allowed) : own(JOB_SENTENCE, code) ? fillZh(JOB_SENTENCE[code], {'服务': serviceName}) : '',
+      sentence: fakeIp ? fakeIpSentence(code, allowed) : unpaid ? fillZh(unpaid[3], {'服务': serviceName})
+        : own(JOB_SENTENCE, code) ? fillZh(JOB_SENTENCE[code], {'服务': serviceName}) : '',
       fakeIp, network: fakeIp && !allowed ? nav(NETWORK.open, 'settings/advanced', {focus: 'network:fake-ip'}) : null};
   }
 
@@ -1104,7 +1114,7 @@
     }
     for (const j of jobsAll) {
       if (j.kind !== 'tool') continue;
-      if (j.status === 'submission_unknown')
+      if (j.status === 'submission_unknown' && j.needsYou)
         push('job-unknown', j.id, 'warn', j.serviceKey, zh`不确定 ${j.tool} 是否已提交`, zh`${j.time} · 为避免重复扣费，请先到 ${j.serviceName} 网站核对，不要让 Agent 重新提交。`, nav('查看记录', 'jobs', {job: j.id}), j.created);
       else if (['awaiting_confirmation', 'login_required', 'requires_human', 'blocked', 'download_failed', 'delivery_failed'].includes(j.status))
         push('job-needs', j.id, 'info', j.serviceKey, `${j.tool}：${j.word}`, j.sentence, j.network || nav('查看记录', 'jobs', {job: j.id}), j.created);

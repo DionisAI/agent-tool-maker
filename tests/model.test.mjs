@@ -347,7 +347,7 @@ function inboxFixture() {
       tool('linear.mcp_tools', 'mcp', 'linear', 'missing_credential', {server: 'linear', credentials: ['linear'], health: {credential: 'linear'}}),
       tool('tripo.server.account', 'command', 'tripo', 'cli_not_configured', {executable: 'atm'}),
       tool('runway.generate', 'rest', 'runway', 'missing_credential', {credentials: ['runway'], health: {credential: 'runway'}}),
-      tool('tripo.studio.generate', 'command', 'tripo', 'configured_not_verified', {executable: 'opencliapp'}),
+      tool('tripo.studio.generate', 'command', 'tripo', 'configured_not_verified', {executable: 'opencliapp', paid: true}),
     ],
     connections: [conn('fal', {configured: true, expired: true, expires_at: NOW - 86400}), conn('exa', {sync_conflict: true}),
       conn('tripo', {configured: true, expires_at: NOW + 2 * 86400}), conn('runway'), conn('acme.production', {label: 'Acme 生产环境'})],
@@ -687,4 +687,33 @@ test('generated copy keeps a space between Chinese and Latin words, and none bet
   assert.deepEqual(loose, []);
   // A Chinese service name gets no stray spaces either.
   assert.match(model.byKey.get('xyq').routes.find(r => r.kind === 'chrome').steps[0].text, /^已安装 \d+ 个小云雀工具$/);
+});
+
+
+test('only a paid tool\'s unknown outcome needs the owner; an unpaid one is a lost answer to run again', () => {
+  const jobs = [
+    {id: 'paid', tool: 'tripo.studio.generate', status: 'submission_unknown', kind: 'tool', created: NOW - 60, updated: NOW - 60},
+    {id: 'read', tool: 'tripo.studio.workspace_inspect', status: 'submission_unknown', kind: 'tool', created: NOW - 50, updated: NOW - 50},
+    {id: 'quote', tool: 'tripo.studio.quote', status: 'submission_unknown', kind: 'tool', created: NOW - 40, updated: NOW - 40},
+    {id: 'gone', tool: 'old.removed_tool', status: 'submission_unknown', kind: 'tool', created: NOW - 30, updated: NOW - 30},
+  ];
+  const tools = [
+    tool('tripo.studio.generate', 'command', 'tripo', 'configured_not_verified', {paid: true, permissions: ['execute_code', 'external_write']}),
+    tool('tripo.studio.workspace_inspect', 'command', 'tripo', 'configured_not_verified', {permissions: ['execute_code']}),
+    tool('tripo.studio.quote', 'command', 'tripo', 'configured_not_verified', {permissions: ['execute_code', 'external_write']}),
+  ];
+  const model = M.derive(data({tools, jobs}), NOW);
+  const inbox = model.inbox.filter(i => i.rule === 'job-unknown').map(i => i.id);
+  assert.deepEqual(plain(inbox.sort()), ['job-unknown:gone', 'job-unknown:paid']);
+  const by = Object.fromEntries(model.jobs.map(j => [j.id, j]));
+  assert.equal(by.paid.needsYou, true);
+  assert.ok(by.paid.sentence.includes('以免重复扣费'));
+  for (const id of ['read', 'quote']) {
+    assert.equal(by[id].needsYou, false, id);
+    assert.equal(by[id].word, '结果未知', id);
+    assert.ok(!by[id].sentence.includes('重复扣费') && (by[id].sentence.includes('不会扣费') || by[id].sentence.includes('不扣费')), id);
+  }
+  assert.ok(by.read.sentence.includes('可以直接重新运行'));
+  assert.ok(by.quote.sentence.includes('表单或草稿'));
+  assert.equal(by.gone.needsYou, true);  // Missing from the catalog: treated as paid.
 });
