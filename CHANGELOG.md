@@ -1,79 +1,173 @@
-# Unreleased — the Key lock copy says what is enforced; a signed-out website reads as a login
+# Changes in 0.9.0
 
-- Console: "Key 已锁定" no longer claims Agents get no Key. The pill shows only the shared unlock session, while
-  `atm run` opens the vault in the Agent's process with no session check. The 首页 line, the Agent 与权限 Key fact and
-  the 立即锁定 toast now come from one `keyLock()` in `model.js`, by vault backend: with the system keychain, Agents running
-  ATM tools read Keys directly and locking ends only the shared unlock and project grants; with the ATM 主密码, handing a
-  Key to a program opens the approval window, ATM tools need the password, and a process with `ATM_VAULT_PASSWORD` uses
-  Keys directly. A strict `atm broker serve` still within its recorded lease is named as unaffected, with the day and time
-  its lease ends (a strict lease can run up to 720 hours). Tool and Key-route sentences follow the backend too.
-- Project approvals end with their unlock session in the record, as the toast says. 立即锁定 / `atm lock` (before it
-  replies), the lease's auto-lock and a closing console mark every project approval bound to that unlock `revoked` with
-  `revoked_reason: "session_ended"`, so `atm access list` and `GET /api/access` list it as ended and Agent 与权限 shows it
-  under 已结束的授权 as 已随锁定结束 (an owner's 撤销 keeps no reason and still reads 已撤销). If the session's process was
-  killed, the next unlock records it; until then the approval lists until its own lease end, though no session admits it.
-- Broker status: `broker_status` is the strict broker's record alone. The shared unlock session writes its own
-  `secrets_session_status`, and a broker marks the record `stopped` only while it still names that broker's socket and
-  pid, so unlocking and 立即锁定 no longer hide a strict `atm broker serve` that keeps serving its grants (the toast, 首页
-  and Agent 与权限 name it). `atm broker status` (`last_report`) and `GET /api/access` (`access.broker`) read the same
-  setting as before, so they no longer show the shared unlock session: its record is now `secrets_session_status`
-  (`atm session` reports the session; `default_socket_exists` can still be true while it holds the default socket). The
-  record is one setting, so only the most recently started strict broker is reported: once that one stops it reads
-  `stopped`, even while an older broker on another socket still serves.
-- The ATM 主密码 home line names the commands that open the approval window (`atm start` / `atm use`) and says ATM tools
-  run directly need the ATM 主密码. The credits card, the program route and the 首页 item no longer carry a CLI
-  `login_required` branch: only a website source read through OpenCLIApp is ever recorded as signed out.
-- Credits: a website source run through OpenCLIApp that exits 77 (OpenCLI's `AuthRequiredError`, raised by the
-  reviewed Tripo Studio and XYQ account adapters on the site's login wall) is stored as `login_required`, so the card's
-  需要登录, the 首页 item and the Chrome route's signed-out step finally appear. `tripo.server.account` is never recorded
-  as `login_required`, and the official CLIs (no documented exit status, stderr unread) stay `cli_failed`. Same record
-  shape.
-- Tests: the console fixtures and `tests/model.test.mjs` use records from real refreshes through signed-out fake
-  programs (`tests/fixtures/credits_refresh_rows.json`, regenerated and compared in pytest) instead of a hand-written
-  `login_required`.
+Everything merged after 0.8.0 (#6–#41). Several installed website tools have new pins: read
+[Upgrading to 0.9.0](#upgrading-to-090) before using them.
 
-# Unreleased — Higgsfield refuses ATM's OAuth login; cancel a pending login
+## Console
 
-- First real-provider result (2026-10-21, docs/OAUTH_REFRESH.md): with the owner's Fake-IP opt-in on, discovery and
-  dynamic client registration on clerk.higgsfield.ai succeeded and the browser opened; Clerk's authorize step then showed
-  `authorization_invalid` ("Unauthorized request", a 403). A cookie-less probe with an unknown `client_id` gets
-  `invalid_client`, so ATM's client was accepted and the refusal is about authorizing this client or account. Two causes
-  are possible (Higgsfield allows only certain OAuth clients, or the plan does not include MCP); neither is confirmed.
-- Console: while the ATM login is pending, D11 (which now stays open after 打开官方登录页面), the ATM 登录 route and the
-  首页 line say what that JSON means, name both causes and point to the higgsfield 程序 route (`higgsfield auth login`).
-- 取消登录 on all three ends a pending login at once instead of blocking a new one until the five-minute deadline.
-  `OAuth.cancel_login()` clears the claim; a metadata-only replacement (`previous`) resumes the working connection,
-  otherwise `needs_login` with `last_error: "oauth_cancelled"` and an `oauth.cancelled` event. The callback listener
-  stops within a second and drops its key snapshot. A code already at the token endpoint refuses (`oauth_exchanging`).
-- Console only: `POST /api/oauth/cancel {provider}` behind the bearer and exact Origin/Host, metadata only (no password,
-  nothing sent). No CLI command and no approval-window endpoint.
+- Five sections (首页, 服务, Agent 与权限, 记录, 设置) with a needs-you inbox, one page per service listing every
+  connection route with exact copy and terminal commands, and the Key lock in one top-bar control on every page;
+  退出管理台 only ends the tab. Every view is derived in `model.js` from the same ten bootstrap GETs; strict CSP, no build
+  step, CDN or remote font (#31).
+- Read-only payload additions: tool Key/program/server references, job `kind`, and pending approval-window requests in
+  `/api/access`; the redesign adds no approve control and no write endpoint (#31).
+- Bundled offline brand marks (reviewed SVGs with provenance and licence texts) next to services, tools, connections and
+  clients; no runtime icon service (#14).
+- The tab keeps its session across reloads (sessionStorage for that exact `localhost:port`, cleared on 401, lock or
+  expiry), and `atm ui` reopens this home's running console after it proves it holds the token (#29).
+- `atm ui` and the approval window open a one-time `#launch=` code, so browser history never holds the 8-hour bearer;
+  both servers hold `127.0.0.1:P` and `[::1]:P`, so another local process cannot squat `[::1]` and receive the page (#29).
+- A late answer never writes into, reopens or closes a different dialog: each opening of the shared dialog gets a
+  token, and a continuation that no longer owns it ends as a toast (#38).
 
-# Unreleased — Fake-IP proxy tunnel (opt-in)
+## Key lock, sessions and broker
 
-- Owner setting, off by default: with a Fake-IP proxy (Shadowrocket, Clash, Surge) every name resolves into
-  198.18.0.0/15, which the resolved-address check refused before any request (OAuth login and refresh, MCP HTTP,
-  downloads on every redirect hop, web-recipe and owner-configured REST origins). When on, a DNS name may also
-  resolve to plain IPv4 198.18.0.0/15, and every other answer in the set must be plain global unicast: literals,
-  mapped/compatible/translated IPv6 forms, NAT64 forms of a non-global IPv4 address, multicast, reserved and every
-  non-global answer refuse the whole set. TLS verification and pinned hosts are unchanged. Each check reads the
-  setting, and each download redirect hop reads it again. A stored value that is not JSON reads as off. Fake-IP
-  answers carry no destination, so on this machine the proxy, not ATM, vouches for it. Behaviour with the setting
-  off is unchanged (Python's `is_global`, as before).
-- Error codes unchanged; an additive `hint: "fake_ip_tunnel"` when Fake-IP answers are the only cause
-  (errors, OAuth `last_error_hint`, job errors, `/api/jobs` `error_hint`).
-- Console only: `POST /api/settings/network`, a confirm (C6) from the D11 login error and 设置 › 高级 › 网络; no
-  CLI write path or setting file. Like every console write, a program running as the same user can start `atm ui`
-  and use its token file, so this is not same-user isolation (SECURITY.md). Each change adds an `events` row
-  (`network.fake_ip_tunnel.enabled/disabled`). Read-only in `GET /api/overview` and `atm doctor`
-  (`"write_path": "console_only"`). Nothing is retried automatically. C6 opens on 取消; after 允许 the focus
-  goes back to the login (D11's cleared ATM 主密码 field, or 重新登录 on the card and the 首页 line, which
-  offer the switch while it is off); a 409 because another tab already allowed it counts as allowed.
+- The Key lock copy says what is enforced, by vault backend: with the system keychain, Agents running ATM tools read
+  Keys directly and locking ends only the shared unlock and project grants; with the ATM 主密码, handing a Key to a
+  program opens the approval window. A strict `atm broker serve` within its lease is named with the time its lease ends
+  (#35).
+- 立即锁定 / `atm lock`, the lease's auto-lock and a closing console mark every project approval bound to that unlock
+  `revoked` with `revoked_reason: "session_ended"`; `atm access list`, `GET /api/access` and Agent 与权限 (已随锁定结束)
+  list it as ended (#35).
+- `broker_status` is the strict broker's own record and the shared unlock session writes `secrets_session_status`, so
+  unlocking or locking no longer hides a strict broker that still serves. `atm broker status` and `GET /api/access`
+  therefore no longer show the shared unlock session (`atm session` does), and only the most recently started strict
+  broker is reported (#35).
+- A broker that closes the socket before replying (lock or shutdown) is `broker_unavailable`, not `invalid_sync`;
+  `run`/`exec` keep `outcome_uncertain` (#6).
 
-# Unreleased — console redesign
+## Local Passkey unlock
 
-- Five sections (首页, 服务, Agent 与权限, 记录, 设置) with a needs-you inbox, one page per service listing every connection route with exact copy and terminal commands, and the Key lock in one top-bar control on every page; 退出管理台 only ends the tab.
-- Read-only payload additions: tool Key/program/server references, job `kind`, and pending approval-window requests in `/api/access` (no approve control in the console; no new write endpoint).
-- `model.js` derives every view from the same ten bootstrap GETs; strict CSP, no build step, CDN or remote font; light and dark tokens shared with the approval window.
+- Optional local Passkey / 1Password unlock (`passkey` extra): WebAuthn verified with py_webauthn, and the existing vault
+  master key wrapped with PRF → HKDF → AES-GCM. The password/keyring recovery route and ciphertexts are unchanged and
+  bindings never sync. The console and the approval window are now served on `localhost` (#13).
+
+## Higgsfield
+
+- Four reviewed read-only `higgsfield.subscription.*` extensions (account, models, model, text-only cost) run the
+  official higgsfield CLI with its own login and billing; no ATM Key, unlock or paid permission (#7).
+- ATM-managed Higgsfield MCP OAuth (PKCE), separate from Key slots and the CLI login: tokens encrypted in the vault,
+  claim-first rotation that is never blindly retried, opt-in native-keyring background refresh that never extends a
+  project lease; `atm oauth`, a console card and an `oauth` binding for HTTP MCP servers (#8).
+- A refresh that certainly sent nothing (DNS or connect failure) stays refreshable; `login --replace` keeps the working
+  tokens until new ones are stored and restores them if the replacement fails or is abandoned; `atm oauth status`
+  exits 2 for `missing` (#18).
+- 取消登录 (console only, `POST /api/oauth/cancel`) ends a pending login at once. Cancelling during discovery or
+  registration stops there, and cancellation is decided per claim (#33, #41).
+- When Higgsfield refuses the login (`authorization_invalid`), D11, the ATM 登录 route and the 首页 line explain the
+  JSON, name both possible causes and point to the higgsfield 程序 route (#33).
+- `atm oauth login` prints one JSON object on stdout (progress goes to stderr); a console login no longer holds the
+  console-wide lock; a replacement still exchanging its code at the deadline keeps its tokens; the pending-login copy
+  no longer says the official CLI gives the same tools through ATM (#41).
+
+## Network
+
+- Owner opt-in, off by default, for Fake-IP proxies (Shadowrocket, Clash, Surge): a DNS name may also resolve to
+  198.18.0.0/15 when every other answer is plain global unicast; 6to4, Teredo and local-use NAT64 are refused
+  explicitly. TLS verification and pinned hosts are unchanged; errors gain an additive `hint: "fake_ip_tunnel"`. Console
+  only (`POST /api/settings/network`, C6, 设置 › 高级 › 网络), each change an `events` row; read-only in
+  `GET /api/overview` and `atm doctor`. Like every console write, this is not same-user isolation (SECURITY.md)
+  (#32, #37).
+
+## Subscription credits
+
+- The 订阅额度 panel and `atm credits` show remaining credits for Tripo Studio, 小云雀 and Higgsfield and the next
+  renewal day you set (no provider reports one). Refresh runs only when asked, one at a time; only the exact reviewed
+  read-only commands run; no identity or raw output is kept (#28).
+- A website source run through OpenCLIApp that exits 77 (the site's login wall) is stored as `login_required`, so
+  需要登录 and the Chrome route's signed-out step appear; the official CLIs stay `cli_failed` (#35).
+
+## Tripo Studio website tools
+
+- Reviewed OpenCLI DOM adapters and `scripts/build_tripo_studio.py` for 34 `tripo.studio.*` tools: account, assets and
+  asset query, quote and paid text generate, retopo/rig, image-to-3D, Workspace inspect/prepare/submit, animation and
+  export options, viewer/hierarchy/camera, the Generate Image form, texture, operation status and GLB export. Paid tools
+  need a current quote, a budget, human confirmation and a durable pre-click receipt and lock (#9, #10, #11, #17).
+- Status is attributed by the routed asset's own card; on an unchanged route a submission needs this panel's action to
+  turn busy, else it ends `submission_unknown` with the lock kept; `asset_resolve` checks the opened card before Edit in
+  Workspace; GLB export fails with `export_price_changed` on a newly shown price; Workspace submit clicks the verified
+  priced action or fails before the claim (#39).
+
+## Tripo server runtime (`atm studio`)
+
+- `atm studio`: a server-owned Playwright Chromium with its own login and profile, a same-UID Unix-socket bridge and
+  `tripo.server.*` definitions that reuse the reviewed schemas, permissions, budgets and receipts; `server` extra and a
+  systemd user-unit template (#12).
+- Every paid, confirmed or `external_write` server operation needs a single-use Router ticket bound to the job, argv,
+  project and bundle; a direct adapter or socket call gets `router_ticket_required` (#19, #20).
+- Paths are confined after normalising `..`, with symlinks refused; `atm studio login` needs the owner's terminal and a
+  one-time VNC password; a foreign page no longer wedges the runtime; the server budget ends before ATM kills its
+  client, so no paid click lands after ATM gave up; both backends return the same `[{"result": …}]` shape (#40).
+
+## 小云雀 (XYQ) website media tools
+
+- Reviewed OpenCLI DOM adapters and builders for website-parity image, video and audio work: home form, mode and audio
+  settings, WAV/MP3 reference upload, quotes, project history, single-submit generate with a local `generation_status`,
+  conversation-result readers, home-material discovery and the 20-operation `xyq-media` runtime; 27 tools come from
+  one documented rebuild recipe (#16, #17, #24, #26).
+- Image download through `xyq.web.result_download` and `atm delivery` with a pinned native bridge and a full local
+  decode. A taken save name is refused before any lock or click (`download_target_exists`), and a stale loader closure
+  is refused read-only (`definition_changed`) (#17, #34, #36).
+- `audio-choices` is registered as a write; `atm delivery xyq-image` is Router-only and refuses a bare manual call
+  without `--allow-write` (`permission_required`) (#37).
+- Before `xyq.web.generate` the Agent shows the exact estimate, mode and `max_credits` and waits for approval in chat
+  (#37).
+
+## Local media, tool making and setup
+
+- `atm media inspect` and `xyq.media.artifact_inspect` check image, audio and video bytes, format and full decode
+  locally; this is not provider delivery (#16).
+- A definite refusal from the bound, hash-pinned `atm` child (exit 2, `outcome_uncertain: false`) is recorded as
+  `failed` with its real code instead of `cli_failed` / `submission_unknown` (#22, #27).
+- `atm make draft` refuses a draft that drops the seed's paid flag, a permission, the credential or the executable
+  (`draft_authority_changed`); `check-bundle` rejects unlocked files (`bundle_modified`); `pack` names a kept partial
+  bundle (`bundle_incomplete`, `partial_bundle_retained`); loopback/private custom REST origins are `bad_manifest`
+  (#23, #37).
+- Generator scripts exit on `--help` without rewriting tracked files, and `docs/TOOL_CATALOG.md` renders as a table
+  again (#24).
+- The Skill registered by `atm setup --apply` names the reviewed source checkout, when its `pyproject` version equals
+  the package's, so Agents in other projects find `docs/`, `scripts/`, `examples/` and `deploy/` (#25, #37).
+- The Skill keeps only behavioural rules: its one-machine acceptance log moved to docs/XYQ_WEB_COVERAGE.md, and
+  personal account balances are gone from the Skill and the docs; the acceptance evidence keeps its meaning without
+  them (#37).
+
+## Not verified against live vendor accounts
+
+- Higgsfield refuses ATM's OAuth client. On 2026-10-21 discovery and dynamic client registration succeeded, then
+  Clerk's authorize step returned `authorization_invalid` (403); whether Higgsfield allows only certain OAuth clients or
+  the plan lacks MCP is not confirmed. ATM-managed OAuth login and refresh have therefore never completed against the
+  real provider; the higgsfield 程序 route (the official CLI's own `higgsfield auth login`) is the one that works (#33,
+  docs/OAUTH_REFRESH.md).
+- The fixes in this release to the Tripo Studio, `atm studio` and 小云雀 paid, submit and download paths (#34, #37,
+  #39, #40) were tested offline with fake pages, fake runners and fixtures, not re-run on the live sites. Dated live
+  acceptance in the contracts predates them. An unseen live layout fails closed: pending, `submission_unknown` or a
+  refusal. `atm studio` was verified only on macOS, not on Linux Xvfb.
+- Passkey unlock was tested with a CDP virtual authenticator; saving and using a real 1Password Passkey is the owner's
+  own check (docs/PASSKEY.md).
+
+## Upgrading to 0.9.0
+
+The vault, Keys, approvals and state directory need no migration. If you installed the website tools from an earlier
+0.8.0-labelled build of main, their pins changed and installed definitions do not update themselves. In this order:
+
+1. Upgrade the ATM package from the reviewed checkout and review the updated Skill (README, docs/MIGRATION.md). The
+   runtime comes first; the XYQ download closure must never be installed before it.
+2. XYQ media runtime: rebuild and reinstall the 20 `xyq-media` runtime definitions and their
+   `~/.opencli/clis/xyq-media-runtime` closure, plus the bound audio-edit loader and its definitions if installed
+   ([recipe](docs/XYQ_MEDIA_RUNTIME_CONTRACT.md#从源码重建并安装27项)).
+3. XYQ downloads: recompile both download definitions with `--adapter-dir`, reinstall the loader closure, update both
+   definitions and run the read-only digest checks before the first download (docs/XYQ_DOWNLOAD_CONTRACT.md,
+   升级：同名拒绝修正).
+4. Tripo Studio: update the 30 changed `tripo.studio.*` definitions (all but `account`, `assets`, `assets_query` and
+   `image_preview`) from the tracked `generated/tripo-studio-delivery-stage-r4/` and `generated/tripo-studio/` bundles,
+   and replace the installed OpenCLI `tripo-studio` copies of `paid.mjs`, `extended.mjs` and `workspace.mjs`
+   (docs/TRIPO_STUDIO_CLI.md, 重新生成).
+5. `atm studio` server: the packaged runtime's bundle digest changed; re-review and reinstall through
+   `atm studio install` and restart `atm studio serve` (docs/TRIPO_SERVER.md).
+6. Restart the console (`atm ui`) so its workers load the new code.
+
+Until a tool is rebuilt it is refused (`definition_changed` or a pin mismatch) or keeps its old adapter. Never clear a
+lock or receipt to get past a refusal.
 
 # Changes in 0.8.0
 
