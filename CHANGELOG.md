@@ -10,6 +10,9 @@
   - services with ready tools, and whether ATM is unlocked.
 
   It also says how to use each one without seeing a Key. It works while locked and never returns a value.
+  Each MCP server names the route that works for it. On a password vault, tools are counted under
+  `needs_vault_password`, not as ready: `atm run` opens the vault in the Agent's own process and the window unlock
+  does not reach it. A tool whose Key expired or conflicts is not counted as ready.
 - The Skill's trigger now tells Agents to check ATM before asking for any API key, token or login, or reading
   `.env`. A new first section says how to use each kind of resource and how to unlock (`atm start` opens the
   local window, Passkey first).

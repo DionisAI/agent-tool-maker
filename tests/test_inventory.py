@@ -25,7 +25,9 @@ def test_inventory_lists_keys_slots_services_and_how_to_without_values(router, m
     assert result['declared_without_key'] == [{'name': 'wisburg', 'label': '智堡 Wisburg', 'reference': 'atm://wisburg',
                                                'env_names': ['WISBURG_API_KEY'], 'state': 'missing_credential', 'expires_at': None}]
     providers = {s['provider']: s for s in result['services']}
-    assert 'elevenlabs' in providers and providers['elevenlabs']['ready_tools'] >= 1
+    # A password vault: a run in the Agent's process cannot use the window unlock, so nothing is called ready.
+    assert result['direct_runs']['available'] is False and result['direct_runs']['vault_backend'] == 'passphrase'
+    assert providers['elevenlabs']['ready_tools'] == 0 and providers['elevenlabs']['needs_vault_password'] >= 1
     assert result['session']['unlocked'] is False and result['oauth'][0]['provider'] == 'higgsfield'
     assert result['mcp_servers'] == [] and result['web_logins'] == []
     assert 'atm use' in result['how_to']['use_key'] and '1Password' in result['how_to']['unlock']
@@ -51,3 +53,27 @@ def test_cli_inventory_is_one_json_document(tmp_path):
     p = run('inventory')
     data = json.loads(p.stdout)
     assert p.returncode == 0 and data['declared_without_key'][0]['name'] == 'wisburg' and data['secrets_returned'] is False
+
+
+def test_ready_services_need_a_usable_vault_and_a_current_key(router, monkeypatch):
+    import time
+    monkeypatch.setenv('ATM_VAULT_PASSWORD', 'unit-test-passphrase-long')  # Direct runs can open this vault.
+    router.state.set_setting('credential_meta:exa', {'expires_at': time.time() - 1})
+    providers = {s['provider']: s for s in inventory(router)['services']}
+    assert providers['elevenlabs']['ready_tools'] >= 1 and providers['elevenlabs']['needs_vault_password'] == 0
+    assert 'exa' not in providers  # Its Key expired: not ready, although the tool's own check passes.
+
+
+def test_each_mcp_server_names_the_route_that_works(router, tmp_path):
+    from agent_tool_maker import mcp_servers
+    from agent_tool_maker.mcp_bridge import bind_server
+    program = tmp_path / 'srv'
+    program.write_text('#!/bin/sh\n')
+    program.chmod(0o700)
+    bind_server(router.state, 'playwright', {'transport': 'stdio', 'command': str(program), 'allow_tools': []})
+    declare_credential(router, 'wisburg', apply=True)
+    preview = mcp_servers.add(router, 'wisburg', 'https://mcp.example.com/mcp', 'wisburg')
+    mcp_servers.add(router, 'wisburg', 'https://mcp.example.com/mcp', 'wisburg', approve=preview['plan_sha256'])
+    routes = {s['server']: s['use'] for s in inventory(router)['mcp_servers']}
+    assert routes['wisburg'].startswith('atm mcp tools wisburg')
+    assert routes['playwright'] == 'atm describe playwright.mcp_tools, then atm run playwright.mcp_tools / playwright.mcp_batch'

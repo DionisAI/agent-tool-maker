@@ -11,11 +11,15 @@ environment names, declared slots still empty, ATM web logins, OAuth connections
 services, and whether ATM is unlocked. Then use the resource without seeing it:
 - a Key: `atm use --workspace /absolute/project --env ENV_NAME=atm://SLOT --request-key STABLE -- <program>`
   (see API credentials below); the program gets the Key, you never do;
-- an MCP server: `atm mcp tools` / `atm mcp call`, or its native tools (Owner-added remote MCP servers below);
-- a ready service or web login: `atm describe TOOL_ID`, then `atm run`.
+- an MCP server: the route in its `use` field (`atm mcp tools` / `atm mcp call` / native tools for a
+  Key-authenticated https server, see Owner-added remote MCP servers below; `atm run` for the others);
+- a service in `services` with `ready_tools`: `atm describe TOOL_ID`, then `atm run`. `atm run` opens the vault
+  in your own process: with the system keychain it just works; on a password vault (`direct_runs.available`
+  false) the window unlock does not reach it, so use the Key through `atm use` or MCP instead.
 When ATM is locked or a Key is missing, `atm start --workspace /absolute/project --key SLOT` opens the local
-window: the owner unlocks there (Passkey such as 1Password first) and fills anything missing. Never ask for a
-Key or password in chat, never read or write `.env`, and only fall back to other routes when ATM has nothing.
+window: the owner unlocks there (Passkey such as 1Password first) and fills anything missing. That unlock serves
+`atm use` and `atm mcp` for this project. Never ask for a Key or password in chat, never read or write `.env`,
+and only fall back to other routes when ATM has nothing.
 
 ## First installation (only when absent)
 
