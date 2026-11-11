@@ -34,12 +34,28 @@ def versions(s,name='fal'):
     with s.state.db() as db:return _load(db,s.vault.unlock(),name)
 
 
+def readable(value):
+    """Every key and string value of a packet, except opaque base64 (ciphertexts, nonces, signatures)."""
+    import re
+    if isinstance(value, dict):
+        for k, v in value.items():
+            yield k
+            yield from readable(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from readable(v)
+    elif isinstance(value, str) and not re.fullmatch(r'[A-Za-z0-9+/_-]{16,}={0,2}', value):
+        yield value
+
+
 def test_first_copy_uses_distinct_local_encryption(nodes):
     a,b,_=nodes;pair(a,b)
     a.vault.put('fal','FAKE-only-at-owner')
     packet=a.export_packet(b.identity()['id'])
     assert 'FAKE-only-at-owner' not in canonical(packet)
-    assert 'fal' not in canonical(packet)  # provider names are inside encrypted payload
+    # Provider names are inside the encrypted payload. Opaque base64 is skipped: random ciphertext can
+    # contain any three letters, which made a plain substring check fail now and then.
+    assert not [s for s in readable(packet) if 'fal' in s]
     before=b.state.path.read_bytes()
     preview=b.import_packet(packet)
     assert preview['changes'][0]['changed'] and not b.state.secret_names()
