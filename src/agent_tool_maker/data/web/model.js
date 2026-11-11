@@ -348,6 +348,7 @@
       case 'executable_not_executable': set('blocked', zh`${exe} 没有执行权限。`, toRoute('查看确认方法'), '不能运行'); break;
       case 'executable_unreadable': set('blocked', zh`无法读取 ${exe}。`, toRoute('查看确认方法'), '无法读取'); break;
       case 'mcp_not_configured': set('setup', zh`MCP 服务 ${server} 还没设置。`, toRoute('查看设置命令')); break;
+      case 'mcp_binding_changed': set('blocked', zh`MCP 服务 ${server} 的地址或 Key 和你批准的不一致，已暂停。`, toRoute('查看设置命令'), '绑定已改变'); break;
       case 'missing_origin': set('setup', '需要先设置服务地址。', toRoute('查看设置命令')); break;
       case 'browser_dependency_missing': set('setup', '需要安装 ATM 的网页组件。', toRoute('查看安装方法')); break;
       case 'browser_session_missing': set('setup', '还没有用 ATM 登录这个网站。', toRoute('查看登录命令')); break;
@@ -793,6 +794,18 @@
         route.word ||= '缺少 Key'; route.body = [zh`MCP 已设置，还需要 Key：${name}。`];
         route.actions = [{...routeAction('到“API Key”里添加', service.key, 'key', name, {focus: 'action'}), quiet: true}];
         route.summary = zh`MCP 服务已设置，还缺少 Key：${name}。`;
+      } else if (codes.includes('mcp_binding_changed')) {
+        // An owner-added server was rebound away from its reviewed endpoint or Key: every call is refused until reviewed.
+        const review = enabled.find(v => v.tool.health?.state === 'mcp_binding_changed')?.tool.mcp_review || {};
+        const q = value => "'" + String(value).replaceAll("'", "'\\''") + "'";
+        route.word ||= '绑定已改变';
+        route.body = [zh`MCP 服务 ${id} 的地址或 Key 和你批准的不一致，调用已暂停。按批准过的设置重新预览并确认：`];
+        if (str(review.url) && str(review.credential)) {
+          cmd(`atm mcp add ${id} --url ${q(review.url)} --credential ${q(review.credential)}`
+            + arr(review.allow_tools).map(t => ` --allow-tool ${q(t)}`).join('')
+            + (review.timeout && review.timeout !== 120 ? ` --timeout ${Number(review.timeout)}` : ''));
+        } else cmd('atm mcp list');
+        route.summary = zh`MCP 服务 ${id} 的绑定已改变，需要你重新确认。`;
       } else if (codes.some(c => c.startsWith('executable_'))) {
         const path = str(enabled.map(v => v.tool.health?.binary?.path).find(Boolean));
         route.word ||= codes.includes('executable_changed') ? '程序已更新' : '不能使用';

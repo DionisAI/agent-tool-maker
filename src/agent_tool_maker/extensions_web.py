@@ -25,7 +25,8 @@ def inspect(router, manifest):
     return {'id': tool['id'], 'sha256': digest(tool), 'previous_sha256': digest(old) if old else None,
             'action': 'update' if old else 'install', 'adapter': tool['adapter'],
             'permissions': tool['permissions'], 'paid': tool['paid'],
-            'origins': tool.get('recipe', {}).get('allowed_origins', [tool['request']['origin']] if 'request' in tool else []),
+            'origins': tool.get('recipe', {}).get('allowed_origins', [tool['request']['origin']] if 'request' in tool
+                                                   else [tool['url']] if tool['adapter'] == 'mcp' else []),
             'credential_references': sorted({tool.get('credential')} - {None} | set(tool.get('command', {}).get('credential_env', {}).values())),
             'validation': 'schema_only_not_security_audit_or_live_test', 'executed': False}
 

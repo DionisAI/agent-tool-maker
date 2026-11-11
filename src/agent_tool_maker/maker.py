@@ -118,11 +118,33 @@ def _validate_manifest(tool,catalog=None):
                 if child['adapter']=='workflow':raise RouterError('bad_workflow','Nested workflows are not supported in v0.2.')
                 permissions.update(child.get('permissions',[]))
             names.add(step['name'])
-    else:raise RouterError('bad_manifest','Only declarative API, CLI, workflow and handoff templates may be installed.')
+    elif adapter=='mcp':
+        _validate_mcp(tool)
+        if tool['mcp_operation']=='batch':permissions.update({'external_write','execute_code'})  # Remote tools can write and spend.
+    else:raise RouterError('bad_manifest','Only declarative API, CLI, MCP, workflow and handoff templates may be installed.')
     result=copy.deepcopy(tool);result['permissions']=sorted(permissions);result['paid']=tool.get('paid',False)
     if adapter=='workflow' and catalog:result['paid']=result['paid'] or any(catalog.get(s['tool']).get('paid',False) for s in result['steps'])
-    result.update(user_defined=True,implementation='workflow' if adapter=='workflow' else 'handoff' if adapter in {'browser','desktop','human'} else 'native',verification='user_installed_not_live_verified')
+    if adapter=='mcp' and tool['mcp_operation']=='batch':result['paid']=True
+    implementation='workflow' if adapter=='workflow' else 'handoff' if adapter in {'browser','desktop','human'} else 'bridge' if adapter=='mcp' else 'native'
+    result.update(user_defined=True,implementation=implementation,verification='user_installed_not_live_verified')
     return result
+
+def _validate_mcp(tool):
+    """Owner-added remote MCP server: its own name, the standard operations, a reviewed endpoint and Key slot."""
+    from .extensions import credential_name
+    from .mcp_bridge import BATCH_SCHEMA,SERVER_NAME,TOOLS_SCHEMA,builtin_servers,custom_endpoint
+    server=tool.get('server')
+    if not isinstance(server,str) or not SERVER_NAME.fullmatch(server) or server in builtin_servers():
+        raise RouterError('bad_manifest','A custom MCP server needs its own name, not a built-in one.')
+    operation=tool.get('mcp_operation')
+    if operation not in {'tools','batch'} or tool['id']!=server+'.mcp_'+operation or tool['provider']!=server:
+        raise RouterError('bad_manifest','Custom MCP tools are exactly <server>.mcp_tools and <server>.mcp_batch.')
+    if tool['schema']!=(TOOLS_SCHEMA if operation=='tools' else BATCH_SCHEMA):
+        raise RouterError('bad_manifest','Custom MCP tools use the standard discovery or batch input schema.')
+    if set(tool)&{'command','executable','request','recipe','steps','instructions','extensions','completion'}:
+        raise RouterError('bad_manifest','A custom MCP tool takes only a reviewed endpoint and Key slot.')
+    custom_endpoint(tool.get('url'))
+    credential_name(tool.get('credential'))
 
 def validate_manifest(tool,catalog=None):
     try:

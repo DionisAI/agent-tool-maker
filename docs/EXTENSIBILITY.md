@@ -12,6 +12,7 @@
 | 只有网页 | `web_recipe`：Playwright 实际执行有限 DOM 操作和下载，生成 Python CLI | 不是官方 API，不是给任意 URL 就能保证成功 |
 | Agent 制作 | 调用已登录 Claude Code/Codex 起草 manifest，再编译 CLI | 本轮没有实际模型调用；不会自动安装、授予权限或执行草稿 |
 | 网页工坊 | 新凭证槽、JSON 验证、明确安装/更新、自定义目录、会话元数据 | 不提供网页任意 Shell 或模型调用按钮 |
+| 远程 MCP 服务 | `atm mcp add`：固定 https 端点 + Key 槽 + 工具白名单，一次批准生成 `<名>.mcp_tools` / `.mcp_batch`；在项目 30 分钟授权下调用；`atm mcp serve` 给 Claude Code/Codex 原生工具 | 只支持 Bearer 头的 Streamable HTTP；不支持 OAuth、stdio 自定义服务、资源与提示 |
 
 原有157个内置动作未扩充。自定义动作只在安装到自己的状态库后进入该机目录。内置动作无法覆盖。
 
@@ -60,6 +61,26 @@ atm make from-openapi examples/extensions/sample.openapi.json \
 ```
 
 导入器只处理一个固定 HTTPS server、简单 path/query 参数、必需的 application/json body、单一 bearer/basic/header API Key。支持无环本地 `$ref`，拒绝外部引用、多个认证选择、Cookie/query-key鉴权和不支持的参数序列化，不联网猜测。可选 query 未提供时不发送；boolean序列化为 `true/false`。
+
+## 2b. 不在目录中的远程 MCP 服务
+
+以智堡 Wisburg 为例（`https://mcp.wisburg.com/mcp`，`Authorization: Bearer <Key>`）：
+
+```sh
+atm credentials declare wisburg --label "智堡 Wisburg" --apply   # Key 由人在管理台或 atm start 窗口填写
+atm mcp add wisburg --url https://mcp.wisburg.com/mcp --credential wisburg            # 预览
+atm mcp add wisburg --url https://mcp.wisburg.com/mcp --credential wisburg --approve <plan_sha256>
+atm mcp tools wisburg --workspace /absolute/project                                    # 在项目授权下发现工具
+atm mcp add wisburg --url https://mcp.wisburg.com/mcp --credential wisburg \
+  --allow-tool <名称> --approve <新 plan_sha256> --expected <上一版 plan_sha256>         # 允许确切的工具名
+```
+
+- 端点和 Key 槽写进两个工具定义，计入批准摘要。之后若用 `atm mcp bind` 改了地址或 Key 槽，调用会在读取 Key 之前以 `mcp_binding_changed` 拒绝，什么都不发送。
+- `atm mcp tools` / `atm mcp call` 和 `atm mcp serve` 都走 `atm start` 建立的项目授权：只限该项目、该 Key、固定 30 分钟。调用在解锁的会话进程里执行，Agent 进程拿不到 Key；锁定或过期后立即停止，并重新弹出本机窗口。
+- `atm mcp serve wisburg --workspace /absolute/project` 是本地 stdio MCP 服务。Claude Code 用 `claude mcp add wisburg --scope local -- <atm> --home <home> mcp serve wisburg --workspace <项目>` 按项目注册；Codex 的注册是全用户共享的，所以每个项目用不同名字：`codex mcp add wisburg-<项目> -- …`。客户端不在该项目目录里运行时，代理拒绝列出和调用工具。它只列出白名单里的工具；锁定时只列出 `atm_unlock`。Codex 不会在解锁后刷新工具列表：先 `atm start --key wisburg` 解锁再开 Codex，或解锁后开新会话。
+- 结果超过会话通道上限（约 1 MiB）时不会丢：调用照常完成，返回保存在项目里的结果文件路径和预览。超时、连接中断或回复被截断时按「结果未知」处理，不会让 Agent 重发。若上一次调用客户端可能已经放弃（耗时 45 秒以上、结果未知或收到取消通知），两分钟内同一工具、同样参数的调用直接返回那次的结果，不再执行，防止 Codex 默认 60 秒 `tool_timeout_sec` 超时后模型重试导致重复扣费（慢的服务可以调大这个值）。普通的快速调用和标为只读的工具照常执行。
+- 调用按「可能写入/扣费」处理（`mcp_batch` 固定为 paid + external_write + execute_code）。项目授权本身就已同意 Key 在该项目里联网和花费；白名单之外的工具不会发出。工具描述和结果是不受信任的服务器文本。
+- `atm mcp list` 列出绑定（不含 Key），`atm mcp remove wisburg` 预览后用 `--approve` 删除绑定和两个定义；旧任务记录保留。
 
 ## 3. 任意已安装 CLI
 

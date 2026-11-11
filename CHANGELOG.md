@@ -1,3 +1,40 @@
+# Unreleased
+
+## Owner-added remote MCP servers
+
+- `atm mcp add NAME --url https://… --credential SLOT [--allow-tool T]` previews one plan: the endpoint, the Key slot
+  sent there as a Bearer header, the tool allowlist and two generated definitions, `NAME.mcp_tools` and
+  `NAME.mcp_batch`. `--approve <plan_sha256>` (with `--expected` for a change) writes all of it in one transaction.
+  `atm mcp list` and `atm mcp remove` round it off. `atm make validate`/`install` now accept these MCP definitions.
+- The endpoint and Key slot are part of the approved definitions. A later `atm mcp bind` that points the server
+  elsewhere is refused with `mcp_binding_changed` before the Key is read.
+- `atm mcp tools` / `atm mcp call` run under the project's 30-minute approval from `atm start` (new session
+  operation `mcp.run`). The Key stays in the unlocked session process, and request keys are scoped to the project,
+  so a reused key returns the earlier job after a new unlock.
+- `atm mcp serve NAME --workspace /abs/project` is a local stdio MCP server for Claude Code and Codex. It lists
+  only allowed tools, forwards each call to the session and holds no Key. It refuses to work when the client runs
+  outside that project, because Codex registrations are user-global. While locked it offers `atm_unlock`, which
+  opens the local window, and it sends `tools/list_changed` when the state changes. Codex ignores that
+  notification, so unlock before starting Codex, or start a new session.
+- A session reply stays under the 1 MiB socket limit. Discovery is compacted: full schemas only for allowed
+  tools. A larger call result comes back as the saved artifact's path plus a preview. A dropped reply after the
+  request was sent is an unknown outcome, never "not started", so the proxy never invites a duplicate call.
+- After a call the client may have abandoned (45 s or longer, an unknown outcome, or `notifications/cancelled`),
+  the proxy returns that earlier outcome for an identical call within two minutes. So a client that timed out
+  first (Codex `tool_timeout_sec`, 60 s by default) cannot resend a paid call. Fast calls and tools annotated
+  `readOnlyHint` always run. A server
+  `isError` after sending carries an ATM note that the call may still have run or been charged.
+- Discovery results are redacted by secret value only: a parameter named `password` keeps its schema. A custom
+  server whose binding no longer matches its reviewed definitions reports `mcp_binding_changed` in readiness,
+  doctor and the console.
+
+## Fixes
+
+- `atm mcp bind` refuses a `credential` that is not one slot name, for example a list.
+- A discovered MCP tool without `inputSchema` is validated as `{}` before any call. Previously a batch hit a
+  KeyError and was recorded as `submission_unknown` although nothing had been sent.
+- When a server answers a call with `isError`, its redacted result is kept in the job as `mcp_error`.
+
 # Changes in 0.9.0
 
 Everything merged after 0.8.0 (#6–#41, except test-only #21 and the research notes in #15; #30 was closed unmerged).

@@ -46,6 +46,8 @@ def key_route(tool: dict):
         return tool['request']['origin'].rstrip('/'), tool['request'].get('auth', 'bearer')
     if tool['adapter'] == 'web_recipe':
         return tool['recipe'].get('session')
+    if tool['adapter'] == 'mcp':
+        return tool.get('url'), tool.get('server')  # An owner-added server's Key goes only to its reviewed endpoint.
     return None
 
 

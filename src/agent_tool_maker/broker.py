@@ -377,6 +377,12 @@ class BrokerHandler(socketserver.StreamRequestHandler):
             pass
 
 
+def _uncertain(operation, sent):
+    """A dropped reply leaves a call's outcome unknown. mcp.run counts only once the request left: an MCP
+    tool call may already be running in the session, so a client must never treat it as not started."""
+    return operation in {"run", "exec"} or operation == "mcp.run" and sent
+
+
 def call(profile: Path, operation: str, args: dict, *, timeout=300):
     path = safe_path(profile, secret=True)
     if not path.exists():
@@ -392,6 +398,7 @@ def call(profile: Path, operation: str, args: dict, *, timeout=300):
     message = canonical({"id": cfg["id"], "token": cfg["token"], "operation": operation, "args": args}).encode() + b"\n"
     if len(message) > MAX_MESSAGE:
         raise RouterError("request_too_large", "Broker request exceeds 1 MiB.")
+    sent = False
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
             conn.settimeout(timeout)
@@ -401,14 +408,23 @@ def call(profile: Path, operation: str, args: dict, *, timeout=300):
                 if server_uid != cfg["socket_owner_uid"]:
                     raise RouterError("server_uid_denied", "Connected broker UID differs from the approved owner.")
             conn.sendall(message)
+            sent = True
             with conn.makefile("rb") as stream:
                 response = stream.readline(MAX_MESSAGE + 1)
     except OSError:
-        raise RouterError("broker_unavailable", "Broker is stopped, locked or unreachable. Reconcile the stable request key; no direct-vault fallback occurred.", uncertain=operation in {"run", "exec"}) from None
+        raise RouterError("broker_unavailable", "Broker is stopped, locked or unreachable. Reconcile the stable request key; no direct-vault fallback occurred.", uncertain=_uncertain(operation, sent)) from None
     if response == b"":
         # EOF during lock/shutdown is a transport failure, not malformed sync JSON.
-        raise RouterError("broker_unavailable", "Broker closed the connection before a response. Reconcile the stable request key; no direct-vault fallback occurred.", uncertain=operation in {"run", "exec"})
-    value = strict_json(response, limit=MAX_MESSAGE)
+        raise RouterError("broker_unavailable", "Broker closed the connection before a response. Reconcile the stable request key; no direct-vault fallback occurred.", uncertain=_uncertain(operation, sent))
+    try:
+        if _uncertain(operation, sent) and not response.endswith(b"\n"):
+            raise RouterError("invalid_sync", "Reply was cut off.")
+        value = strict_json(response, limit=MAX_MESSAGE)
+    except RouterError:
+        if not _uncertain(operation, sent):
+            raise
+        # A cut-off or garbled reply after the request left: the call may have run.
+        raise RouterError("broker_unavailable", "Broker reply was cut off or malformed. Reconcile the stable request key; no direct-vault fallback occurred.", uncertain=True) from None
     if "error" in value:
         error = value["error"]
         raise RouterError(error["code"], error["message"], uncertain=error.get("outcome_uncertain", False),
