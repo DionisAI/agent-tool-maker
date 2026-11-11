@@ -31,6 +31,13 @@ UNLOCK_TEXT = '请在本机弹出的 ATM 窗口解锁；密码不要发到聊天
 TOOL_FIELDS = ('name', 'title', 'description', 'inputSchema', 'annotations')
 BUDGET = 900_000  # A session reply must stay under the socket's 1 MiB limit (broker.MAX_MESSAGE).
 RETRY_SECONDS = 30
+RETRIES = 3
+# Codes worth one more discovery attempt; anything else (a removed or drifted server, a refusal) is final.
+TRANSIENT = {'session_busy', 'broker_unavailable', 'mcp_interrupted', 'mcp_http', 'mcp_timeout', 'mcp_limit',
+             'response_too_large', 'execution_interrupted', 'broker_failure'}
+# An identical call (same tool, same arguments) within this window returns the earlier outcome instead of
+# running again: a client that timed out first (Codex: 60 s by default) would otherwise resend a paid call.
+DUPLICATE_SECONDS = 120
 
 
 def job_prefix(workspace):
@@ -43,27 +50,41 @@ def _size(value):
 
 
 def _preview(result):
-    for item in (result or {}).get('content') or []:
+    content = result.get('content') if isinstance(result, dict) else None
+    for item in content if isinstance(content, list) else []:
         if isinstance(item, dict) and item.get('type') == 'text' and isinstance(item.get('text'), str):
             return item['text'][:4000]
     return ''
 
 
+def _server_info(value):
+    """The server's self-description, reduced to short name/version strings."""
+    if not isinstance(value, dict):
+        return None
+    return {k: value[k][:200] for k in ('name', 'version', 'title') if isinstance(value.get(k), str)}
+
+
 def _fit_tools(found, allowed):
-    """Every tool name, with full detail for the tools the owner allowed, within the reply budget."""
-    def shape(tool, room):
-        item = {k: tool[k] for k in ('name', 'title') if isinstance(tool.get(k), str)}
-        if tool.get('name') in allowed:
-            item.update({k: tool[k] for k in ('inputSchema', 'annotations') if k in tool})
-            room = 4000
+    """Every tool name, with full detail for the tools the owner allowed, within the reply budget.
+    Returns the tools and whether anything was shortened or left out."""
+    found = [t for t in found if isinstance(t, dict) and isinstance(t.get('name'), str)]
+    def shape(tool, room, schemas=True):
+        item = {'name': tool['name'][:200]}
+        if isinstance(tool.get('title'), str):
+            item['title'] = tool['title'][:200]
+        if tool['name'] in allowed:
+            if schemas:
+                item.update({k: tool[k] for k in ('inputSchema', 'annotations') if k in tool})
+            room = max(room, 4000) if room else 0
         if isinstance(tool.get('description'), str) and room:
             item['description'] = tool['description'][:room]
         return item
-    for room in (2000, 200, 0):
-        tools = [shape(t, room) for t in found if isinstance(t, dict)]
+    passes = [(2000, True), (200, True), (0, True), (0, False)]
+    for room, schemas in passes:
+        tools = [shape(t, room, schemas) for t in found]
         if _size(tools) <= BUDGET:
-            return tools, room != 2000
-    return [shape(t, 0) for t in found if isinstance(t, dict) and t.get('name') in allowed], True
+            return tools, tools != [shape(t, 10**9) for t in found]
+    return [{'name': t['name'][:200]} for t in found if t['name'] in allowed][:2000], True
 
 
 def _fit_result(data):
@@ -71,15 +92,34 @@ def _fit_result(data):
     result = data.get('result')
     if result is None or _size(result) <= BUDGET:
         return result
-    first = ((result.get('results') or [{}])[0] or {}).get('result')
+    results = result.get('results') if isinstance(result, dict) else None
+    first = results[0].get('result') if isinstance(results, list) and results and isinstance(results[0], dict) else None
     return {'too_large': True, 'bytes': _size(result), 'preview': _preview(first),
-            'artifacts': [a['path'] for a in data.get('artifacts', []) if isinstance(a, dict) and a.get('path')]}
+            'artifacts': [a['path'] for a in data.get('artifacts', []) if isinstance(a, dict) and isinstance(a.get('path'), str)]}
 
 
 def _fit_error(error):
     if not error or _size(error) <= 100_000:
         return error
-    return {'name': error.get('name'), 'too_large': True, 'result': {'content': [{'type': 'text', 'text': _preview(error.get('result'))}]}}
+    name = error.get('name') if isinstance(error, dict) else None
+    return {'name': name, 'too_large': True,
+            'result': {'content': [{'type': 'text', 'text': _preview(error.get('result') if isinstance(error, dict) else None)}]}}
+
+
+def public_job(job):
+    """This project's MCP job, as the session may send it: never larger than the reply limit."""
+    data = job['data']
+    result = data.get('result') if job['status'] == 'completed' else None
+    if isinstance(result, dict) and isinstance(result.get('tools'), list):
+        tools, truncated = _fit_tools(result['tools'], set())
+        result = {'tools': tools, 'total': len(result['tools']), 'truncated': truncated}
+    elif result is not None:
+        result = _fit_result(data)
+    inputs = data.get('inputs')
+    view = {'inputs': inputs if _size(inputs) <= 100_000 else {'too_large': True}, 'result': result,
+            'error': data.get('error'), 'mcp_error': _fit_error(data.get('mcp_error')),
+            'artifacts': [a.get('path') for a in data.get('artifacts', []) if isinstance(a, dict)]}
+    return {k: job.get(k) for k in ('id', 'tool', 'status', 'workspace', 'created', 'updated')} | {'data': view, 'secrets_returned': False}
 
 
 def run_in_session(session, router, policy, args, request, peer_uid):
@@ -98,6 +138,10 @@ def run_in_session(session, router, policy, args, request, peer_uid):
         raise RouterError('mcp_denied', 'Only Key-authenticated remote MCP servers run through the project session.')
     if cfg['credential'] not in policy.get('credentials', []):
         raise RouterError('mcp_denied', "This server's Key is outside the temporary approval; nothing was sent.")
+    from .mcp_bridge import matches_definition
+    definition = router.catalog.get(name + '.mcp_tools')
+    if definition.get('user_defined') and not matches_definition(cfg, definition):
+        raise RouterError('mcp_binding_changed', 'The binding no longer matches the reviewed endpoint and Key; nothing was sent. Review it again with atm mcp add.')
     key = args.get('request_key')
     if not isinstance(key, str) or not KEY.fullmatch(key):
         raise RouterError('request_key_required', 'Use a stable 1-120 character request key.')
@@ -128,7 +172,8 @@ def run_in_session(session, router, policy, args, request, peer_uid):
     if job['status'] == 'completed' and operation == 'tools':
         found = result.get('tools', [])
         fitted, truncated = _fit_tools(found, set(cfg.get('allow_tools', [])))
-        result = {**{k: v for k, v in result.items() if k != 'tools'}, 'tools': fitted, 'total': len(found), 'truncated': truncated}
+        result = {'tools': fitted, 'total': len(found), 'truncated': truncated,
+                  'server_version': _server_info(result.get('server_version')), 'protocol_version': str(result.get('protocol_version'))[:40]}
     elif job['status'] == 'completed':
         result = _fit_result(data)
     return {'job_id': job['id'], 'status': job['status'], 'result': result, 'error': data.get('error'),
@@ -208,50 +253,69 @@ class Proxy:
         self.cache_allowed = None
         self.unlocked = None
         self.retry_at = None
+        self.retries = 0
+        self.recent = {}
         self.closed = threading.Event()
         self.poll = poll
 
-    def credential(self):
-        return _binding(self.state, self.name)['credential']  # Re-read: the owner may change it while we run.
+    def binding(self):
+        """The current binding (re-read: the owner may change or remove it while we run), or None."""
+        try:
+            return _binding(self.state, self.name)
+        except Exception:
+            return None
 
     def ready(self):
         from .quickstart import ready
+        cfg = self.binding()
         try:
-            return bool(ready(self.state, self.workspace, [self.credential()]))
-        except RouterError:
+            return bool(cfg and ready(self.state, self.workspace, [cfg['credential']]))
+        except Exception:
             return False
 
     def allowed(self):
-        try:
-            return set(_binding(self.state, self.name).get('allow_tools', []))
-        except RouterError:
-            return set()
+        cfg = self.binding()
+        allow = cfg.get('allow_tools') if cfg else None
+        return {t for t in allow if isinstance(t, str)} if isinstance(allow, list) else set()
 
     def send(self, message):
-        line = (json.dumps(message, ensure_ascii=False, separators=(',', ':')) + '\n').encode()
+        # ASCII-only JSON: a lone surrogate from the client can never break the encoding of our reply.
+        line = (json.dumps(message, ensure_ascii=True, separators=(',', ':')) + '\n').encode()
         with self.write_lock:
             self.stdout.write(line)
             self.stdout.flush()
 
+    def failed_discovery(self, code):
+        if code in TRANSIENT and self.retries < RETRIES:
+            self.retry_at = time.monotonic() + RETRY_SECONDS * 2 ** self.retries
+            self.retries += 1
+        else:
+            self.retry_at = None
+
     def watch(self):
         """Tell the client when its tool list changes: an unlock, a lock or expiry, a new allowlist,
-        or a retry after a failed discovery. Clients that ignore this (Codex) need a reconnect."""
+        or a retry after a transient discovery failure. Clients that ignore this (Codex) need a reconnect."""
         allowed = self.allowed()
         while not self.closed.wait(self.poll):
-            now, latest = self.ready(), self.allowed()
-            retry = self.retry_at is not None and time.monotonic() >= self.retry_at
-            if retry:
-                self.retry_at = None
-            if retry or (self.unlocked is not None and now != self.unlocked) or latest != allowed:
-                self.cache = None
-                try:
+            try:
+                now, latest = self.ready(), self.allowed()
+                retry = self.retry_at is not None and time.monotonic() >= self.retry_at
+                if retry:
+                    self.retry_at = None
+                changed = self.unlocked is not None and now != self.unlocked
+                if changed:
+                    self.retries = 0
+                if retry or changed or latest != allowed:
+                    self.cache = None
                     self.send({'jsonrpc': '2.0', 'method': 'notifications/tools/list_changed'})
-                except (OSError, ValueError):
-                    return
-            self.unlocked, allowed = now, latest
+                self.unlocked, allowed = now, latest
+            except (OSError, ValueError):
+                return  # The client went away.
+            except Exception:
+                continue  # A transient local error must not end the watcher.
 
     def list_tools(self):
-        if self.misplaced:
+        if self.misplaced or self.binding() is None:
             return []
         self.unlocked = self.ready()
         allowed = self.allowed()
@@ -259,17 +323,18 @@ class Proxy:
         if self.unlocked and cache is None:
             try:
                 result = request(self.home, self.name, self.workspace, 'tools', request_key='list-' + self.instance + '-' + uuid.uuid4().hex[:8])
-            except RouterError:
-                self.retry_at = time.monotonic() + RETRY_SECONDS
+            except RouterError as e:
+                self.failed_discovery(e.code)
                 raise
             if result.get('status') in PENDING:
                 self.unlocked = False
             elif result.get('status') != 'completed':
-                self.retry_at = time.monotonic() + RETRY_SECONDS
-                raise RouterError((result.get('error') or {}).get('code') or 'mcp_discovery_failed', 'Discovery through ATM failed; it is retried shortly.')
+                code = (result.get('error') or {}).get('code') or 'mcp_discovery_failed'
+                self.failed_discovery(code)
+                raise RouterError(code, 'Discovery through ATM failed.')
             else:
                 cache = self.cache = result['result'].get('tools', [])
-                self.cache_allowed = allowed
+                self.cache_allowed, self.retry_at, self.retries = allowed, None, 0
         if not self.unlocked:
             # Listing never opens a window: clients list tools at startup. The window opens on a call.
             return [{'name': UNLOCK_TOOL, 'description': 'ATM is locked for this project. Call this to open the local ATM window; the owner unlocks it there. Never ask for the password in chat.',
@@ -281,19 +346,38 @@ class Proxy:
         if self.misplaced:
             return _text('This ATM proxy is registered for project ' + str(self.workspace) + ', but the client runs in another '
                          'directory. Start the client in that project; nothing was sent.', error=True)
+        cfg = self.binding()
+        if cfg is None:
+            return _text('The owner removed this MCP server from ATM; nothing was sent.', error=True)
         name, arguments = params.get('name'), params.get('arguments', {})
         if name == UNLOCK_TOOL:
             from .quickstart import start
-            status = start(self.home, self.workspace, names=[self.credential()])
+            status = start(self.home, self.workspace, names=[cfg['credential']])
+            hint = ' If the tools do not appear after unlocking, reconnect this MCP server (in Codex, start a new session).'
             if status.get('status') == 'ready':
                 self.cache = None
-                return _text('ATM is unlocked for this project. If the tools do not appear, reconnect this MCP server '
-                             '(in Codex, start a new session).')
-            return _text(UNLOCK_TEXT + ' (' + str(status.get('status')) + ')', error=True)
+                return _text('ATM is unlocked for this project.' + hint)
+            return _text(UNLOCK_TEXT + ' (' + str(status.get('status')) + ')' + hint, error=True)
         if not isinstance(name, str) or name not in self.allowed():
             return _text('This tool is not in the owner-approved allowlist for ' + self.name + '; nothing was sent.', error=True)
         if not isinstance(arguments, dict):
             return _text('Tool arguments must be an object; nothing was sent.', error=True)
+        same = hashlib.sha256((name + '\0' + canonical(arguments)).encode()).hexdigest()
+        now = time.monotonic()
+        self.recent = {k: v for k, v in self.recent.items() if now - v[0] < DUPLICATE_SECONDS}
+        if same in self.recent:
+            earlier = self.recent[same][1]
+            note = ('ATM: an identical call ended moments ago; its outcome is shown again instead of running it twice. '
+                    'Change an argument, or wait two minutes, to run it again.')
+            content = earlier.get('content') if isinstance(earlier.get('content'), list) else []
+            return {**earlier, 'content': [*content, {'type': 'text', 'text': note}]}
+        reply, ran = self.forward(name, arguments, ident)
+        if ran:  # It may have run: remember it, so a client-side timeout retry does not run it again.
+            self.recent[same] = (time.monotonic(), reply)
+        return reply
+
+    def forward(self, name, arguments, ident):
+        """One call through the session. Returns the MCP result and whether the call may have run."""
         # The full id with its type, hashed: distinct requests never share a request key.
         key = 'call-' + self.instance + '-' + hashlib.sha256(json.dumps(ident, sort_keys=True).encode()).hexdigest()[:24]
         try:
@@ -301,26 +385,28 @@ class Proxy:
         except RouterError as e:
             if e.uncertain:
                 return _text('Outcome unknown (' + e.code + '): the call may have run. Do not call it again; '
-                             'reconcile with ATM request key ' + key + '.', error=True)
+                             'reconcile with ATM request key ' + key + '.', error=True), True
             raise
         status = result.get('status')
         if status in PENDING:  # Nothing was sent: the project was not ready.
             self.unlocked = False
-            return _text(UNLOCK_TEXT + ' (' + str(status) + ') Nothing was sent; call the tool again after unlocking.', error=True)
+            return _text(UNLOCK_TEXT + ' (' + str(status) + ') Nothing was sent; call the tool again after unlocking.', error=True), False
         if status == 'completed':
             out = result['result']
             if out.get('too_large'):
                 return _text('The call completed. Its result (' + str(out['bytes']) + ' bytes) is too large to pass through here; '
-                             'ATM saved it in this project at: ' + ', '.join(out.get('artifacts') or []) + '\nPreview:\n' + out.get('preview', ''))
-            return out['results'][0]['result']
+                             'ATM saved it in this project at: ' + ', '.join(out.get('artifacts') or []) + '\nPreview:\n' + out.get('preview', '')), True
+            return out['results'][0]['result'], True
         error = result.get('error') or {}
         if status == 'failed':  # Certain: refused or failed before any tool call left.
-            return _text('Not run (' + str(error.get('code')) + '): ' + str(error.get('message', '')), error=True)
+            return _text('Not run (' + str(error.get('code')) + '): ' + str(error.get('message', '')), error=True), False
         served = (result.get('mcp_error') or {}).get('result')
-        if status == 'submission_unknown' and served and isinstance(served.get('content'), list):
-            return {**served, 'isError': True}
+        if status == 'submission_unknown' and isinstance(served, dict) and isinstance(served.get('content'), list):
+            note = ('ATM: the server reported an error after the call was sent, so it may still have run or been charged. '
+                    'Do not call it again without checking; ATM job ' + str(result.get('job_id')) + '.')
+            return {**served, 'content': [*served['content'], {'type': 'text', 'text': note}], 'isError': True}, True
         return _text('Outcome unknown (' + str(error.get('code') or status) + '): the call may have run. Do not call it again; '
-                     'ATM job ' + str(result.get('job_id')) + '.', error=True)
+                     'ATM job ' + str(result.get('job_id')) + '.', error=True), True
 
     def handle(self, message):
         if not isinstance(message, dict) or message.get('jsonrpc') != '2.0':
@@ -372,7 +458,10 @@ class Proxy:
                     self.send(_error(None, -32700, 'Parse error.'))
                     continue
                 if isinstance(message, list):  # A JSON-RPC batch (still allowed by 2025-03-26).
-                    answers = [a for a in (self.handle(m) for m in message) if a is not None] if message else [_error(None, -32600, 'Empty batch.')]
+                    if not message:
+                        self.send(_error(None, -32600, 'Empty batch.'))  # JSON-RPC: one error object, not an array.
+                        continue
+                    answers = [a for a in (self.handle(m) for m in message) if a is not None]
                     if answers:
                         self.send(answers)
                     continue
@@ -403,6 +492,9 @@ def serve(home, name, workspace):
         proxy = Proxy(home, name, workspace)
     except RouterError as e:
         print(json.dumps({'error': e.as_dict()}, ensure_ascii=False), file=sys.stderr)
+        return 2
+    except Exception as e:
+        print(json.dumps({'error': {'code': 'proxy_failure', 'message': type(e).__name__}}), file=sys.stderr)
         return 2
     try:
         return proxy.serve()

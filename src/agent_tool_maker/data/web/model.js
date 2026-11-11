@@ -796,10 +796,15 @@
         route.summary = zh`MCP 服务已设置，还缺少 Key：${name}。`;
       } else if (codes.includes('mcp_binding_changed')) {
         // An owner-added server was rebound away from its reviewed endpoint or Key: every call is refused until reviewed.
-        const t = enabled.find(v => v.tool.health?.state === 'mcp_binding_changed')?.tool || {};
+        const review = enabled.find(v => v.tool.health?.state === 'mcp_binding_changed')?.tool.mcp_review || {};
+        const q = value => "'" + String(value).replaceAll("'", "'\\''") + "'";
         route.word ||= '绑定已改变';
-        route.body = [zh`MCP 服务 ${id} 的地址或 Key 和你批准的不一致，调用已暂停。重新预览并确认：`];
-        cmd(`atm mcp add ${id} --url ${str(t.url) || '<地址>'} --credential ${str(t.credential) || '<Key 名称>'}`);
+        route.body = [zh`MCP 服务 ${id} 的地址或 Key 和你批准的不一致，调用已暂停。按批准过的设置重新预览并确认：`];
+        if (str(review.url) && str(review.credential)) {
+          cmd(`atm mcp add ${id} --url ${q(review.url)} --credential ${q(review.credential)}`
+            + arr(review.allow_tools).map(t => ` --allow-tool ${q(t)}`).join('')
+            + (review.timeout && review.timeout !== 120 ? ` --timeout ${Number(review.timeout)}` : ''));
+        } else cmd('atm mcp list');
         route.summary = zh`MCP 服务 ${id} 的绑定已改变，需要你重新确认。`;
       } else if (codes.some(c => c.startsWith('executable_'))) {
         const path = str(enabled.map(v => v.tool.health?.binary?.path).find(Boolean));

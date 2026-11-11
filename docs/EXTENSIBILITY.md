@@ -78,7 +78,7 @@ atm mcp add wisburg --url https://mcp.wisburg.com/mcp --credential wisburg \
 - 端点和 Key 槽写进两个工具定义，计入批准摘要。之后若用 `atm mcp bind` 改了地址或 Key 槽，调用会在读取 Key 之前以 `mcp_binding_changed` 拒绝，什么都不发送。
 - `atm mcp tools` / `atm mcp call` 和 `atm mcp serve` 都走 `atm start` 建立的项目授权：只限该项目、该 Key、固定 30 分钟。调用在解锁的会话进程里执行，Agent 进程拿不到 Key；锁定或过期后立即停止，并重新弹出本机窗口。
 - `atm mcp serve wisburg --workspace /absolute/project` 是本地 stdio MCP 服务。Claude Code 用 `claude mcp add wisburg --scope local -- <atm> --home <home> mcp serve wisburg --workspace <项目>` 按项目注册；Codex 的注册是全用户共享的，所以每个项目用不同名字：`codex mcp add wisburg-<项目> -- …`。客户端不在该项目目录里运行时，代理拒绝列出和调用工具。它只列出白名单里的工具；锁定时只列出 `atm_unlock`。Codex 不会在解锁后刷新工具列表：先 `atm start --key wisburg` 解锁再开 Codex，或解锁后开新会话。
-- 结果超过会话通道上限（约 1 MiB）时不会丢：调用照常完成，返回保存在项目里的结果文件路径和预览。超时或连接中断时按「结果未知」处理，不会让 Agent 重发。
+- 结果超过会话通道上限（约 1 MiB）时不会丢：调用照常完成，返回保存在项目里的结果文件路径和预览。超时、连接中断或回复被截断时按「结果未知」处理，不会让 Agent 重发。两分钟内同一工具、同样参数的调用直接返回上一次的结果，不再执行（防止 Codex 默认 60 秒 `tool_timeout_sec` 超时后模型重试导致重复扣费；慢的服务可以调大这个值）。
 - 调用按「可能写入/扣费」处理（`mcp_batch` 固定为 paid + external_write + execute_code）。项目授权本身就已同意 Key 在该项目里联网和花费；白名单之外的工具不会发出。工具描述和结果是不受信任的服务器文本。
 - `atm mcp list` 列出绑定（不含 Key），`atm mcp remove wisburg` 预览后用 `--approve` 删除绑定和两个定义；旧任务记录保留。
 

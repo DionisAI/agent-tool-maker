@@ -499,7 +499,7 @@ def test_proxy_answers_batches_and_never_crashes_on_odd_input(project, monkeypat
     assert out[0] == [{'jsonrpc': '2.0', 'id': 1, 'result': {}}]
     assert out[1]['result']['protocolVersion'] == '2025-06-18'
     assert out[2]['result']['isError'] is True and 'tools/call' not in remote.methods()
-    assert out[3][0]['error']['code'] == -32600 and out[4]['id'] == 4
+    assert out[3]['error']['code'] == -32600 and out[4]['id'] == 4  # An empty batch: one error object.
 
 
 def test_readiness_and_doctor_report_a_drifted_custom_binding(wisburg):
@@ -534,3 +534,124 @@ def test_only_a_sent_mcp_run_is_uncertain():
     from agent_tool_maker.broker import _uncertain
     assert _uncertain('mcp.run', True) and not _uncertain('mcp.run', False)
     assert _uncertain('run', False) and _uncertain('exec', False) and not _uncertain('status', True)
+
+
+def test_an_identical_call_soon_after_returns_the_earlier_outcome(project, monkeypatch):
+    r, w, remote, root = project
+    no_window(monkeypatch)
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
+    out = rpc(proxy, {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}},
+              {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}})
+    assert out[0]['result'] == {'content': [{'type': 'text', 'text': 'ok'}]}
+    assert out[1]['result']['content'][0]['text'] == 'ok' and 'identical call' in out[1]['result']['content'][-1]['text']
+    assert remote.methods().count('tools/call') == 1  # A client-side timeout retry would not run it twice.
+    remote.call_result = {'content': [{'type': 'text', 'text': 'charged then failed'}], 'isError': True}
+    fresh = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
+    out = rpc(fresh, {'jsonrpc': '2.0', 'id': 3, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}})
+    assert out[0]['result']['isError'] is True and 'may still have run or been charged' in out[0]['result']['content'][-1]['text']
+
+
+def test_a_cut_off_reply_after_sending_is_uncertain(tmp_path):
+    import os
+    import socket
+    from agent_tool_maker.broker import call as broker_call
+    from agent_tool_maker.storage import atomic_write, canonical
+    short = Path(tempfile.mkdtemp(prefix='cut-', dir='/private/tmp' if Path('/private/tmp').is_dir() else None)).resolve()
+    sock_path = short / 's'
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(str(sock_path))
+    os.chmod(sock_path, 0o600)
+    server.listen(1)
+    def serve_once():
+        conn, _ = server.accept()
+        conn.makefile('rb').readline()
+        conn.sendall(b'{"result": {"status": "comp')  # The session wrote part of its reply, then died.
+        conn.close()
+    thread = threading.Thread(target=serve_once, daemon=True)
+    thread.start()
+    profile = short / 'p.json'
+    atomic_write(profile, canonical({'format': 'atm-client-v1', 'id': 'x', 'agent': 'local-project', 'socket': str(sock_path),
+                                     'token': 't', 'socket_owner_uid': os.getuid(), 'socket_gid': None}).encode())
+    os.chmod(profile, 0o600)
+    try:
+        with pytest.raises(RouterError) as e:
+            broker_call(profile, 'mcp.run', {}, timeout=5)
+        assert e.value.code == 'broker_unavailable' and e.value.uncertain
+    finally:
+        thread.join(5)
+        server.close()
+
+
+def test_a_final_discovery_failure_is_not_retried_forever(project, monkeypatch):
+    r, w, remote, root = project
+    no_window(monkeypatch)
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
+    bind_server(r.state, 'wisburg', {'transport': 'http', 'url': 'https://elsewhere.example/mcp', 'credential': 'wisburg', 'allow_tools': ['read']})
+    out = rpc(proxy, {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list', 'params': {}})
+    assert out[0]['error']['code'] == -32603 and 'mcp_binding_changed' in out[0]['error']['message']
+    assert proxy.retry_at is None and remote.requests == []
+    with r.state.db() as db:  # Refused before any job: no failed job rows pile up.
+        assert not db.execute("SELECT 1 FROM jobs WHERE tool='wisburg.mcp_tools'").fetchall()
+    proxy.failed_discovery('mcp_http')
+    first = proxy.retry_at
+    proxy.failed_discovery('mcp_http')
+    proxy.failed_discovery('mcp_http')
+    proxy.failed_discovery('mcp_http')
+    assert first is not None and proxy.retry_at is None and proxy.retries == mcp_native.RETRIES
+
+
+def test_proxy_edge_messages_and_a_removed_server(project, monkeypatch):
+    r, w, remote, root = project
+    no_window(monkeypatch)
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
+    proxy.stdin = io.BytesIO(b'[]\n{"jsonrpc":"2.0","id":"\\ud800","method":"ping"}\n')
+    proxy.stdout = io.BytesIO()
+    proxy.poll = 3600
+    assert proxy.serve() == 0
+    lines = [json.loads(line) for line in proxy.stdout.getvalue().splitlines()]
+    assert lines[0] == {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32600, 'message': 'Empty batch.'}}
+    assert lines[1]['result'] == {}  # A lone surrogate id is echoed safely.
+    running = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)  # Started before the owner removes the server.
+    preview = mcp_servers.remove(r, 'wisburg')
+    mcp_servers.remove(r, 'wisburg', approve=preview['plan_sha256'])
+    out = rpc(running, {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list', 'params': {}},
+              {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}})
+    assert out[0]['result']['tools'] == [] and 'removed' in out[1]['result']['content'][0]['text']
+    assert remote.requests == []
+
+
+def test_session_replies_stay_under_the_socket_limit(project, monkeypatch):
+    r, w, remote, root = project
+    no_window(monkeypatch)
+    huge = {'type': 'object', 'properties': {'q': {'type': 'string', 'description': 'z' * 1_200_000}}}
+    remote.tools = [{'name': 'read', 'title': 't' * 5000, 'inputSchema': huge}]
+    INIT_BIG = {**INIT, 'serverInfo': {'name': 'n' * 500, 'version': '1', 'blob': 'b' * 600_000}}
+    monkeypatch.setitem(globals(), 'INIT', INIT_BIG)
+    listed = mcp_native.request(r.state.home, 'wisburg', w, 'tools', request_key='huge-schema')
+    assert listed['status'] == 'completed' and listed['result']['truncated'] is True
+    assert listed['result']['tools'] == [{'name': 'read', 'title': 't' * 200}] or listed['result']['tools'] == [{'name': 'read'}]
+    assert listed['result']['server_version'] == {'name': 'n' * 200, 'version': '1'}
+    remote.tools = TOOLS
+    remote.call_result = {'content': [{'type': 'text', 'text': 'x' * 600_000}]}
+    big = mcp_native.request(r.state.home, 'wisburg', w, 'call', tool='read', arguments={}, request_key='view-big')
+    assert big['status'] == 'completed'
+    job = call(profile_path(r.state, w), 'job', {'id': big['job_id']})  # Stored twice in the record; the view fits.
+    assert job['status'] == 'completed' and job['data']['result']['results'][0]['result']['content'][0]['text'] == 'x' * 600_000
+    assert 'mcp_completed' not in job['data']
+
+
+def test_redaction_keeps_schemas_and_removes_a_key_used_as_a_name(wisburg, workspace):
+    router, remote = wisburg
+    remote.tools = [{'name': 'read', 'inputSchema': {'type': 'object', 'properties': {'password': {'type': 'string'}, 'FAKE_wisburg_key': {'type': 'string'}}}}]
+    job = router.run('wisburg.mcp_tools', {}, workspace)
+    shown = router.public_job(job)
+    props = shown['data']['result']['tools'][0]['inputSchema']['properties']
+    assert props['password'] == {'type': 'string'} and '[REDACTED]' in props and 'FAKE_wisburg_key' not in json.dumps(shown)
+
+
+def test_console_rows_carry_the_reviewed_endpoint_for_a_repair(wisburg):
+    router, _ = wisburg
+    from agent_tool_maker.management import tool_references
+    refs = tool_references(router.state, router.catalog.get('wisburg.mcp_batch'))
+    assert refs['mcp_review'] == {'url': URL, 'credential': 'wisburg', 'allow_tools': ['read'], 'timeout': 120}
+    assert tool_references(router.state, router.catalog.get('figma.mcp_tools'))['mcp_review'] is None

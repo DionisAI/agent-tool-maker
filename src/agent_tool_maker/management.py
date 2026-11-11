@@ -164,7 +164,15 @@ def tool_references(state, tool) -> dict:
         oauth = config.get("oauth") if isinstance(config.get("oauth"), str) else None
     recipe = tool.get("recipe") if isinstance(tool.get("recipe"), dict) else {}
     required = list(dict.fromkeys(required))
+    review = None
+    if tool.get("adapter") == "mcp" and tool.get("user_defined"):
+        # The reviewed endpoint and Key slot (non-secret), so a repair re-proposes exactly those.
+        config = state.setting("mcp:" + tool["server"]) or {}
+        allow = config.get("allow_tools") if isinstance(config.get("allow_tools"), list) else []
+        review = {"url": tool.get("url"), "credential": tool.get("credential"),
+                  "allow_tools": [t for t in allow if isinstance(t, str)], "timeout": config.get("timeout", 120)}
     return {"credentials": required,
+            "mcp_review": review,
             "optional_credentials": [name for name in env_names if name not in required],
             "executable": tool.get("executable"),
             "server": tool.get("server"),

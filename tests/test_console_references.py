@@ -14,7 +14,8 @@ from agent_tool_maker.storage import State
 from agent_tool_maker.webapp import Console
 from test_subscription_credits import Fakes, definitions, install_tool
 
-REFERENCES = {"credentials", "optional_credentials", "executable", "server", "oauth", "url", "session", "origins"}
+# mcp_review: an owner-added MCP server's reviewed endpoint, Key slot name, allowlist and timeout (no values).
+REFERENCES = {"credentials", "optional_credentials", "executable", "server", "oauth", "url", "session", "origins", "mcp_review"}
 ROW_KEYS = {"id", "title", "provider", "adapter", "capabilities", "implementation", "permissions", "paid", "enabled", "health"}
 DETAIL_KEYS = {"id", "title", "provider", "adapter", "capabilities", "schema", "permissions", "paid", "implementation", "notes", "enabled"}
 NEVER = {"command", "request", "headers", "example", "recipe", "steps", "instructions"}

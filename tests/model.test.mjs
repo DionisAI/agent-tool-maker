@@ -81,6 +81,7 @@ test('every health state maps to one readiness state, word, sentence and fix', (
     executable_not_executable: ['blocked', '不能运行', '程序没有执行权限。', '查看确认方法'],
     executable_unreadable: ['blocked', '无法读取', '无法读取程序。', '查看确认方法'],
     mcp_not_configured: ['setup', '待设置', 'MCP 服务 elevenlabs 还没设置。', '查看设置命令'],
+    mcp_binding_changed: ['blocked', '绑定已改变', 'MCP 服务 elevenlabs 的地址或 Key 和你批准的不一致，已暂停。', '查看设置命令'],
     missing_origin: ['setup', '待设置', '需要先设置服务地址。', '查看设置命令'],
     browser_dependency_missing: ['setup', '待设置', '需要安装 ATM 的网页组件。', '查看安装方法'],
     browser_session_missing: ['setup', '待设置', '还没有用 ATM 登录这个网站。', '查看登录命令'],
@@ -330,6 +331,14 @@ test('OAuth, MCP, recipe and origin routes carry their own words and commands', 
   }
   model = M.derive(data({tools: [tool('linear.mcp_tools', 'mcp', 'linear', 'mcp_not_configured', {server: 'linear'})]}), NOW);
   assert.equal(model.byKey.get('linear').routes[0].commands[0].text, "atm mcp bind linear --config '<配置文件路径>' --approve-config");
+  // An owner-added server rebound away from its review: the fix re-proposes the reviewed endpoint, Key and allowlist.
+  const review = {url: "https://mcp.example.com/mcp?x='y'".replace('?x=', '/'), credential: 'wisburg', allow_tools: ['read', 'search'], timeout: 300};
+  model = M.derive(data({tools: [tool('wisburg.mcp_tools', 'mcp', 'wisburg', 'mcp_binding_changed', {server: 'wisburg', mcp_review: review})]}), NOW);
+  const drifted = model.byKey.get('wisburg').routes[0];
+  assert.equal(drifted.word, '绑定已改变');
+  assert.equal(drifted.commands[0].text, "atm mcp add wisburg --url 'https://mcp.example.com/mcp/'\\''y'\\''' --credential 'wisburg' --allow-tool 'read' --allow-tool 'search' --timeout 300");
+  model = M.derive(data({tools: [tool('wisburg.mcp_tools', 'mcp', 'wisburg', 'mcp_binding_changed', {server: 'wisburg'})]}), NOW);
+  assert.equal(model.byKey.get('wisburg').routes[0].commands[0].text, 'atm mcp list');  // Never a placeholder a shell would parse.
   model = M.derive(data({tools: [tool('fixture.export', 'web_recipe', 'fixture', 'browser_session_missing', {session: 'fixture-login'})]}), NOW);
   assert.equal(model.byKey.get('fixture').routes[0].commands[0].text, 'atm web login fixture.export');
   model = M.derive(data({tools: [tool('comfyui.queue', 'rest', 'comfyui', 'missing_origin')]}), NOW);

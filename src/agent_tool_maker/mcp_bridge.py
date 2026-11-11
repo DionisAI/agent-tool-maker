@@ -86,6 +86,8 @@ def bind_server(state,name,config):
     if 'credential' in cfg:
         from .extensions import credential_name
         credential_name(cfg['credential'])  # A Key slot name, never a value or a list of slots.
+    if 'env_credentials' in cfg and not isinstance(cfg['env_credentials'],dict):
+        raise RouterError('unsafe_environment','Invalid credential environment mapping.')
     if 'oauth' in cfg:
         from .oauth import NAME, RESOURCE
         if mode != 'http' or cfg.get('oauth') != NAME or cfg.get('url') != RESOURCE or cfg.get('credential') or cfg.get('env_credentials') or cfg.get('allow_local'):

@@ -177,7 +177,8 @@ class SecretSession(Broker):
             if policy.get('kind') == 'project_session':
                 from .mcp_native import job_prefix
                 if (job['request_key'] or '').startswith(job_prefix(policy['workspace'])):
-                    return job  # This project's own MCP call; results were redacted when stored.
+                    from .mcp_native import public_job
+                    return public_job(job)  # This project's own MCP call, redacted when stored and sized for the reply.
         new_ops = {'keys.find', 'keys.list', 'exec', 'mcp.run', 'session.status', 'session.lock', 'session.put', 'session.remove', 'session.project'}
         if op not in new_ops:
             return super().handle(request, peer_uid=uid)
