@@ -77,6 +77,18 @@ def parser():
     osub=o.add_parser('set');osub.add_argument('provider');osub.add_argument('url');osub.add_argument('--approve-origin',action='store_true')
     m=sub.add_parser('mcp');ms=m.add_subparsers(dest='operation',required=True)
     b=ms.add_parser('bind');b.add_argument('server');b.add_argument('--config',required=True);b.add_argument('--approve-config',action='store_true')
+    ma=ms.add_parser('add',help='Preview/approve an owner-added remote MCP server: https endpoint, Key slot and tool allowlist')
+    ma.add_argument('server');ma.add_argument('--url',required=True);ma.add_argument('--credential',required=True)
+    ma.add_argument('--allow-tool',action='append',default=[]);ma.add_argument('--timeout',type=int,default=120);ma.add_argument('--title')
+    ma.add_argument('--approve');ma.add_argument('--expected')
+    ms.add_parser('list',help='Bound MCP servers; no Keys')
+    mr=ms.add_parser('remove',help='Preview/approve removing a server binding and its owner-added definitions');mr.add_argument('server');mr.add_argument('--approve')
+    for name,text in (('tools','Discover a server\'s tools under this project\'s 30-minute approval'),('call','Call one allowed tool under this project\'s 30-minute approval'),
+                      ('serve','Local stdio MCP server for Claude Code / Codex; forwards to the project session, never holds a Key')):
+        mp=ms.add_parser(name,help=text);mp.add_argument('server');mp.add_argument('--workspace',type=Path,default=Path.cwd())
+        if name=='call':
+            mp.add_argument('tool');mp.add_argument('--arguments',default='{}',help='Inline JSON object, a JSON file path, or - for stdin');mp.add_argument('--request-key',required=True)
+        if name!='serve':mp.add_argument('--no-browser',action='store_true')
     make=sub.add_parser('make');mk=make.add_subparsers(dest='operation',required=True)
     sc=mk.add_parser('scaffold');sc.add_argument('id');sc.add_argument('--from',dest='from_tool',required=True);sc.add_argument('--out',required=True)
     va=mk.add_parser('validate');va.add_argument('path')
@@ -125,6 +137,19 @@ def load_input(value):
         return data
     except (OSError,ValueError,UnicodeDecodeError):
         raise RouterError("invalid_input_file","Input must be a readable JSON object, at most 1 MB.") from None
+
+
+def load_arguments(value):
+    """Tool arguments: an inline JSON object, or a file/stdin read like --input."""
+    if not value.lstrip().startswith("{"):
+        return load_input(value)
+    try:
+        if len(value)>1_000_000: raise ValueError()
+        data=json.loads(value,parse_constant=lambda x: (_ for _ in ()).throw(ValueError()))
+        if not isinstance(data,dict): raise ValueError()
+        return data
+    except (ValueError,RecursionError):
+        raise RouterError("invalid_input","Arguments must be a JSON object, at most 1 MB.") from None
 
 
 def dispatch(args,router):
@@ -234,6 +259,12 @@ def dispatch(args,router):
         if not args.approve_origin:raise RouterError('approval_required','Review the destination then use --approve-origin.')
         return set_origin(router.state,args.provider,args.url)
     if cmd=='mcp':
+        if args.operation in {'add','list','remove'}:
+            from . import mcp_servers
+            if args.operation=='list':return mcp_servers.list_servers(router)
+            if args.operation=='remove':return mcp_servers.remove(router,args.server,approve=args.approve)
+            return mcp_servers.add(router,args.server,args.url,args.credential,allow_tools=args.allow_tool,timeout=args.timeout,
+                                   title=args.title,approve=args.approve,expected=args.expected)
         from .mcp_bridge import bind_server
         if not args.approve_config:raise RouterError('approval_required','Review server command, credentials and tool allowlist, then --approve-config.')
         return bind_server(router.state,args.server,load_input(args.config))
@@ -279,6 +310,18 @@ def main(argv=None):
                 raise RouterError("operation_denied", "Use the project-session entry without a strict client profile; no profile was changed.")
             from .quickstart import dispatch as quick_dispatch
             value = quick_dispatch(args)
+        elif args.command=="mcp" and args.operation in {"tools","call","serve"}:
+            # Project-session entries: no Router or vault in this process, like start/use.
+            if args.client or args.client_profile:
+                raise RouterError("operation_denied", "MCP tools use the project session, not a strict client profile.")
+            from . import mcp_native
+            if args.operation=="serve":
+                return mcp_native.serve(args.home,args.server,args.workspace)
+            if args.operation=="tools":
+                value=mcp_native.tools(args.home,args.server,args.workspace,open_browser=not args.no_browser)
+            else:
+                value=mcp_native.request(args.home,args.server,args.workspace,"call",tool=args.tool,arguments=load_arguments(args.arguments),
+                                         request_key=args.request_key,open_browser=not args.no_browser)
         elif args.client or args.client_profile:
             from .multidevice_cli import client_dispatch
             value=client_dispatch(args)
@@ -304,7 +347,7 @@ def main(argv=None):
             router=Router(args.home)
             value=dispatch(args,router)
         print(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False))
-        if args.command in {"start", "use"} and isinstance(value, dict):
+        if (args.command in {"start", "use"} or args.command=="mcp" and args.operation in {"tools","call"}) and isinstance(value, dict):
             if value.get("status") in {"denied", "window_unavailable"}:
                 return 2
             if value.get("status") in {"starting", "needs_unlock", "needs_approval", "missing_credential"}:

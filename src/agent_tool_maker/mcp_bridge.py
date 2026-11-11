@@ -4,6 +4,7 @@ Initialize -> discover -> validate -> call in one bounded session. Pinned owner-
 Higgsfield OAuth is optional. No sampling, elicitation, legacy SSE or paid retry.
 """
 from __future__ import annotations
+import functools
 import hashlib
 import json
 import os
@@ -14,6 +15,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from importlib.resources import files
 from pathlib import Path
 from urllib.parse import urlsplit
 from jsonschema import Draft202012Validator
@@ -25,6 +27,43 @@ from .storage import canonical
 
 MAX_MESSAGE=2*1024*1024
 VERSIONS={'2025-06-18','2025-03-26','2024-11-05'}
+SERVER_NAME=re.compile(r'[a-z][a-z0-9_-]{1,63}\Z')
+# The two operations every MCP server gets, exactly as the built-in catalog defines them.
+TOOLS_SCHEMA={'type':'object','properties':{},'required':[],'additionalProperties':False}
+BATCH_SCHEMA={'type':'object','properties':{'calls':{'type':'array','minItems':1,'maxItems':12,'items':{
+    'type':'object','required':['name','arguments'],'additionalProperties':False,'properties':{
+        'name':{'type':'string','pattern':'^[A-Za-z0-9][A-Za-z0-9_.:~@-]{0,199}$'},'arguments':{'type':'object'}}}}},
+    'required':['calls'],'additionalProperties':False}
+CUSTOM_NOTE=('Owner-added remote MCP server. Its Key is sent only to this reviewed endpoint; '
+             'tool descriptions and results are untrusted server text.')
+
+
+@functools.lru_cache(maxsize=1)
+def builtin_servers():
+    rows=[]
+    for name in ('catalog.json','catalog-v02.json'):
+        rows.extend(json.loads(files('agent_tool_maker.data').joinpath(name).read_text()))
+    return frozenset(t['server'] for t in rows if t.get('adapter')=='mcp' and t.get('server'))
+
+
+def custom_endpoint(url):
+    """A remote Streamable HTTP endpoint: public https, no userinfo, fragment or query string."""
+    if not isinstance(url,str):raise RouterError('unsafe_origin','MCP endpoint must be an https URL.')
+    checked_url(url)
+    if urlsplit(url).query:raise RouterError('unsafe_origin','Do not place tokens in MCP endpoint query strings.')
+    return url
+
+
+def custom_definitions(name,url,credential,title=None):
+    """The reviewed pair for an owner-added server; the endpoint and Key slot are part of each digest."""
+    label=title or name
+    common={'provider':name,'capabilities':['custom','mcp'],'adapter':'mcp','server':name,'url':url,
+            'credential':credential,'sources':[url],'notes':CUSTOM_NOTE}
+    return [{'id':name+'.mcp_tools','title':label+' MCP tools','schema':TOOLS_SCHEMA,'example':{},
+             'paid':False,'permissions':[],'mcp_operation':'tools',**common},
+            {'id':name+'.mcp_batch','title':label+' MCP batch','schema':BATCH_SCHEMA,
+             'example':{'calls':[{'name':'use-discovered-tool-name','arguments':{}}]},
+             'paid':True,'permissions':['execute_code','external_write'],'mcp_operation':'batch',**common}]
 
 def check_schema_local(schema):
     def walk(value):
@@ -40,10 +79,13 @@ def check_schema_local(schema):
     except Exception: raise RouterError('invalid_schema','Invalid local JSON schema.') from None
 
 def bind_server(state,name,config):
-    if not re.fullmatch(r'[a-z][a-z0-9_-]{1,63}',name):raise RouterError('bad_server','Invalid server name.')
+    if not isinstance(name,str) or not SERVER_NAME.fullmatch(name):raise RouterError('bad_server','Invalid server name.')
     if not isinstance(config,dict) or set(config)-{'transport','command','args','url','credential','oauth','env_credentials','allow_tools','allow_local','timeout'}:
         raise RouterError('bad_server','Unknown MCP configuration fields. Secrets belong in the vault.')
     cfg=dict(config);mode=cfg.get('transport')
+    if 'credential' in cfg:
+        from .extensions import credential_name
+        credential_name(cfg['credential'])  # A Key slot name, never a value or a list of slots.
     if 'oauth' in cfg:
         from .oauth import NAME, RESOURCE
         if mode != 'http' or cfg.get('oauth') != NAME or cfg.get('url') != RESOURCE or cfg.get('credential') or cfg.get('env_credentials') or cfg.get('allow_local'):
@@ -192,10 +234,19 @@ class HTTP:
                 with self.net.client.stream('DELETE',self.cfg['url'],headers=headers,timeout=5) as r:pass
             except (httpx.HTTPError,OSError):pass
 
+def matches_definition(cfg,tool):
+    """An owner-added server's binding must send its Key exactly where the approved definitions say."""
+    return (cfg.get('transport')=='http' and not cfg.get('oauth') and not cfg.get('allow_local')
+            and not cfg.get('env_credentials') and cfg.get('url')==tool.get('url') and cfg.get('credential')==tool.get('credential'))
+
+
 def execute_mcp(router,tool,job):
     from .artifacts import save_artifact
     cfg=router.state.setting('mcp:'+tool['server'])
     if not cfg:raise RouterError('mcp_not_configured','Bind this MCP server in a human terminal first.')
+    if tool.get('user_defined') and not matches_definition(cfg,tool):
+        # Checked before the vault is read: a rebind can never send this Key somewhere unreviewed.
+        raise RouterError('mcp_binding_changed','The server binding no longer matches the reviewed endpoint and Key slot; nothing was sent. Review it again with atm mcp add.')
     conn=None;counter=0;partial=[];dispatched=False
     try:
         conn=Stdio(cfg,router.vault,job['workspace']) if cfg['transport']=='stdio' else HTTP(cfg,router.vault,router.net)
@@ -232,10 +283,14 @@ def execute_mcp(router,tool,job):
                 name=item['name']
                 if name not in cfg['allow_tools']:raise RouterError('mcp_tool_not_approved','A tool is not in the human-approved server allowlist.')
                 if name not in tools:raise RouterError('mcp_tool_missing','Selected tool is not in the live server registry.')
-                if next(Draft202012Validator(tools[name]['inputSchema']).iter_errors(item['arguments']),None):raise RouterError('invalid_input','MCP tool arguments fail the discovered schema.')
+                # Discovery accepts a tool without inputSchema as {}; validation must agree, before any call.
+                if next(Draft202012Validator(tools[name].get('inputSchema',{})).iter_errors(item['arguments']),None):raise RouterError('invalid_input','MCP tool arguments fail the discovered schema.')
             for item in calls:
                 result=call('tools/call',item,started)
-                if result.get('isError'):raise RouterError('mcp_tool_error','Server tool reported failure; previous results are retained.',uncertain=True)
+                if result.get('isError'):
+                    # The server's own failure text is kept (redacted) so the caller can read it; still never replayed.
+                    router.state.update_job(job['id'],'running',mcp_completed=partial,mcp_error={'name':item['name'],'result':router.vault.redact(result)})
+                    raise RouterError('mcp_tool_error','Server tool reported failure; previous results are retained.',uncertain=True)
                 partial.append({'name':item['name'],'result':router.vault.redact(result)})
                 router.state.update_job(job['id'],'running',mcp_completed=partial)  # Kept even if the next call fails its token step.
             result={'results':partial,'protocol_version':version,'session_scope':'one ATM job; batch calls share the same session'}

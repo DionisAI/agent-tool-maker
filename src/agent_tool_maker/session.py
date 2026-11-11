@@ -174,7 +174,11 @@ class SecretSession(Broker):
                 if not job['request_key'].startswith('exec:' + policy['id'] + ':'):
                     raise RouterError('job_denied', 'This grant cannot inspect another credential-execution receipt.')
                 return job  # Only rule ID, status and exit metadata were persisted, never output.
-        new_ops = {'keys.find', 'keys.list', 'exec', 'session.status', 'session.lock', 'session.put', 'session.remove', 'session.project'}
+            if policy.get('kind') == 'project_session':
+                from .mcp_native import job_prefix
+                if (job['request_key'] or '').startswith(job_prefix(policy['workspace'])):
+                    return job  # This project's own MCP call; results were redacted when stored.
+        new_ops = {'keys.find', 'keys.list', 'exec', 'mcp.run', 'session.status', 'session.lock', 'session.put', 'session.remove', 'session.project'}
         if op not in new_ops:
             return super().handle(request, peer_uid=uid)
         metadata = op in {'keys.find', 'keys.list', 'session.status', 'session.lock'}
@@ -216,6 +220,9 @@ class SecretSession(Broker):
             if op == 'exec':
                 from .secrets_provider import execute
                 return execute(self, router, policy, args, request, uid)
+            if op == 'mcp.run':
+                from .mcp_native import run_in_session
+                return run_in_session(self, router, policy, args, request, uid)
             self._authorize(request, uid)  # Revalidate after acquiring the request slot.
             if op == 'session.project':
                 from .quickstart import grant_project

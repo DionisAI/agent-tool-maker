@@ -1,3 +1,27 @@
+# Unreleased
+
+## Owner-added remote MCP servers
+
+- `atm mcp add NAME --url https://… --credential SLOT [--allow-tool T]` previews one plan: the endpoint, the Key slot
+  sent there as a Bearer header, the tool allowlist and two generated definitions, `NAME.mcp_tools` and
+  `NAME.mcp_batch`. `--approve <plan_sha256>` (with `--expected` for a change) writes all of it in one transaction.
+  `atm mcp list` and `atm mcp remove` round it off. `atm make validate`/`install` now accept these MCP definitions.
+- The endpoint and Key slot are part of the approved definitions. A later `atm mcp bind` that points the server
+  elsewhere is refused with `mcp_binding_changed` before the Key is read.
+- `atm mcp tools` / `atm mcp call` run under the project's 30-minute approval from `atm start` (new session
+  operation `mcp.run`). The Key stays in the unlocked session process, and request keys are scoped to the project,
+  so a reused key returns the earlier job after a new unlock.
+- `atm mcp serve NAME --workspace /abs/project` is a local stdio MCP server for Claude Code and Codex. It lists
+  only allowed tools, forwards each call to the session and holds no Key. While locked it offers `atm_unlock`,
+  which opens the local window, and it sends `tools/list_changed` when the state changes.
+
+## Fixes
+
+- `atm mcp bind` refuses a `credential` that is not one slot name, for example a list.
+- A discovered MCP tool without `inputSchema` is validated as `{}` before any call. Previously a batch hit a
+  KeyError and was recorded as `submission_unknown` although nothing had been sent.
+- When a server answers a call with `isError`, its redacted result is kept in the job as `mcp_error`.
+
 # Changes in 0.9.0
 
 Everything merged after 0.8.0 (#6–#41, except test-only #21 and the research notes in #15; #30 was closed unmerged).
