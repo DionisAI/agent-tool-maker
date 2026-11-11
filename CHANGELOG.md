@@ -12,8 +12,16 @@
   operation `mcp.run`). The Key stays in the unlocked session process, and request keys are scoped to the project,
   so a reused key returns the earlier job after a new unlock.
 - `atm mcp serve NAME --workspace /abs/project` is a local stdio MCP server for Claude Code and Codex. It lists
-  only allowed tools, forwards each call to the session and holds no Key. While locked it offers `atm_unlock`,
-  which opens the local window, and it sends `tools/list_changed` when the state changes.
+  only allowed tools, forwards each call to the session and holds no Key. It refuses to work when the client runs
+  outside that project, because Codex registrations are user-global. While locked it offers `atm_unlock`, which
+  opens the local window, and it sends `tools/list_changed` when the state changes. Codex ignores that
+  notification, so unlock before starting Codex, or start a new session.
+- A session reply stays under the 1 MiB socket limit. Discovery is compacted: full schemas only for allowed
+  tools. A larger call result comes back as the saved artifact's path plus a preview. A dropped reply after the
+  request was sent is an unknown outcome, never "not started", so the proxy never invites a duplicate call.
+- Discovery results are redacted by secret value only: a parameter named `password` keeps its schema. A custom
+  server whose binding no longer matches its reviewed definitions reports `mcp_binding_changed` in readiness,
+  doctor and the console.
 
 ## Fixes
 

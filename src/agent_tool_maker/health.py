@@ -99,6 +99,9 @@ def tool_health(router, tool: dict, *, vault=None, cache=None) -> dict:
         config = state.setting("mcp:" + tool["server"])
         if not config:
             return {**result, "state": "mcp_not_configured", "next_action": "Bind the reviewed MCP configuration once."}
+        from .mcp_bridge import matches_definition
+        if tool.get("user_defined") and not matches_definition(config, tool):
+            return {**result, "state": "mcp_binding_changed", "next_action": "The binding no longer matches the reviewed endpoint and Key; review it again with atm mcp add."}
         if config.get("transport") == "stdio":
             path, expected = config.get("command"), config.get("sha256")
         if config.get("credential"):

@@ -64,7 +64,12 @@ class Router:
             return health(self,tool)["state"]
         if tool["adapter"] in {"desktop","human"}: return "host_"+tool["adapter"]+"_required"
         if tool["adapter"]=="workflow": return "workflow_dependencies_not_verified"
-        if tool["adapter"]=="mcp": return "configured_not_verified" if self.state.setting("mcp:"+tool["server"]) else "mcp_not_configured"
+        if tool["adapter"]=="mcp":
+            cfg=self.state.setting("mcp:"+tool["server"])
+            if not cfg: return "mcp_not_configured"
+            from .mcp_bridge import matches_definition
+            # An owner-added server whose binding drifted from its reviewed endpoint/Key is refused at run time.
+            return "mcp_binding_changed" if tool.get("user_defined") and not matches_definition(cfg,tool) else "configured_not_verified"
         if tool["adapter"]=="rest":
             if tool.get("credential") and tool["credential"] not in self.state.secret_names():return "missing_credential"
             if tool["request"].get("origin_setting") and not self.state.setting("origin:"+tool['provider']):return "missing_origin"

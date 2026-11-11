@@ -467,9 +467,12 @@ Its Key never goes into an MCP client config, header flag, bearer env var, `.env
    say once **“请在本机弹出的 ATM 窗口解锁；密码不要发到聊天里。”** and repeat the same command afterwards.
    On `submission_unknown`, keep the request key and reconcile; never resend blindly.
 5. Native tools (the owner registers once per project, using the registered command prefix below):
-   `claude mcp add wisburg --scope local -- <prefix> mcp serve wisburg --workspace /absolute/project`, or
-   `codex mcp add wisburg -- <prefix> mcp serve wisburg --workspace /absolute/project`. The proxy holds no Key;
-   while locked it lists only `atm_unlock`, which opens the local window. `atm mcp list` shows bindings.
+   `claude mcp add wisburg --scope local -- <prefix> mcp serve wisburg --workspace /absolute/project`.
+   Codex registrations are user-global, so name one per project:
+   `codex mcp add wisburg-<project> -- <prefix> mcp serve wisburg --workspace /absolute/project`.
+   The proxy holds no Key and works only when the client runs inside that project. While locked it lists only
+   `atm_unlock`, which opens the local window. Codex does not refresh its tool list afterwards: unlock first
+   (`atm start --key wisburg`), or start a new Codex session after unlocking. `atm mcp list` shows bindings.
 
 ## Only repair the actual blocker
 

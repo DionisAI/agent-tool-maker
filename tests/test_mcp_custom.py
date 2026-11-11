@@ -41,6 +41,7 @@ class Remote:
     """A Streamable HTTP MCP server on httpx.MockTransport that records what reached it."""
     def __init__(self, tools=TOOLS, call_result=None):
         self.requests, self.tools, self.call_result = [], tools, call_result or {'content': [{'type': 'text', 'text': 'ok'}]}
+        self.delay, self.echo = 0, None  # Seconds a tools/call takes; echo='ok'|'error' returns the auth header.
 
     def __call__(self, req):
         if req.method == 'DELETE':
@@ -50,6 +51,11 @@ class Remote:
         if q.get('method') == 'notifications/initialized':
             return httpx.Response(202)
         value = INIT if q['method'] == 'initialize' else {'tools': self.tools} if q['method'] == 'tools/list' else self.call_result
+        if q['method'] == 'tools/call':
+            time.sleep(self.delay)
+            if self.echo:  # A hostile or careless server reflecting the Key it received.
+                value = {'content': [{'type': 'text', 'text': 'got ' + str(req.headers.get('authorization'))}],
+                         'structuredContent': {'access_token': 'server-token'}, 'isError': self.echo == 'error'}
         return httpx.Response(200, headers={'Mcp-Session-Id': 'fixture'}, json={'jsonrpc': '2.0', 'id': q['id'], 'result': value})
 
     def methods(self):
@@ -320,7 +326,7 @@ def rpc(proxy, *messages):
 def test_stdio_proxy_lists_only_allowed_tools_and_forwards_calls(project, monkeypatch):
     r, w, remote, root = project
     no_window(monkeypatch)
-    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w)
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
     out = rpc(proxy, {'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {'protocolVersion': '2025-03-26'}},
               {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
               {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list', 'params': {}},
@@ -340,7 +346,7 @@ def test_stdio_proxy_when_locked_offers_only_the_unlock_tool(project, monkeypatc
     r, w, remote, root = project
     opened = no_window(monkeypatch)
     owner_call(r.state.home, 'session.lock')
-    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w)
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
     listed = rpc(proxy, {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list', 'params': {}})
     assert [t['name'] for t in listed[0]['result']['tools']] == [mcp_native.UNLOCK_TOOL]
     assert opened == []  # Clients list tools at startup; listing never opens a window.
@@ -354,7 +360,7 @@ def test_stdio_proxy_when_locked_offers_only_the_unlock_tool(project, monkeypatc
 def test_proxy_announces_a_changed_tool_list(project, monkeypatch):
     r, w, remote, root = project
     no_window(monkeypatch)
-    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, stdout=io.BytesIO(), poll=0.05)
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, stdout=io.BytesIO(), poll=0.05, cwd=w)
     proxy.unlocked = True
     watcher = threading.Thread(target=proxy.watch, daemon=True)
     watcher.start()
@@ -393,3 +399,138 @@ def test_cli_add_list_remove_and_serve_refusal(tmp_path):
     sha = json.loads(out)['plan_sha256']
     assert run('mcp', 'remove', 'wisburg', '--approve', sha)[0] == 0
     assert json.loads(run('mcp', 'list')[1])['servers'] == []
+
+
+def test_a_reply_lost_after_sending_is_unknown_and_never_invites_a_resend(project, monkeypatch):
+    r, w, remote, root = project
+    opened = no_window(monkeypatch)
+    remote.delay = 2.5
+    real = mcp_native.call
+    monkeypatch.setattr(mcp_native, 'call', lambda profile, op, args, timeout=300: real(profile, op, args, timeout=1))
+    with pytest.raises(RouterError) as e:  # CLI path: an uncertain error, not a window or "not started".
+        mcp_native.request(r.state.home, 'wisburg', w, 'call', tool='read', arguments={}, request_key='slow-1')
+    assert e.value.uncertain and e.value.code == 'broker_unavailable' and 'slow-1' in str(e.value)
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
+    out = rpc(proxy, {'jsonrpc': '2.0', 'id': 7, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}})
+    text = out[0]['result']['content'][0]['text']
+    assert out[0]['result']['isError'] is True and text.startswith('Outcome unknown') and 'Do not call it again' in text
+    assert opened == []  # No unlock window was offered for a call that may be running.
+    deadline = time.time() + 10
+    while remote.methods().count('tools/call') < 2 and time.time() < deadline:
+        time.sleep(.1)
+    time.sleep(.5)
+    assert remote.methods().count('tools/call') == 2  # One per distinct request; nothing was resent by ATM.
+
+
+def test_large_results_and_registries_fit_the_session_reply(project, monkeypatch):
+    r, w, remote, root = project
+    no_window(monkeypatch)
+    remote.call_result = {'content': [{'type': 'text', 'text': 'x' * 1_300_000}]}
+    big = mcp_native.request(r.state.home, 'wisburg', w, 'call', tool='read', arguments={}, request_key='big-1')
+    out = big['result']
+    assert big['status'] == 'completed' and out['too_large'] and out['bytes'] > 1_300_000 and out['preview'] == 'x' * 4000
+    assert out['artifacts'] and Path(out['artifacts'][0]).is_file() and Path(out['artifacts'][0]).is_relative_to(w)
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
+    reply = rpc(proxy, {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}})
+    assert reply[0]['result']['isError'] is False and 'saved it in this project at: ' + str(w) in reply[0]['result']['content'][0]['text']
+    schema = {'type': 'object', 'properties': {'password': {'type': 'string'}}, 'required': ['password']}
+    # About 1.4 MB of registry: within one MCP message (2 MiB), above what a session reply may carry in full.
+    remote.tools = [{'name': 'read', 'description': 'd' * 5000, 'inputSchema': schema}] + [
+        {'name': 'tool%d' % i, 'description': 'y' * 2500, 'inputSchema': {'type': 'object', 'properties': {'q': {'type': 'string', 'description': 'z' * 1000}}}}
+        for i in range(400)]
+    listed = mcp_native.request(r.state.home, 'wisburg', w, 'tools', request_key='big-list')
+    tools = {t['name']: t for t in listed['result']['tools']}
+    assert listed['status'] == 'completed' and listed['result']['total'] == 401 and len(tools) == 401
+    assert tools['read']['inputSchema'] == schema  # Allowed: full schema, and `password` is a name, not a secret.
+    assert 'inputSchema' not in tools['tool1'] and len(tools['read']['description']) == 4000
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
+    served = rpc(proxy, {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list', 'params': {}})
+    assert [t['name'] for t in served[0]['result']['tools']] == ['read'] and served[0]['result']['tools'][0]['inputSchema'] == schema
+
+
+def test_a_reflected_key_is_redacted_on_success_and_error(project, monkeypatch):
+    r, w, remote, root = project
+    no_window(monkeypatch)
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
+    for mode in ('ok', 'error'):
+        remote.echo = mode
+        result = mcp_native.request(r.state.home, 'wisburg', w, 'call', tool='read', arguments={}, request_key='echo-' + mode)
+        served = rpc(proxy, {'jsonrpc': '2.0', 'id': mode, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}})
+        text = json.dumps([result, served])
+        assert 'FAKE_wisburg_key' not in text and '[REDACTED]' in text and 'server-token' not in text
+        assert result['status'] == ('completed' if mode == 'ok' else 'submission_unknown')
+
+
+def test_one_project_cannot_read_another_projects_mcp_jobs(project, monkeypatch):
+    r, w, remote, root = project
+    no_window(monkeypatch)
+    job = mcp_native.request(r.state.home, 'wisburg', w, 'call', tool='read', arguments={}, request_key='mine')['job_id']
+    other = root / 'other'
+    other.mkdir()
+    owner_call(r.state.home, 'session.project', {'workspace': str(other), 'credentials': ['wisburg'],
+                                                 'approved_sha256': fingerprint(scope_plan(r.state, other, ['wisburg']))})
+    assert call(profile_path(r.state, w), 'job', {'id': job})['id'] == job
+    with pytest.raises(RouterError):
+        call(profile_path(r.state, other), 'job', {'id': job})
+
+
+def test_a_misplaced_proxy_lists_and_calls_nothing(project, monkeypatch):
+    r, w, remote, root = project
+    no_window(monkeypatch)
+    elsewhere = root / 'elsewhere'
+    elsewhere.mkdir()
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=elsewhere)
+    out = rpc(proxy, {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list', 'params': {}},
+              {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}})
+    assert out[0]['result']['tools'] == [] and out[1]['result']['isError'] is True and remote.requests == []
+    inside = w / 'sub'
+    inside.mkdir()
+    assert mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=inside).misplaced is False
+
+
+def test_proxy_answers_batches_and_never_crashes_on_odd_input(project, monkeypatch):
+    r, w, remote, root = project
+    no_window(monkeypatch)
+    proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
+    out = rpc(proxy, [{'jsonrpc': '2.0', 'id': 1, 'method': 'ping'}, {'jsonrpc': '2.0', 'method': 'notifications/initialized'}],
+              {'jsonrpc': '2.0', 'id': 2, 'method': 'initialize', 'params': {'protocolVersion': ['2025-06-18']}},
+              {'jsonrpc': '2.0', 'id': 3, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': [1]}},
+              [], {'jsonrpc': '2.0', 'id': 4, 'method': 'ping'})
+    assert out[0] == [{'jsonrpc': '2.0', 'id': 1, 'result': {}}]
+    assert out[1]['result']['protocolVersion'] == '2025-06-18'
+    assert out[2]['result']['isError'] is True and 'tools/call' not in remote.methods()
+    assert out[3][0]['error']['code'] == -32600 and out[4]['id'] == 4
+
+
+def test_readiness_and_doctor_report_a_drifted_custom_binding(wisburg):
+    router, _ = wisburg
+    assert router.readiness(router.catalog.get('wisburg.mcp_tools')) == 'configured_not_verified'
+    bind_server(router.state, 'wisburg', {'transport': 'http', 'url': 'https://elsewhere.example/mcp', 'credential': 'wisburg', 'allow_tools': []})
+    assert router.readiness(router.catalog.get('wisburg.mcp_tools')) == 'mcp_binding_changed'
+    from agent_tool_maker.health import tool_health
+    assert tool_health(router, router.catalog.get('wisburg.mcp_batch'))['state'] == 'mcp_binding_changed'
+    assert router.route('wisburg', capability='mcp')['recommended'] is None
+
+
+def test_list_names_the_slots_a_stdio_server_receives(router, tmp_path):
+    program = tmp_path / 'srv'
+    program.write_text('#!/bin/sh\n')
+    program.chmod(0o700)
+    bind_server(router.state, 'figma', {'transport': 'stdio', 'command': str(program), 'env_credentials': {'FIGMA_TOKEN': 'fal'}, 'allow_tools': []})
+    row = mcp_servers.list_servers(router)['servers'][0]
+    assert row['env_credentials'] == ['fal'] and row['command'] == str(program.resolve())
+
+
+def test_a_relaxed_batch_schema_is_refused_by_the_standard_shape_check():
+    tools, batch = custom_definitions('wisburg', URL, 'wisburg')
+    relaxed = json.loads(json.dumps(BATCH_SCHEMA))
+    relaxed['properties']['calls']['maxItems'] = 500
+    with pytest.raises(RouterError) as e:  # The example still validates; only the shape check refuses it.
+        validate_manifest({**batch, 'schema': relaxed})
+    assert 'standard discovery or batch input schema' in str(e.value)
+
+
+def test_only_a_sent_mcp_run_is_uncertain():
+    from agent_tool_maker.broker import _uncertain
+    assert _uncertain('mcp.run', True) and not _uncertain('mcp.run', False)
+    assert _uncertain('run', False) and _uncertain('exec', False) and not _uncertain('status', True)

@@ -179,14 +179,16 @@ class Vault:
                 c.execute("DELETE FROM secrets WHERE name=?", (name,))
         return {"removed": name, "note": "Provider-side key is not revoked. SQLite backups may retain ciphertext."}
 
-    def redact(self, obj):
+    def redact(self, obj, *, keys=True):
+        """Remove used secret values; with keys, also every value under a credential-like key.
+        keys=False is for schemas and definitions, where such names are parameter names, not secrets."""
         if isinstance(obj, str):
             for secret in self._used_secrets:
                 if secret:
                     obj = obj.replace(secret, "[REDACTED]")
             return obj
         if isinstance(obj, dict):
-            return {k: ("[REDACTED]" if k.lower() in {"authorization", "api_key", "access_token", "refresh_token", "client_secret", "id_token", "code_verifier", "secret", "password"} else self.redact(v)) for k, v in obj.items()}
+            return {k: ("[REDACTED]" if keys and k.lower() in {"authorization", "api_key", "access_token", "refresh_token", "client_secret", "id_token", "code_verifier", "secret", "password"} else self.redact(v, keys=keys)) for k, v in obj.items()}
         if isinstance(obj, list):
-            return [self.redact(x) for x in obj]
+            return [self.redact(x, keys=keys) for x in obj]
         return obj

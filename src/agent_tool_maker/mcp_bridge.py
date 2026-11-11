@@ -294,7 +294,8 @@ def execute_mcp(router,tool,job):
                 partial.append({'name':item['name'],'result':router.vault.redact(result)})
                 router.state.update_job(job['id'],'running',mcp_completed=partial)  # Kept even if the next call fails its token step.
             result={'results':partial,'protocol_version':version,'session_scope':'one ATM job; batch calls share the same session'}
-        result=router.vault.redact(result)
+        # Discovery returns tool definitions: a parameter named `password` is a schema, not a secret.
+        result=router.vault.redact(result,keys=tool['mcp_operation']!='tools')
         artifact=save_artifact(job['workspace'],job['id'],canonical(result).encode(),hint='mcp.json')
         return router.state.update_job(job['id'],'completed',result=result,artifacts=[artifact],verification='mcp_response_not_business_acceptance')
     except RouterError as e:

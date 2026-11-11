@@ -143,6 +143,8 @@ def list_servers(router):
         item = {'server': name, 'built_in': name in builtin_servers(), 'transport': cfg.get('transport'),
                 'credential': cfg.get('credential') or ('oauth:' + cfg['oauth'] if cfg.get('oauth') else None),
                 'allow_tools': cfg.get('allow_tools', []), 'definitions': [t['id'] for t in custom]}
+        if cfg.get('env_credentials'):  # A stdio server receives these slots in its environment: names only.
+            item['env_credentials'] = sorted(set(cfg['env_credentials'].values()))
         if cfg.get('transport') == 'http':
             item['endpoint'] = cfg.get('url')
         elif cfg.get('command'):
