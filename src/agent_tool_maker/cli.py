@@ -75,6 +75,7 @@ def parser():
     demo.add_argument("--out",type=Path,default=Path("demo-output"))
     origin=sub.add_parser('origin');o=origin.add_subparsers(dest='operation',required=True)
     osub=o.add_parser('set');osub.add_argument('provider');osub.add_argument('url');osub.add_argument('--approve-origin',action='store_true')
+    sub.add_parser('inventory',help='What this ATM holds (Keys, logins, MCP servers, ready services) and how an Agent uses each; never a value')
     m=sub.add_parser('mcp');ms=m.add_subparsers(dest='operation',required=True)
     b=ms.add_parser('bind');b.add_argument('server');b.add_argument('--config',required=True);b.add_argument('--approve-config',action='store_true')
     ma=ms.add_parser('add',help='Preview/approve an owner-added remote MCP server: https endpoint, Key slot and tool allowlist')
@@ -258,6 +259,9 @@ def dispatch(args,router):
         from .actions import set_origin
         if not args.approve_origin:raise RouterError('approval_required','Review the destination then use --approve-origin.')
         return set_origin(router.state,args.provider,args.url)
+    if cmd=='inventory':
+        from .inventory import inventory
+        return inventory(router)
     if cmd=='mcp':
         if args.operation in {'add','list','remove'}:
             from . import mcp_servers

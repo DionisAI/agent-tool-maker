@@ -104,6 +104,7 @@ def test_native_prf_enrollment_management_and_project_unlock(tmp_path,plain_arra
             page.goto(approval.origin+'/#token='+approval.token)
             expect(page.locator('label[for=passkey-select]')).to_be_visible()  # The Passkey choice is labelled and comes first.
             assert page.locator('#passwords label').first.inner_text()=='选择 Passkey'
+            expect(page.locator('#passkey-tip')).to_have_count(0)  # Already bound: no 1Password recommendation.
             page.get_by_role('button',name='用 Passkey 解锁并继续',exact=True).click()
             page.get_by_role('heading',name='已解锁，交给 Agent。').wait_for()
             assert ready(state,workspace,['fal'])['status']=='ready'
@@ -194,3 +195,28 @@ def test_native_keyring_modal_omits_absent_password_node(tmp_path):
             assert state.setting(SETTING) is None and not status(state.home)['unlocked']
             browser.close()
     finally:server.shutdown();server.server_close();thread.join(5)
+
+
+@pytest.mark.browser
+def test_unlock_window_recommends_1password_when_no_passkey_is_bound(tmp_path):
+    from playwright.sync_api import sync_playwright,expect
+    chrome=os.environ.get('ATM_CHROMIUM') or shutil.which('chromium')
+    if not chrome:pytest.skip('Native Chromium path not supplied')
+    state=State(tmp_path/'state');vault=Vault(state,password=PASSWORD);vault.init('passphrase');vault.put('fal',KEY)
+    workspace=tmp_path/'project';workspace.mkdir()
+    plan=scope_plan(state,workspace,['fal']);rid=uuid.uuid4().hex
+    state.set_setting('desktop-request:'+rid,{'id':rid,**plan,'status':'needs_unlock','created_at':time.time(),'approval_sha256':fingerprint(plan)})
+    approval=ApprovalWindow(state.home,rid,localhost=True)
+    thread=threading.Thread(target=approval.serve_forever,daemon=True);thread.start()
+    try:
+        with sync_playwright() as pw:
+            browser=pw.chromium.launch(executable_path=chrome,headless=True)
+            page=browser.new_page();page.set_default_timeout(15000)
+            page.goto(approval.origin+'/#token='+approval.token)
+            tip=page.locator('#passkey-tip')
+            expect(tip).to_be_visible()
+            assert '1Password' in tip.inner_text() and '设置 › Key 保管' in tip.inner_text()
+            expect(page.locator('#passphrase')).to_be_visible()  # The password stays the way in until a Passkey is bound.
+            browser.close()
+    finally:
+        approval.shutdown();approval.server_close();thread.join(5)
