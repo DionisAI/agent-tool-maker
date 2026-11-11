@@ -19,8 +19,10 @@
 - A session reply stays under the 1 MiB socket limit. Discovery is compacted: full schemas only for allowed
   tools. A larger call result comes back as the saved artifact's path plus a preview. A dropped reply after the
   request was sent is an unknown outcome, never "not started", so the proxy never invites a duplicate call.
-- The proxy returns the earlier outcome for an identical call (same tool and arguments) within two minutes, so a
-  client that timed out first (Codex `tool_timeout_sec`, 60 s by default) cannot resend a paid call. A server
+- After a call the client may have abandoned (45 s or longer, an unknown outcome, or `notifications/cancelled`),
+  the proxy returns that earlier outcome for an identical call within two minutes. So a client that timed out
+  first (Codex `tool_timeout_sec`, 60 s by default) cannot resend a paid call. Fast calls and tools annotated
+  `readOnlyHint` always run. A server
   `isError` after sending carries an ATM note that the call may still have run or been charged.
 - Discovery results are redacted by secret value only: a parameter named `password` keeps its schema. A custom
   server whose binding no longer matches its reviewed definitions reports `mcp_binding_changed` in readiness,

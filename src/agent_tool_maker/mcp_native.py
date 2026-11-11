@@ -35,9 +35,12 @@ RETRIES = 3
 # Codes worth one more discovery attempt; anything else (a removed or drifted server, a refusal) is final.
 TRANSIENT = {'session_busy', 'broker_unavailable', 'mcp_interrupted', 'mcp_http', 'mcp_timeout', 'mcp_limit',
              'response_too_large', 'execution_interrupted', 'broker_failure'}
-# An identical call (same tool, same arguments) within this window returns the earlier outcome instead of
-# running again: a client that timed out first (Codex: 60 s by default) would otherwise resend a paid call.
+# A client that gave up first (Codex: tool_timeout_sec, 60 s by default) lets the model resend a call that is
+# still running or ran. Within this window an identical call (same tool, same arguments) returns the earlier
+# outcome instead of running again, but only after a call the client may have abandoned: one that took at
+# least SLOW_SECONDS, ended with an unknown outcome, or was cancelled. Fast calls and read-only tools run as asked.
 DUPLICATE_SECONDS = 120
+SLOW_SECONDS = 45
 
 
 def job_prefix(workspace):
@@ -255,6 +258,7 @@ class Proxy:
         self.retry_at = None
         self.retries = 0
         self.recent = {}
+        self.answered = {}
         self.closed = threading.Event()
         self.poll = poll
 
@@ -367,14 +371,35 @@ class Proxy:
         self.recent = {k: v for k, v in self.recent.items() if now - v[0] < DUPLICATE_SECONDS}
         if same in self.recent:
             earlier = self.recent[same][1]
-            note = ('ATM: an identical call ended moments ago; its outcome is shown again instead of running it twice. '
-                    'Change an argument, or wait two minutes, to run it again.')
+            note = ('ATM: an identical call that the client may have given up on ended moments ago, so it may already have run; '
+                    'its outcome is shown again instead of running it twice. Change an argument, or wait two minutes, to run it again.')
             content = earlier.get('content') if isinstance(earlier.get('content'), list) else []
             return {**earlier, 'content': [*content, {'type': 'text', 'text': note}]}
+        started = time.monotonic()
         reply, ran = self.forward(name, arguments, ident)
-        if ran:  # It may have run: remember it, so a client-side timeout retry does not run it again.
-            self.recent[same] = (time.monotonic(), reply)
+        if ran and not self.read_only(name):
+            entry = (time.monotonic(), reply)
+            # Remembered only when the client may have abandoned it: a timeout retry must not run it again.
+            if reply.get('isError') is True or time.monotonic() - started >= SLOW_SECONDS:
+                self.recent[same] = entry
+            self.answered[_id_key(ident)] = (same, entry)
+            while len(self.answered) > 256:
+                self.answered.pop(next(iter(self.answered)))
         return reply
+
+    def read_only(self, name):
+        """A tool the server marks read-only (MCP annotations.readOnlyHint): repeating it cannot charge or write."""
+        for tool in self.cache or []:
+            if tool.get('name') == name:
+                annotations = tool.get('annotations')
+                return isinstance(annotations, dict) and annotations.get('readOnlyHint') is True
+        return False
+
+    def cancelled(self, params):
+        """notifications/cancelled: the client gave up on a call that may have run, so a resend is a duplicate."""
+        found = self.answered.get(_id_key(params.get('requestId')))
+        if found:
+            self.recent[found[0]] = found[1]
 
     def forward(self, name, arguments, ident):
         """One call through the session. Returns the MCP result and whether the call may have run."""
@@ -412,8 +437,11 @@ class Proxy:
         if not isinstance(message, dict) or message.get('jsonrpc') != '2.0':
             return _error(message.get('id') if isinstance(message, dict) else None, -32600, 'Invalid request.')
         method, ident = message.get('method'), message.get('id')
+        if method == 'notifications/cancelled' and 'id' not in message and isinstance(message.get('params'), dict):
+            self.cancelled(message['params'])
+            return None
         if 'id' not in message or method is None:
-            return None  # Notifications (initialized, cancelled) and stray responses: nothing to answer.
+            return None  # Other notifications (initialized) and stray responses: nothing to answer.
         params = message.get('params')
         params = {} if params is None else params
         if not isinstance(params, dict):
@@ -472,6 +500,10 @@ class Proxy:
             return 0  # The client went away.
         finally:
             self.closed.set()
+
+
+def _id_key(ident):
+    return json.dumps(ident, sort_keys=True)
 
 
 def _result(ident, value):

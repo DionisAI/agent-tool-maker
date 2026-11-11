@@ -473,8 +473,9 @@ Its Key never goes into an MCP client config, header flag, bearer env var, `.env
    The proxy holds no Key and works only when the client runs inside that project. While locked it lists only
    `atm_unlock`, which opens the local window. Codex does not refresh its tool list afterwards: unlock first
    (`atm start --key wisburg`), or start a new Codex session after unlocking. Codex gives up on a tool after
-   `tool_timeout_sec` (60 s by default); raise it for slow servers. An identical call (same tool and arguments)
-   within two minutes returns the earlier outcome instead of running again. `atm mcp list` shows bindings.
+   `tool_timeout_sec` (60 s by default); raise it for slow servers. After a call the client may have abandoned
+   (45 s or longer, an unknown outcome, or cancelled), an identical call within two minutes returns that earlier
+   outcome instead of running again; read-only tools always run. `atm mcp list` shows bindings.
 
 ## Only repair the actual blocker
 

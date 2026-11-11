@@ -536,20 +536,30 @@ def test_only_a_sent_mcp_run_is_uncertain():
     assert _uncertain('run', False) and _uncertain('exec', False) and not _uncertain('status', True)
 
 
-def test_an_identical_call_soon_after_returns_the_earlier_outcome(project, monkeypatch):
+def test_only_a_possibly_abandoned_identical_call_returns_the_earlier_outcome(project, monkeypatch):
     r, w, remote, root = project
     no_window(monkeypatch)
+    call_read = lambda i: {'jsonrpc': '2.0', 'id': i, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}}
     proxy = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
-    out = rpc(proxy, {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}},
-              {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}})
-    assert out[0]['result'] == {'content': [{'type': 'text', 'text': 'ok'}]}
-    assert out[1]['result']['content'][0]['text'] == 'ok' and 'identical call' in out[1]['result']['content'][-1]['text']
-    assert remote.methods().count('tools/call') == 1  # A client-side timeout retry would not run it twice.
+    out = rpc(proxy, call_read(1), call_read(2))  # Fast calls run as asked: a re-read after a write sees fresh data.
+    assert [o['result'] for o in out] == [{'content': [{'type': 'text', 'text': 'ok'}]}] * 2 and remote.methods().count('tools/call') == 2
+    monkeypatch.setattr(mcp_native, 'SLOW_SECONDS', 0)  # As if each call took longer than a client's timeout.
+    out = rpc(mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w), call_read(3), call_read(4))
+    assert 'may have given up on' in out[1]['result']['content'][-1]['text'] and remote.methods().count('tools/call') == 3
+    monkeypatch.setattr(mcp_native, 'SLOW_SECONDS', 10**6)
+    out = rpc(mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w), call_read(5),
+              {'jsonrpc': '2.0', 'method': 'notifications/cancelled', 'params': {'requestId': 5}}, call_read(6))
+    assert 'may have given up on' in out[1]['result']['content'][-1]['text'] and remote.methods().count('tools/call') == 4
     remote.call_result = {'content': [{'type': 'text', 'text': 'charged then failed'}], 'isError': True}
-    fresh = mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w)
-    out = rpc(fresh, {'jsonrpc': '2.0', 'id': 3, 'method': 'tools/call', 'params': {'name': 'read', 'arguments': {}}})
-    assert out[0]['result']['isError'] is True and 'may still have run or been charged' in out[0]['result']['content'][-1]['text']
-
+    out = rpc(mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w), call_read(7), call_read(8))
+    assert 'may still have run or been charged' in out[0]['result']['content'][-1]['text']
+    assert 'may have given up on' in out[1]['result']['content'][-1]['text'] and remote.methods().count('tools/call') == 5
+    remote.call_result = {'content': [{'type': 'text', 'text': 'ok'}]}
+    remote.tools = [{**TOOLS[0], 'annotations': {'readOnlyHint': True}}]
+    monkeypatch.setattr(mcp_native, 'SLOW_SECONDS', 0)
+    out = rpc(mcp_native.Proxy(r.state.home, 'wisburg', w, cwd=w), {'jsonrpc': '2.0', 'id': 9, 'method': 'tools/list', 'params': {}},
+              call_read(10), call_read(11))
+    assert out[2]['result'] == {'content': [{'type': 'text', 'text': 'ok'}]} and remote.methods().count('tools/call') == 7  # Read-only: never held back.
 
 def test_a_cut_off_reply_after_sending_is_uncertain(tmp_path):
     import os
