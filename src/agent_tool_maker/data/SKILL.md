@@ -1,8 +1,25 @@
 ---
 name: agent-tool-maker
-description: Use ATM to make reviewed website CLIs or use API Keys, saved credentials, local unlocks, Higgsfield subscriptions and Tripo Studio browser tools in local Claude Code or Codex projects. Never ask for secrets in chat.
+description: Check ATM first whenever a task needs an API key, token, account login, website session or MCP service (before asking the user or reading/writing .env). `atm inventory` lists what ATM holds without secrets; ATM injects Keys into your program, opens a local unlock window (1Password Passkey first) and runs website, MCP, Higgsfield and Tripo Studio tools. Never ask for secrets in chat.
 ---
 # ATM — let the Agent do the setup
+
+## Before asking for any Key, token or login
+
+Run `atm inventory` first. It lists, without any value: saved Keys with their `atm://` reference and
+environment names, declared slots still empty, ATM web logins, OAuth connections, MCP servers, ready
+services, and whether ATM is unlocked. Then use the resource without seeing it:
+- a Key: `atm use --workspace /absolute/project --env ENV_NAME=atm://SLOT --request-key STABLE -- <program>`
+  (see API credentials below); the program gets the Key, you never do;
+- an MCP server: the route in its `use` field (`atm mcp tools` / `atm mcp call` / native tools for a
+  Key-authenticated https server, see Owner-added remote MCP servers below; `atm run` for the others);
+- a service in `services` with `ready_tools`: `atm describe TOOL_ID`, then `atm run`. `atm run` opens the vault
+  in your own process: with the system keychain it just works; on a password vault (`direct_runs.available`
+  false) the window unlock does not reach it, so use the Key through `atm use` or MCP instead.
+When ATM is locked or a Key is missing, `atm start --workspace /absolute/project --key SLOT` opens the local
+window: the owner unlocks there (Passkey such as 1Password first) and fills anything missing. That unlock serves
+`atm use` and `atm mcp` for this project. Never ask for a Key or password in chat, never read or write `.env`,
+and only fall back to other routes when ATM has nothing.
 
 ## First installation (only when absent)
 

@@ -85,6 +85,14 @@
         finally{button.disabled=false;$('approve').disabled=false;}
       });
     }
+    if (!view.session.unlocked && view.passkeys && !credentials.length) {
+      // No Passkey yet: recommend 1Password for one-tap unlock next time. Binding happens in the console, never here.
+      const tip=document.createElement('p');tip.className='notice';tip.id='passkey-tip';
+      tip.textContent=view.passkeys.dependency_present
+        ? '推荐：把 ATM 绑定到 1Password（Passkey），以后在这个窗口一键解锁，不用再输主密码。绑定位置：ATM 管理台（atm ui）› 设置 › Key 保管 › 绑定 Passkey。'
+        : '推荐：用 1Password（Passkey）一键解锁。先安装 ATM 的 Passkey 组件（passkey 扩展），再到 ATM 管理台（atm ui）› 设置 › Key 保管 › 绑定 Passkey。';
+      $('passwords').append(tip);
+    }
   }
   $('approval').addEventListener('submit', async event => {
     event.preventDefault(); $('error').hidden=true; $('approve').disabled=true;

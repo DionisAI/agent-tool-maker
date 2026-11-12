@@ -1,5 +1,24 @@
 # Unreleased
 
+## Agents find what ATM holds
+
+- `atm inventory` lists, from local metadata only and without opening the vault:
+  - saved Keys, with their `atm://` reference and environment names;
+  - declared slots that are still empty;
+  - ATM web logins and the tools that use them;
+  - OAuth connections and MCP servers;
+  - services with ready tools, and whether ATM is unlocked.
+
+  It also says how to use each one without seeing a Key. It works while locked and never returns a value.
+  Each MCP server names the route that works for it. On a password vault, tools are counted under
+  `needs_vault_password`, not as ready: `atm run` opens the vault in the Agent's own process and the window unlock
+  does not reach it. A tool whose Key expired or conflicts is not counted as ready.
+- The Skill's trigger now tells Agents to check ATM before asking for any API key, token or login, or reading
+  `.env`. A new first section says how to use each kind of resource and how to unlock (`atm start` opens the
+  local window, Passkey first).
+- The unlock window recommends binding 1Password (Passkey) when none is bound, and says where: console ›
+  设置 › Key 保管. If the passkey extra is missing, it says to install it first.
+
 ## Owner-added remote MCP servers
 
 - `atm mcp add NAME --url https://… --credential SLOT [--allow-tool T]` previews one plan: the endpoint, the Key slot
